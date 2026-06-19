@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Reserva {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  email       String
+  telefono    String?
+  fecha       DateTime
+  personas    Int
+  mensaje     String?
+  estado      String   @default("confirmada")
+  createdAt   DateTime @default(now())
+  seccion     String   @default("mexican")
+  cancelToken String?  @unique @default(uuid())
+  lang        String   @default("es")
+}
+
+model Pedido {
+  id           Int      @id @default(autoincrement())
+  nombre       String
+  telefono     String?
+  items        Json
+  total        Float
+  estado       String   @default("nuevo")
+  createdAt    DateTime @default(now())
+  email        String?
+  horaRecogida String?
+  lang         String   @default("es")
+  notas        String?
+  metodoPago   String   @default("stripe")
+}
+
+model MenuItem {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  descripcion String?
+  precio      Float
+  categoria   String
+  imagen      String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  concepto    String   @default("mexican")
+  nombreEn    String?
+}
+
+model GaleriaFoto {
+  id        Int      @id @default(autoincrement())
+  url       String
+  alt       String?
+  orden     Int      @default(0)
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  label     String?
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  texto     String
+  rating    Int      @default(5)
+  origen    String?
+  aprobado  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Visita {
+  id        Int      @id @default(autoincrement())
+  pagina    String
+  referrer  String?
+  createdAt DateTime @default(now())
+}
+
+model Configuracion {
+  id    Int    @id @default(autoincrement())
+  clave String @unique
+  valor String
+}
+
+model ReservaServicio {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  email       String
+  telefono    String?
+  servicio    String
+  fecha       DateTime
+  personas    Int
+  mensaje     String?
+  empresa     String?
+  menu        String?
+  estado      String   @default("pendiente")
+  cancelToken String?  @unique @default(uuid())
+  createdAt   DateTime @default(now())
+}
+
+model Cupon {
+  id        Int      @id @default(autoincrement())
+  codigo    String   @unique
+  descuento Float
+  tipo      String   @default("porcentaje")
+  activo    Boolean  @default(true)
+  usos      Int      @default(0)
+  maxUsos   Int?
+  createdAt DateTime @default(now())
+}
+
+model Cliente {
+  id             Int       @id @default(autoincrement())
+  clientKey      String    @unique
+  nombre         String
+  email          String?
+  telefono       String?
+  primeraReserva DateTime?
+  ultimaReserva  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model ClienteTag {
+  id        Int      @id @default(autoincrement())
+  clientKey String
+  tag       String
+  createdAt DateTime @default(now())
+
+  @@unique([clientKey, tag])
+}
+
+model Usuario {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  email     String?
+  password  String
+  rol       String   @default("general")
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
