@@ -62,12 +62,12 @@ export default function OverviewClient({
   }, []);
 
   const links = [
-    { href: "/admin/reservas",  icon: CalendarCheck,   label: a.reservas,    count: reservasHoy,       color: GOLD       },
-    { href: "/admin/pedidos",   icon: ShoppingBag,     label: a.pedidos,     count: pedidosNuevos,     color: "#60a5fa"  },
-    { href: "/admin/carta",     icon: UtensilsCrossed, label: a.carta,       count: platosActivos,     color: GOLD       },
-    { href: "/admin/leads",     icon: Users,           label: a.leads,       count: leadsTotales,      color: "#a78bfa"  },
-    { href: "/admin/reviews",   icon: Star,            label: a.reviews,     count: reviewsPendientes, color: "#f59e0b"  },
-    { href: "/admin/analytics", icon: TrendingUp,      label: a.analytics,   count: undefined,         color: "#4ade80"  },
+    { href: "/reservas",  icon: CalendarCheck,   label: a.reservas,    count: reservasHoy,       color: GOLD       },
+    { href: "/pedidos",   icon: ShoppingBag,     label: a.pedidos,     count: pedidosNuevos,     color: "#60a5fa"  },
+    { href: "/carta",     icon: UtensilsCrossed, label: a.carta,       count: platosActivos,     color: GOLD       },
+    { href: "/leads",     icon: Users,           label: a.leads,       count: leadsTotales,      color: "#a78bfa"  },
+    { href: "/reviews",   icon: Star,            label: a.reviews,     count: reviewsPendientes, color: "#f59e0b"  },
+    { href: "/analytics", icon: TrendingUp,      label: a.analytics,   count: undefined,         color: "#4ade80"  },
   ];
 
   return (

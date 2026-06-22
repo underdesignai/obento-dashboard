@@ -1,36 +1,52 @@
-import { readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import { prisma } from "@/lib/prisma";
+import { getSessionRole, deny403 } from "@/lib/auth";
 
-const CONFIG_PATH = join(process.cwd(), "data", "agent-config.json");
+const CLAVE = "agent_config";
 
-function readConfig() {
-  return JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
+async function readConfig(): Promise<Record<string, unknown>> {
+  const row = await prisma.configuracion.findUnique({ where: { clave: CLAVE } });
+  return row ? JSON.parse(row.valor) : {};
+}
+
+async function writeConfig(cfg: Record<string, unknown>) {
+  const valor = JSON.stringify(cfg);
+  await prisma.configuracion.upsert({
+    where: { clave: CLAVE },
+    update: { valor },
+    create: { clave: CLAVE, valor },
+  });
 }
 
 export async function GET() {
+  if (!(await getSessionRole())) return deny403();
   try {
-    const config = readConfig();
-    // Never expose the API key to the client
+    const config = await readConfig();
+    // Nunca exponer la API key al cliente
     const { apiKey, ...safe } = config;
     return Response.json({ ...safe, apiKeySet: !!apiKey });
-  } catch {
+  } catch (e) {
+    console.error("[agente GET]", e);
     return Response.json({}, { status: 500 });
   }
 }
 
 export async function PUT(req: Request) {
+  if (!(await getSessionRole())) return deny403();
   try {
     const body = await req.json();
-    const current = readConfig();
-    // Only update apiKey if a new one is provided
+    const current = await readConfig();
+    // Solo actualizar apiKey si llega una nueva
     const merged = {
       ...current,
       ...body,
-      apiKey: body.apiKey?.trim() ? body.apiKey.trim() : current.apiKey,
+      apiKey: typeof body.apiKey === "string" && body.apiKey.trim()
+        ? body.apiKey.trim()
+        : current.apiKey,
     };
-    writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2), "utf-8");
+    await writeConfig(merged);
     return Response.json({ ok: true });
   } catch (e) {
+    console.error("[agente PUT]", e);
     return Response.json({ error: String(e) }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { jwtVerify } from "jose";
+import { JWT_SECRET_BYTES } from "@/lib/auth";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 
@@ -8,8 +9,7 @@ async function isAdmin(): Promise<boolean> {
     const cookieStore = await cookies();
     const token = cookieStore.get("admin_token")?.value;
     if (!token) return false;
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET ?? "secret");
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, JWT_SECRET_BYTES);
     return payload.role === "admin";
   } catch {
     return false;

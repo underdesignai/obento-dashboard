@@ -6,6 +6,7 @@ import {
   Star, UtensilsCrossed, Layers,
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useAdminLanguage } from "@/lib/LanguageContext";
 import OverviewClient from "./OverviewClient";
 
@@ -13,6 +14,14 @@ const GOLD = "#c9a84c";
 
 type ReservaRow = { id: number; nombre: string; fecha: string; personas: number; seccion: string | null; estado: string; createdAt: string };
 type PedidoRow  = { id: number; nombre: string; total: number | null; estado: string; createdAt: string };
+type Data = {
+  reservasHoy: number; reservasSemana: number; reservasMes: number;
+  pedidosNuevos: number; pedidosHoy: number; ingresosMes: number;
+  reviewsPendientes: number; visitasHoy: number; visitasSemana: number;
+  platosActivos: number; leadsTotales: number;
+  ultimasReservas: ReservaRow[];
+  ultimosPedidos: PedidoRow[];
+};
 
 function fmtDate(d: string, lang: string) {
   return new Date(d).toLocaleDateString(lang === "es" ? "es-ES" : "en-GB", { day: "numeric", month: "short" });
@@ -26,13 +35,17 @@ function fmtMoney(n: number) {
 
 function EstadoBadge({ estado, a }: { estado: string; a: Record<string, string> }) {
   const ESTADO_CFG: Record<string, { bg: string; color: string; label: string; icon: React.ElementType }> = {
-    confirmada: { bg: "rgba(74,222,128,0.12)",  color: "#4ade80", label: a.statusConfirmada, icon: CheckCircle2 },
-    pendiente:  { bg: "rgba(251,191,36,0.12)",  color: "#fbbf24", label: a.statusPendiente,  icon: AlertCircle  },
-    cancelada:  { bg: "rgba(248,113,113,0.12)", color: "#f87171", label: a.statusCancelada,  icon: XCircle      },
-    nuevo:      { bg: "rgba(96,165,250,0.12)",  color: "#60a5fa", label: a.statusNuevo,      icon: Clock        },
-    preparando: { bg: "rgba(251,191,36,0.12)",  color: "#fbbf24", label: a.statusPreparando, icon: AlertCircle  },
-    listo:      { bg: "rgba(74,222,128,0.12)",  color: "#4ade80", label: a.statusListo,      icon: CheckCircle2 },
-    entregado:  { bg: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)", label: a.statusEntregado, icon: CheckCircle2 },
+    confirmada:             { bg: "rgba(74,222,128,0.12)",  color: "#4ade80", label: a.statusConfirmada, icon: CheckCircle2 },
+    llego:                  { bg: "rgba(96,165,250,0.12)",  color: "#60a5fa", label: a.statusLlego ?? "Llegó", icon: CheckCircle2 },
+    pendiente:              { bg: "rgba(251,191,36,0.12)",  color: "#fbbf24", label: a.statusPendiente,  icon: AlertCircle  },
+    cancelada:              { bg: "rgba(248,113,113,0.12)", color: "#f87171", label: a.statusCancelada,  icon: XCircle      },
+    "cancelada-cliente":    { bg: "rgba(248,113,113,0.12)", color: "#f87171", label: a.statusCancelada,  icon: XCircle      },
+    "cancelada-restaurante":{ bg: "rgba(248,113,113,0.12)", color: "#f87171", label: a.statusCancelada,  icon: XCircle      },
+    "no-show":              { bg: "rgba(156,163,175,0.12)", color: "#9ca3af", label: "No Show",           icon: XCircle      },
+    nuevo:                  { bg: "rgba(96,165,250,0.12)",  color: "#60a5fa", label: a.statusNuevo,      icon: Clock        },
+    preparando:             { bg: "rgba(251,191,36,0.12)",  color: "#fbbf24", label: a.statusPreparando, icon: AlertCircle  },
+    listo:                  { bg: "rgba(74,222,128,0.12)",  color: "#4ade80", label: a.statusListo,      icon: CheckCircle2 },
+    entregado:              { bg: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)", label: a.statusEntregado, icon: CheckCircle2 },
   };
   const c = ESTADO_CFG[estado] ?? { bg: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)", label: estado, icon: Clock };
   const Icon = c.icon;
@@ -43,20 +56,18 @@ function EstadoBadge({ estado, a }: { estado: string; a: Record<string, string> 
   );
 }
 
-export default function OverviewDisplay({
-  data,
-}: {
-  data: {
-    reservasHoy: number; reservasSemana: number; reservasMes: number;
-    pedidosNuevos: number; pedidosHoy: number; ingresosMes: number;
-    reviewsPendientes: number; visitasHoy: number; visitasSemana: number;
-    platosActivos: number; leadsTotales: number;
-    ultimasReservas: ReservaRow[];
-    ultimosPedidos: PedidoRow[];
-  } | null;
-}) {
+export default function OverviewDisplay({ data: initialData }: { data: Data | null }) {
   const { tr, lang } = useAdminLanguage();
   const a = tr.admin;
+  const [data, setData] = useState<Data | null>(initialData);
+
+  useEffect(() => {
+    const load = () =>
+      fetch("/api/admin/overview").then(r => r.json()).then(setData).catch(() => {});
+    load();
+    const id = setInterval(load, 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const now  = new Date();
   const hora = now.getHours();
@@ -122,11 +133,11 @@ export default function OverviewDisplay({
       {/* Tablas en 2 columnas */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
 
-        {/* Últimas reservas */}
+        {/* Últimas reservas HOY */}
         <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1.1rem", borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.015)" }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: "#fff", letterSpacing: "0.02em" }}>{a.ultimasReservas}</span>
-            <Link href="/admin/reservas" style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: GOLD, textDecoration: "none", opacity: 0.8 }}>
+            <Link href="/reservas" style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: GOLD, textDecoration: "none", opacity: 0.8 }}>
               {a.verTodo} <ArrowRight size={11} />
             </Link>
           </div>
@@ -145,11 +156,11 @@ export default function OverviewDisplay({
           ))}
         </div>
 
-        {/* Últimos pedidos */}
+        {/* Últimos pedidos HOY */}
         <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1.1rem", borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.015)" }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: "#fff", letterSpacing: "0.02em" }}>{a.ultimosPedidos}</span>
-            <Link href="/admin/pedidos" style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: GOLD, textDecoration: "none", opacity: 0.8 }}>
+            <Link href="/pedidos" style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: GOLD, textDecoration: "none", opacity: 0.8 }}>
               {a.verTodo} <ArrowRight size={11} />
             </Link>
           </div>
@@ -172,14 +183,6 @@ export default function OverviewDisplay({
         </div>
       </div>
 
-      {/* DB status */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.6rem 1rem", background: "rgba(74,222,128,0.03)", border: "1px solid rgba(74,222,128,0.08)", borderRadius: 4 }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", flexShrink: 0 }} />
-        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", margin: 0 }}>
-          {a.dbConectada} — PostgreSQL en{" "}
-          <code style={{ background: "rgba(255,255,255,0.06)", padding: "0 3px", borderRadius: 2, fontSize: 10 }}>127.0.0.1:5435/coyo_admin</code>
-        </p>
-      </div>
 
     </div>
   );

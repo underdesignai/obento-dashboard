@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Reserva {
@@ -48,6 +49,14 @@ model MenuItem {
   updatedAt   DateTime @updatedAt
   concepto    String   @default("mexican")
   nombreEn    String?
+  destacado   Boolean  @default(false)
+}
+
+model Imagen {
+  id        Int      @id @default(autoincrement())
+  mime      String
+  data      Bytes
+  createdAt DateTime @default(now())
 }
 
 model GaleriaFoto {
@@ -118,6 +127,8 @@ model Cliente {
   telefono       String?
   primeraReserva DateTime?
   ultimaReserva  DateTime?
+  totalReservas  Int       @default(0)
+  totalPedidos   Int       @default(0)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 }

@@ -18,7 +18,7 @@ const ESTADOS: Record<string, { color: string; label: string; emoji: string }> =
 type Reserva = { id: number; fecha: string; personas: number; seccion: string; estado: string; mensaje?: string | null };
 type Lead = {
   nombre: string; email: string; telefono?: string;
-  totalReservas: number; canceladas: number; noShows: number; pctAsistencia: number;
+  totalReservas: number; totalPedidos: number; canceladas: number; noShows: number; pctAsistencia: number;
   ultimaReserva: string | null; secciones: string[];
 };
 
@@ -148,6 +148,7 @@ const LeadRow = memo(function LeadRow({ l, open, onToggle, lang, manualTagsMap }
           ))}
         </div>
         <div className="lead-metric"><span style={{ color: "#c9a84c" }}>{l.totalReservas}</span><small>reservas</small></div>
+        <div className="lead-metric"><span style={{ color: "#60a5fa" }}>{l.totalPedidos}</span><small>pedidos</small></div>
         <div className="lead-metric"><span style={{ color: l.canceladas > 0 ? "#f87171" : "rgba(255,255,255,0.2)" }}>{l.canceladas}</span><small>cancel.</small></div>
         <div className="lead-metric"><span style={{ color: l.noShows > 0 ? "#ef4444" : "rgba(255,255,255,0.2)" }}>{l.noShows}</span><small>no show</small></div>
         <div className="lead-col-pct">
@@ -166,9 +167,10 @@ export default function LeadsPage() {
   const a = tr.admin;
   const [leads, setLeads]           = useState<Lead[]>([]);
   const [loading, setLoading]       = useState(true);
+  const [syncing, setSyncing]       = useState(false);
   const [openKey, setOpenKey]       = useState<string | null>(null);
   const [search, setSearch]         = useState("");
-  const [sortBy, setSortBy]         = useState<"reservas"|"asistencia"|"canceladas"|"noshow">("reservas");
+  const [sortBy, setSortBy]         = useState<"reservas"|"asistencia"|"canceladas"|"noshow"|"pedidos">("reservas");
   const [page, setPage]             = useState(0);
   const [manualTagsMap, setManualTagsMap] = useState<Record<string, TagKey[]>>({});
 
@@ -183,6 +185,13 @@ export default function LeadsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const handleSync = async () => {
+    setSyncing(true);
+    await fetch("/api/admin/leads/sync", { method: "POST" });
+    await load();
+    setSyncing(false);
+  };
+
   const handleSearch = useCallback((v: string) => { setSearch(v); setPage(0); setOpenKey(null); }, []);
   const handleSort   = useCallback((v: typeof sortBy) => { setSortBy(v); setPage(0); }, []);
   const toggle       = useCallback((key: string) => setOpenKey(prev => prev === key ? null : key), []);
@@ -196,6 +205,7 @@ export default function LeadsPage() {
       if (sortBy === "asistencia") return b.pctAsistencia - a.pctAsistencia;
       if (sortBy === "canceladas") return b.canceladas - a.canceladas;
       if (sortBy === "noshow")     return b.noShows - a.noShows;
+      if (sortBy === "pedidos")    return b.totalPedidos - a.totalPedidos;
       return b.totalReservas - a.totalReservas;
     });
   }, [leads, search, sortBy]);
@@ -235,7 +245,7 @@ export default function LeadsPage() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         .lead-card{border:1px solid rgba(255,255,255,0.07);border-radius:8px;overflow:hidden;margin-bottom:4px}
-        .lead-row{display:grid;grid-template-columns:2fr 1.5fr 90px 90px 90px 130px 40px;gap:16px;padding:18px 20px;align-items:center;cursor:pointer;background:transparent;transition:background .1s}
+        .lead-row{display:grid;grid-template-columns:2fr 1.5fr 80px 80px 80px 80px 120px 40px;gap:16px;padding:18px 20px;align-items:center;cursor:pointer;background:transparent;transition:background .1s}
         .lead-row:hover{background:rgba(255,255,255,0.02)}
         .lead-row--open{background:rgba(201,168,76,0.04)}
         .lead-row--open:hover{background:rgba(201,168,76,0.05)}
@@ -272,6 +282,11 @@ export default function LeadsPage() {
           <button onClick={exportCSV} style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 6, padding: "6px 12px", color: "#c9a84c", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
             <Download size={13} /> CSV
           </button>
+          <button onClick={handleSync} disabled={syncing} title="Sincronizar desde reservas y pedidos"
+            style={{ background: syncing ? "rgba(201,168,76,0.15)" : "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 6, padding: "6px 12px", color: "#c9a84c", cursor: syncing ? "not-allowed" : "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+            <RefreshCw size={13} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} />
+            {syncing ? "Sincronizando..." : "Sincronizar"}
+          </button>
           <button onClick={load} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "6px 10px", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
             <RefreshCw size={13} />
           </button>
@@ -285,10 +300,11 @@ export default function LeadsPage() {
       </div>
 
       {/* Cabecera de columnas — mismo grid que .lead-row */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 90px 90px 90px 130px 40px", gap: "16px", padding: "6px 21px 8px", marginBottom: "4px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 80px 80px 80px 80px 120px 40px", gap: "16px", padding: "6px 21px 8px", marginBottom: "4px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <button onClick={() => handleSort("reservas")} style={{ background:"none", border:"none", padding:0, textAlign:"left", cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color:"rgba(255,255,255,0.3)" }}>Cliente</button>
         <div style={{ fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color:"rgba(255,255,255,0.2)" }}>Sección</div>
-        <button onClick={() => handleSort("reservas")}   style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="reservas"   ? "#c9a84c" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ Visitas</button>
+        <button onClick={() => handleSort("reservas")}   style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="reservas"   ? "#c9a84c" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ Reservas</button>
+        <button onClick={() => handleSort("pedidos")}    style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="pedidos"    ? "#60a5fa" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ Pedidos</button>
         <button onClick={() => handleSort("canceladas")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="canceladas" ? "#c9a84c" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ Cancel.</button>
         <button onClick={() => handleSort("noshow")}     style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="noshow"     ? "#c9a84c" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ N.Show</button>
         <button onClick={() => handleSort("asistencia")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="asistencia" ? "#c9a84c" : "rgba(255,255,255,0.3)" }}>↕ Asistencia</button>

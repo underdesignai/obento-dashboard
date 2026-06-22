@@ -1,24 +1,30 @@
-import { readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import { prisma } from "@/lib/prisma";
+import { getSessionRole, deny403 } from "@/lib/auth";
 
-const DATA_PATH = join(process.cwd(), "data", "menus.json");
-
-function readMenus() {
-  return JSON.parse(readFileSync(DATA_PATH, "utf-8"));
-}
+const CLAVE = "menus_cartas";
+const VACIO = { mexicana: [], sushi: [], bebidas: [] };
 
 export async function GET() {
+  if (!(await getSessionRole())) return deny403();
   try {
-    return Response.json(readMenus());
-  } catch {
-    return Response.json({ mexicana: [], sushi: [], bebidas: [] });
+    const row = await prisma.configuracion.findUnique({ where: { clave: CLAVE } });
+    return Response.json(row ? JSON.parse(row.valor) : VACIO);
+  } catch (e) {
+    console.error("[menus GET]", e);
+    return Response.json(VACIO);
   }
 }
 
 export async function PUT(req: Request) {
+  if (!(await getSessionRole())) return deny403();
   try {
     const body = await req.json();
-    writeFileSync(DATA_PATH, JSON.stringify(body, null, 2), "utf-8");
+    const valor = JSON.stringify(body);
+    await prisma.configuracion.upsert({
+      where: { clave: CLAVE },
+      update: { valor },
+      create: { clave: CLAVE, valor },
+    });
     return Response.json({ ok: true });
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 });

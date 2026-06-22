@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
   UtensilsCrossed, Waves, Wine, Save, Plus, Trash2,
-  ChevronDown, ChevronRight, Check, PackageOpen, Pencil, X, Eye, EyeOff, GripVertical,
+  ChevronDown, ChevronRight, Check, PackageOpen, Pencil, X, Eye, EyeOff, GripVertical, Star,
 } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { useAdminLanguage } from "@/lib/LanguageContext";
@@ -16,18 +16,18 @@ type Menus   = { mexicana: Section[]; sushi: Section[]; bebidas: Section[] };
 
 type Producto = {
   id: number; nombre: string; nombreEn?: string; descripcion?: string; precio: number;
-  categoria: string; concepto: string; imagen?: string; activo: boolean;
+  categoria: string; concepto: string; imagen?: string; activo: boolean; destacado?: boolean;
 };
 
 // ─── CONSTANTES ──────────────────────────────────────────────────────────────
 
-const MENU_TABS = [
-  { key: "mexicana", label: "Carta Mexicana", icon: UtensilsCrossed, color: "#c9a84c" },
-  { key: "sushi",    label: "Carta Sushi",    icon: Waves,           color: "#60a5fa" },
-  { key: "bebidas",  label: "Bebidas",         icon: Wine,            color: "#a78bfa" },
+const MENU_TAB_META = [
+  { key: "mexicana", icon: UtensilsCrossed, color: "#c9a84c" },
+  { key: "sushi",    icon: Waves,           color: "#60a5fa" },
+  { key: "bebidas",  icon: Wine,            color: "#a78bfa" },
 ] as const;
 
-type MenuTabKey = typeof MENU_TABS[number]["key"];
+type MenuTabKey = typeof MENU_TAB_META[number]["key"];
 
 const CAT_LABELS: Record<string, string> = {
   snacks: "Snacks", ceviches: "Ceviches", tacos: "Tacos", flautas: "Flautas",
@@ -35,6 +35,15 @@ const CAT_LABELS: Record<string, string> = {
   "klassisk-nigiri": "Nigiri Clásico", "spesial-nigiri": "Nigiri Especial",
   "klassisk-maki": "Maki Clásico", "spesial-maki": "Maki Especial", "futo-maki": "Futo Maki",
   "klassisk-sashimi": "Sashimi Clásico", "spesial-sashimi": "Sashimi Especial",
+  tartar: "Tartar", combos: "Combos",
+};
+
+const CAT_LABELS_EN: Record<string, string> = {
+  snacks: "Snacks", ceviches: "Ceviches", tacos: "Tacos", flautas: "Flautas",
+  sushi: "Sushi Bar", principales: "Main Courses", postres: "Desserts",
+  "klassisk-nigiri": "Classic Nigiri", "spesial-nigiri": "Special Nigiri",
+  "klassisk-maki": "Classic Maki", "spesial-maki": "Special Maki", "futo-maki": "Futo Maki",
+  "klassisk-sashimi": "Classic Sashimi", "spesial-sashimi": "Special Sashimi",
   tartar: "Tartar", combos: "Combos",
 };
 
@@ -241,20 +250,20 @@ function SectionCards({ section, onChange, onDelete, canEdit, onSave, sectionIdx
 
   const ItemForm = () => (
     <>
-      <Field label="Nombre"><input value={form.name} onChange={e => f("name", e.target.value)} style={INPUT} placeholder="Nombre del plato" /></Field>
-      <Field label="Descripción"><textarea value={form.desc ?? ""} onChange={e => f("desc", e.target.value)} style={{ ...INPUT, minHeight: 80, resize: "vertical" }} /></Field>
-      <Field label="Precio"><input value={form.price} onChange={e => f("price", e.target.value)} style={INPUT} placeholder="189,-" /></Field>
-      <Field label="Alérgenos"><input value={form.allergens ?? ""} onChange={e => f("allergens", e.target.value)} style={INPUT} placeholder="G, F, So..." /></Field>
-      <Field label="Badge"><input value={form.badge ?? ""} onChange={e => f("badge", e.target.value)} style={INPUT} placeholder="Best Seller, Firma..." /></Field>
-      <Field label="Imagen">
+      <Field label={a.campoNombre}><input value={form.name} onChange={e => f("name", e.target.value)} style={INPUT} placeholder={a.placeholderNombrePlato} /></Field>
+      <Field label={a.campoDescripcion}><textarea value={form.desc ?? ""} onChange={e => f("desc", e.target.value)} style={{ ...INPUT, minHeight: 80, resize: "vertical" }} /></Field>
+      <Field label={a.campoPrecioSimple}><input value={form.price} onChange={e => f("price", e.target.value)} style={INPUT} placeholder={a.placeholderPrecio} /></Field>
+      <Field label={a.campoAlergenos}><input value={form.allergens ?? ""} onChange={e => f("allergens", e.target.value)} style={INPUT} placeholder={a.placeholderAlergenos} /></Field>
+      <Field label={a.campoBadge}><input value={form.badge ?? ""} onChange={e => f("badge", e.target.value)} style={INPUT} placeholder={a.placeholderBadge} /></Field>
+      <Field label={a.campoImagen}>
         {form.image && <div style={{ marginBottom: 12, borderRadius: 8, overflow: "hidden", height: 140 }}><img src={form.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
         <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(201,168,76,0.08)", border: "1px dashed rgba(201,168,76,0.3)", borderRadius: 6, cursor: "pointer", marginBottom: 8 }}>
-          <span style={{ fontSize: 13, color: "#c9a84c" }}>{uploading ? "Subiendo..." : "Subir imagen"}</span>
+          <span style={{ fontSize: 13, color: "#c9a84c" }}>{uploading ? a.subiendo : a.subirImagen}</span>
           <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: "none" }} disabled={uploading} />
         </label>
-        <input value={form.image ?? ""} onChange={e => f("image", e.target.value)} style={INPUT} placeholder="O pega una URL..." />
+        <input value={form.image ?? ""} onChange={e => f("image", e.target.value)} style={INPUT} placeholder={a.placeholderUrl} />
       </Field>
-      <Field label="Halal">
+      <Field label={a.campoHalal}>
         <button onClick={() => f("halal", !form.halal)}
           style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: form.halal ? "rgba(74,222,128,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${form.halal ? "rgba(74,222,128,0.3)" : "rgba(255,255,255,0.1)"}`, borderRadius: 4, padding: "0.5rem 0.75rem", color: form.halal ? "#4ade80" : "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 13 }}>
           {form.halal && <Check size={12} />} {form.halal ? "Sí" : "No"}
@@ -367,8 +376,9 @@ function SectionCards({ section, onChange, onDelete, canEdit, onSave, sectionIdx
 // ─── PANEL TAKE AWAY ─────────────────────────────────────────────────────────
 
 function TakeAwayPanel({ canEdit, canDelete }: { canEdit: boolean; canDelete: boolean }) {
-  const { tr } = useAdminLanguage();
+  const { tr, lang } = useAdminLanguage();
   const a = tr.admin;
+  const labels = lang === "en" ? CAT_LABELS_EN : CAT_LABELS;
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading]     = useState(true);
   const [concepto, setConcepto]   = useState<"mexican" | "sushi">("mexican");
@@ -440,6 +450,12 @@ function TakeAwayPanel({ canEdit, canDelete }: { canEdit: boolean; canDelete: bo
     await fetch(`/api/admin/carta/${p.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ activo: next }) });
   };
 
+  const toggleDestacado = async (p: Producto) => {
+    const next = !p.destacado;
+    setProductos(prev => prev.map(x => x.id === p.id ? { ...x, destacado: next } : x));
+    await fetch(`/api/admin/carta/${p.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ destacado: next }) });
+  };
+
   const f = (k: keyof typeof form, v: string | number | boolean) => setForm(prev => ({ ...prev, [k]: v }));
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -452,9 +468,9 @@ function TakeAwayPanel({ canEdit, canDelete }: { canEdit: boolean; canDelete: bo
   };
 
   const conceptoOptions = [{ value: "mexican", label: "Mexican" }, { value: "sushi", label: "Sushi" }];
-  const estadoOptions   = [{ value: "activo", label: "Activo — visible en la carta" }, { value: "oculto", label: "Oculto — no visible" }];
+  const estadoOptions   = [{ value: "activo", label: a.activoVisibleCarta }, { value: "oculto", label: a.ocultoNoVisible }];
   const catOptions      = Array.from(new Set(productos.filter(p => p.concepto === form.concepto).map(p => p.categoria)))
-    .map(c => ({ value: c, label: CAT_LABELS[c] ?? c }));
+    .map(c => ({ value: c, label: labels[c] ?? c }));
 
   return (
     <div>
@@ -477,8 +493,8 @@ function TakeAwayPanel({ canEdit, canDelete }: { canEdit: boolean; canDelete: bo
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem", marginBottom: "1.25rem", alignItems: "center" }}>
-        {dragId !== null && <span style={{ fontSize: 11, color: "rgba(201,168,76,0.6)", marginRight: "0.25rem" }}>→ Suelta en una categoría</span>}
-        {[{ value: "all", label: "Todos" }, ...categorias.map(c => ({ value: c, label: CAT_LABELS[c] ?? c }))].map(({ value, label }) => (
+        {dragId !== null && <span style={{ fontSize: 11, color: "rgba(201,168,76,0.6)", marginRight: "0.25rem" }}>{a.sueltaEnCategoria}</span>}
+        {[{ value: "all", label: a.todos }, ...categorias.map(c => ({ value: c, label: labels[c] ?? c }))].map(({ value, label }) => (
           <button key={value}
             onClick={() => setCatFiltro(value)}
             onDragOver={e => { if (value !== "all") { e.preventDefault(); setDropTarget(value); }}}
@@ -497,7 +513,7 @@ function TakeAwayPanel({ canEdit, canDelete }: { canEdit: boolean; canDelete: bo
 
       <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", marginBottom: "1rem" }}>
         {filtered.length} {filtered.length !== 1 ? a.productos : a.producto}
-        {catFiltro !== "all" && ` · ${CAT_LABELS[catFiltro] ?? catFiltro}`}
+        {catFiltro !== "all" && ` · ${labels[catFiltro] ?? catFiltro}`}
       </p>
 
       {loading ? (
@@ -529,12 +545,18 @@ function TakeAwayPanel({ canEdit, canDelete }: { canEdit: boolean; canDelete: bo
                 )}
                 <span style={{ position: "absolute", top: 8, right: 8, fontSize: 12, padding: "4px 13px", borderRadius: 999, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", background: p.activo ? "rgba(74,222,128,0.15)" : "rgba(255,255,255,0.06)", color: p.activo ? "#4ade80" : "rgba(255,255,255,0.3)", border: `1px solid ${p.activo ? "rgba(74,222,128,0.3)" : "rgba(255,255,255,0.1)"}` }}>{p.activo ? a.statusActivo : a.statusOculto}</span>
                 {canEdit && (
-                  <button onClick={e => { e.stopPropagation(); toggleActivo(p); }} title={p.activo ? "Ocultar plato" : "Mostrar plato"}
+                  <button onClick={e => { e.stopPropagation(); toggleActivo(p); }} title={p.activo ? a.ocultarPlato : a.mostrarPlato}
                     style={{ position: "absolute", bottom: 8, right: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, cursor: "pointer", transition: "all 0.15s", background: p.activo ? "rgba(255,255,255,0.12)" : "rgba(252,165,165,0.12)", border: `1px solid ${p.activo ? "rgba(255,255,255,0.2)" : "rgba(252,165,165,0.3)"}`, color: p.activo ? "rgba(255,255,255,0.7)" : "#fca5a5" }}>
                     {p.activo ? <Eye size={13} /> : <EyeOff size={13} />}
                   </button>
                 )}
-                <span style={{ position: "absolute", bottom: 8, left: 8, fontSize: 12, padding: "4px 13px", borderRadius: 999, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", background: "rgba(201,168,76,0.15)", color: "#c9a84c", border: "1px solid rgba(201,168,76,0.25)" }}>{CAT_LABELS[p.categoria] ?? p.categoria}</span>
+                {canEdit && (
+                  <button onClick={e => { e.stopPropagation(); toggleDestacado(p); }} title={p.destacado ? a.quitarDestacado : a.destacarHome}
+                    style={{ position: "absolute", bottom: 8, right: 44, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, cursor: "pointer", transition: "all 0.15s", background: p.destacado ? "rgba(201,168,76,0.2)" : "rgba(255,255,255,0.12)", border: `1px solid ${p.destacado ? "rgba(201,168,76,0.5)" : "rgba(255,255,255,0.2)"}`, color: p.destacado ? "#c9a84c" : "rgba(255,255,255,0.7)" }}>
+                    <Star size={13} fill={p.destacado ? "#c9a84c" : "none"} />
+                  </button>
+                )}
+                <span style={{ position: "absolute", bottom: 8, left: 8, fontSize: 12, padding: "4px 13px", borderRadius: 999, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", background: "rgba(201,168,76,0.15)", color: "#c9a84c", border: "1px solid rgba(201,168,76,0.25)" }}>{labels[p.categoria] ?? p.categoria}</span>
               </div>
               <div style={{ padding: "0.875rem" }}>
                 <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", margin: "0 0 4px", lineHeight: 1.3 }}>{p.nombre}</p>
@@ -553,24 +575,24 @@ function TakeAwayPanel({ canEdit, canDelete }: { canEdit: boolean; canDelete: bo
 
       {modal && (
         <Modal title={modal === "add" ? a.añadirProductoModal : a.editarProducto} onClose={() => setModal(null)}>
-          <Field label="Concepto"><Dropdown value={form.concepto} onChange={v => f("concepto", v)} options={conceptoOptions} /></Field>
-          <Field label="Categoría">
-            <input value={form.categoria} onChange={e => f("categoria", e.target.value)} style={INPUT} placeholder="ej: snacks, makis, sashimi..." list="cat-list" />
+          <Field label={a.campoConcepto}><Dropdown value={form.concepto} onChange={v => f("concepto", v)} options={conceptoOptions} /></Field>
+          <Field label={a.campoCategoria}>
+            <input value={form.categoria} onChange={e => f("categoria", e.target.value)} style={INPUT} placeholder={a.placeholderCategoria} list="cat-list" />
             <datalist id="cat-list">{catOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</datalist>
           </Field>
-          <Field label="Nombre (ES)"><input value={form.nombre} onChange={e => f("nombre", e.target.value)} style={INPUT} placeholder="Nombre del plato" /></Field>
-          <Field label="Name (EN)"><input value={(form.nombreEn ?? "") as string} onChange={e => f("nombreEn", e.target.value)} style={INPUT} placeholder="Dish name in English" /></Field>
-          <Field label="Descripción"><textarea value={form.descripcion} onChange={e => f("descripcion", e.target.value)} style={{ ...INPUT, minHeight: 80, resize: "vertical" }} /></Field>
-          <Field label="Precio (NOK)"><input type="number" value={form.precio} onChange={e => f("precio", Number(e.target.value))} style={INPUT} /></Field>
-          <Field label="Imagen">
+          <Field label={a.campoNombreEs}><input value={form.nombre} onChange={e => f("nombre", e.target.value)} style={INPUT} placeholder={a.placeholderNombrePlato} /></Field>
+          <Field label={a.campoNombreEn}><input value={(form.nombreEn ?? "") as string} onChange={e => f("nombreEn", e.target.value)} style={INPUT} placeholder={a.placeholderNombrePlatoEn} /></Field>
+          <Field label={a.campoDescripcion}><textarea value={form.descripcion} onChange={e => f("descripcion", e.target.value)} style={{ ...INPUT, minHeight: 80, resize: "vertical" }} /></Field>
+          <Field label={a.campoPrecio}><input type="number" value={form.precio} onChange={e => f("precio", Number(e.target.value))} style={INPUT} /></Field>
+          <Field label={a.campoImagen}>
             {form.imagen && <div style={{ marginBottom: 12, borderRadius: 8, overflow: "hidden", height: 140 }}><img src={form.imagen as string} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
             <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(201,168,76,0.08)", border: "1px dashed rgba(201,168,76,0.3)", borderRadius: 6, cursor: "pointer", marginBottom: 8 }}>
-              <span style={{ fontSize: 13, color: "#c9a84c" }}>{uploading ? "Subiendo..." : "Subir imagen"}</span>
+              <span style={{ fontSize: 13, color: "#c9a84c" }}>{uploading ? a.subiendo : a.subirImagen}</span>
               <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: "none" }} disabled={uploading} />
             </label>
-            <input value={form.imagen as string} onChange={e => f("imagen", e.target.value)} style={INPUT} placeholder="O pega una URL..." />
+            <input value={form.imagen as string} onChange={e => f("imagen", e.target.value)} style={INPUT} placeholder={a.placeholderUrl} />
           </Field>
-          <Field label="Estado"><Dropdown value={form.activo ? "activo" : "oculto"} onChange={v => f("activo", v === "activo")} options={estadoOptions} /></Field>
+          <Field label={a.campoEstado}><Dropdown value={form.activo ? "activo" : "oculto"} onChange={v => f("activo", v === "activo")} options={estadoOptions} /></Field>
           <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.5rem" }}>
             <button onClick={handleSave} disabled={saving || !form.nombre} style={{ flex: 2, padding: "10px", border: "none", borderRadius: 6, background: "#c9a84c", color: "#0a0a0f", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: saving ? 0.6 : 1 }}>
               <Check size={14} />{saving ? a.guardando : a.guardar}
@@ -662,9 +684,13 @@ export default function CartaAdminPage() {
   const isMenuTab = tab !== "takeaway";
   const sections: Section[] = (isMenuTab && menus) ? menus[tab as MenuTabKey] : [];
 
+  const MENU_TAB_LABELS: Record<MenuTabKey, string> = {
+    mexicana: a.cartaMexicana, sushi: a.cartaSushi, bebidas: a.bebidas,
+  };
+
   const ALL_TABS = [
-    ...MENU_TABS,
-    { key: "takeaway" as const, label: "Take Away", icon: PackageOpen, color: "#4ade80" },
+    ...MENU_TAB_META.map(t => ({ ...t, label: MENU_TAB_LABELS[t.key] })),
+    { key: "takeaway" as const, label: a.takeAway, icon: PackageOpen, color: "#4ade80" },
   ];
 
   return (

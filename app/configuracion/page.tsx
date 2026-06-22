@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bot, Save, Check, Eye, EyeOff, Key, Clock, BookOpen, Settings2, Mail, ShoppingBag, CreditCard, Globe } from "lucide-react";
+import { Bot, Save, Check, Eye, EyeOff, Key, Clock, BookOpen, Settings2, Mail, ShoppingBag, CreditCard, Globe, HardDrive, Download, Trash2, RefreshCw, CheckSquare, Square, Upload } from "lucide-react";
 import { useAdminLanguage } from "@/lib/LanguageContext";
 
 type Hours = Record<string, { open: string; close: string; active: boolean }>;
@@ -60,15 +60,32 @@ const TIMEZONES = [
 ];
 
 const TAB_ICONS: Record<string, React.ElementType> = {
-  sitio: Globe, general: Settings2, horarios: Clock, email: Mail, takeaway: ShoppingBag, stripe: CreditCard,
+  sitio: Globe, general: Settings2, horarios: Clock, email: Mail, takeaway: ShoppingBag, stripe: CreditCard, backup: HardDrive,
 };
-const TAB_KEYS = ["sitio","general","horarios","email","takeaway","stripe"] as const;
+const TAB_KEYS = ["sitio","general","horarios","email","takeaway","stripe","backup"] as const;
+
+const BACKUP_ITEMS = [
+  { key: "reservas",      label: "Reservas",      desc: "Todas las reservas de la BD" },
+  { key: "pedidos",       label: "Pedidos",        desc: "Todos los pedidos takeaway" },
+  { key: "clientes",      label: "Clientes",       desc: "Base de datos de clientes" },
+  { key: "reseñas",       label: "Reseñas",        desc: "Reseñas y reviews" },
+  { key: "cupones",       label: "Cupones",        desc: "Cupones de descuento" },
+  { key: "configuracion", label: "Configuración",  desc: "Ajustes del sistema" },
+  { key: "usuarios",      label: "Usuarios",       desc: "Trabajadores con acceso" },
+  { key: "platos",        label: "Carta / Platos", desc: "Menú y platos" },
+  { key: "servicios",     label: "Servicios",      desc: "Servicios del restaurante" },
+  { key: "galeria",       label: "Galería (BD)",   desc: "Entradas de galería en BD" },
+  { key: "imagenes",      label: "Imágenes",       desc: "Todas las fotos JPG/PNG/WEBP" },
+  { key: "videos",        label: "Vídeos",         desc: "Archivos MP4 de la web" },
+  { key: "frames",        label: "Frames de vídeo",desc: "Fotogramas del hero animado" },
+];
 
 type TakeawayConfig = {
   takeaway_dias_minimos: string;
   takeaway_hoy_habilitado: string;
   takeaway_horas_minimas: string;
   takeaway_mensaje_recuerda: string;
+  takeaway_iva: string;
 };
 
 export default function AgentePage() {
@@ -83,6 +100,7 @@ export default function AgentePage() {
     takeaway_hoy_habilitado: "false",
     takeaway_horas_minimas: "2",
     takeaway_mensaje_recuerda: "los pedidos realizados hoy se preparan y entregan a partir de pasado mañana. Selecciona el día y hora que mejor te convenga.",
+    takeaway_iva: "25",
   });
   const [tSaving, setTSaving] = useState(false);
   const [tSaved,  setTSaved]  = useState(false);
@@ -114,6 +132,22 @@ export default function AgentePage() {
   const [emailSaved, setEmailSaved]     = useState(false);
   const [emailTesting, setEmailTesting] = useState(false);
   const [emailTestResult, setEmailTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // Backup
+  type BackupFile = { filename: string; size: number; createdAt: string };
+  const [backupSelected, setBackupSelected] = useState<string[]>(BACKUP_ITEMS.map(i => i.key));
+  const [backupCreating, setBackupCreating] = useState(false);
+  const [backupList, setBackupList]         = useState<BackupFile[]>([]);
+  const [backupListLoading, setBackupListLoading] = useState(false);
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [dbBackupCreating, setDbBackupCreating] = useState(false);
+  const [restoreFile, setRestoreFile]         = useState<File | null>(null);
+  const [restoring, setRestoring]             = useState(false);
+  const [restoreResult, setRestoreResult]     = useState<{ ok: boolean; msg: string } | null>(null);
+  const [restoreDbFile, setRestoreDbFile]     = useState<File | null>(null);
+  const [restoringDb, setRestoringDb]         = useState(false);
+  const [restoreDbResult, setRestoreDbResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/configuracion/general")
@@ -248,6 +282,84 @@ export default function AgentePage() {
     setConfig({ ...config, businessHours: { ...config.businessHours, [day]: { ...config.businessHours[day], [field]: value } } });
   };
 
+  const loadBackupList = async () => {
+    setBackupListLoading(true);
+    const r = await fetch("/api/admin/backup/list");
+    setBackupList(await r.json());
+    setBackupListLoading(false);
+  };
+
+  const loadSchedule = async () => {
+    const r = await fetch("/api/admin/backup/schedule");
+    const d = await r.json();
+    setScheduleEnabled(d.enabled);
+  };
+
+  const createBackup = async () => {
+    setBackupCreating(true);
+    await fetch("/api/admin/backup/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: backupSelected }),
+    });
+    setBackupCreating(false);
+    loadBackupList();
+  };
+
+  const downloadBackup = (filename: string) => {
+    window.open(`/api/admin/backup/download/${filename}`, "_blank");
+  };
+
+  const deleteBackup = async (filename: string) => {
+    await fetch("/api/admin/backup/list", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename }),
+    });
+    loadBackupList();
+  };
+
+  const saveSchedule = async (val: boolean) => {
+    setScheduleSaving(true);
+    setScheduleEnabled(val);
+    await fetch("/api/admin/backup/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: val }),
+    });
+    setScheduleSaving(false);
+  };
+
+  const toggleBackupItem = (key: string) => {
+    setBackupSelected(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    );
+  };
+
+  const doRestore = async (file: File, setR: (v: boolean) => void, setRes: (v: { ok: boolean; msg: string } | null) => void, clearFile: () => void) => {
+    if (!confirm("¿Restaurar este backup? Se sobreescribirán los datos actuales.")) return;
+    setR(true); setRes(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const d = await (await fetch("/api/admin/backup/restore", { method: "POST", body: fd })).json();
+      setRes({ ok: d.ok, msg: d.message || (d.ok ? "Restauración completada." : "Error al restaurar.") });
+      if (d.ok) clearFile();
+    } catch { setRes({ ok: false, msg: "Error de red al restaurar." }); }
+    finally { setR(false); }
+  };
+  const restoreBackup   = () => restoreFile   && doRestore(restoreFile,   setRestoring,   setRestoreResult,   () => setRestoreFile(null));
+  const restoreDbBackup = () => restoreDbFile && doRestore(restoreDbFile, setRestoringDb, setRestoreDbResult, () => setRestoreDbFile(null));
+
+  const DB_ONLY_KEYS = ["reservas","pedidos","clientes","reseñas","cupones","configuracion","usuarios","platos","servicios","galeria"];
+  const createDbBackup = async () => {
+    setDbBackupCreating(true);
+    try {
+      const r = await fetch("/api/admin/backup/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: DB_ONLY_KEYS }) });
+      const d = await r.json();
+      if (d.ok) { downloadBackup(d.filename); loadBackupList(); }
+    } finally { setDbBackupCreating(false); }
+  };
+
   if (!config) return (
     <div style={{ opacity: 0.4, pointerEvents: "none" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
@@ -307,7 +419,7 @@ export default function AgentePage() {
           const active = tab === k;
           const labelMap: Record<string, string> = {
             sitio: "General", general: a.tabAgenteIA, horarios: a.tabHorarios,
-            email: "Email", takeaway: "Take Away", stripe: "Stripe",
+            email: "Email", takeaway: "Take Away", stripe: "Stripe", backup: "Backup",
           };
           return (
             <button key={k} onClick={() => setTab(k)}
@@ -679,6 +791,19 @@ export default function AgentePage() {
             </div>
           </div>
 
+          {/* IVA */}
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.7)", display: "block", marginBottom: "0.5rem" }}>
+              IVA (%)
+            </label>
+            <input
+              type="number" min="0" max="100" step="1"
+              value={tConfig.takeaway_iva}
+              onChange={e => setTConfig(p => ({ ...p, takeaway_iva: e.target.value }))}
+              style={{ ...INPUT, width: 100 }}
+            />
+          </div>
+
           {/* Guardar */}
           <div>
             <button onClick={saveTakeaway} disabled={tSaving} style={{
@@ -778,6 +903,171 @@ export default function AgentePage() {
           </div>
         </div>
       )}
+      {tab === "backup" && (() => {
+        // Cargar lista al montar
+        if (backupList.length === 0 && !backupListLoading) { loadBackupList(); loadSchedule(); }
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+
+            {/* Backup automático semanal */}
+            <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "1.25rem" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", margin: 0 }}>Backup automático semanal</p>
+                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 4 }}>Se ejecuta cada domingo a las 03:00 (hora del servidor). Guarda los últimos 8 backups.</p>
+                </div>
+                <button onClick={() => saveSchedule(!scheduleEnabled)} disabled={scheduleSaving}
+                  style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", transition: "background 200ms", background: scheduleEnabled ? "#c9a84c" : "rgba(255,255,255,0.1)", position: "relative", flexShrink: 0 }}>
+                  <span style={{ position: "absolute", top: 3, left: scheduleEnabled ? 22 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 200ms" }} />
+                </button>
+              </div>
+            </div>
+
+            {/* Checklist + Respaldo único BD — 50/50 */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", alignItems: "stretch" }}>
+
+              {/* Columna izquierda: checklist personalizado */}
+              <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", margin: 0 }}>Seleccionar contenido</p>
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button onClick={() => setBackupSelected(BACKUP_ITEMS.map(i => i.key))}
+                      style={{ fontSize: 12, padding: "4px 10px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
+                      Todo
+                    </button>
+                    <button onClick={() => setBackupSelected([])}
+                      style={{ fontSize: 12, padding: "4px 10px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
+                      Ninguno
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", flex: 1 }}>
+                  {BACKUP_ITEMS.map(item => {
+                    const checked = backupSelected.includes(item.key);
+                    return (
+                      <button key={item.key} onClick={() => toggleBackupItem(item.key)}
+                        style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0.25rem", borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }}>
+                        {checked
+                          ? <CheckSquare size={16} style={{ color: "#c9a84c", flexShrink: 0 }} />
+                          : <Square size={16} style={{ color: "rgba(255,255,255,0.2)", flexShrink: 0 }} />}
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: checked ? "#c9a84c" : "rgba(255,255,255,0.6)", margin: 0 }}>{item.label}</p>
+                          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", margin: 0 }}>{item.desc}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.625rem" }}>
+                  <button onClick={createBackup} disabled={backupCreating || backupSelected.length === 0}
+                    style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.875rem 1rem", borderRadius: 10, border: "1px solid rgba(201,168,76,0.35)", background: "linear-gradient(135deg,rgba(201,168,76,0.15),rgba(139,105,20,0.2))", color: "#c9a84c", cursor: backupCreating ? "wait" : "pointer", opacity: backupSelected.length === 0 ? 0.35 : 1 }}>
+                    <span style={{ display:"flex", alignItems:"center", justifyContent:"center", width:34, height:34, borderRadius:7, background:"rgba(201,168,76,0.12)", flexShrink:0 }}>
+                      {backupCreating ? <RefreshCw size={16} style={{ animation:"spin 1s linear infinite" }} /> : <Download size={16} />}
+                    </span>
+                    <span style={{ display:"flex", flexDirection:"column", alignItems:"flex-start" }}>
+                      <span style={{ fontSize:13, fontWeight:700, lineHeight:1.2 }}>{backupCreating ? "Creando..." : "Crear backup"}</span>
+                      <span style={{ fontSize:10, color:"rgba(201,168,76,0.45)", marginTop:2 }}>{backupSelected.length} elementos</span>
+                    </span>
+                  </button>
+                  <label style={{ display:"flex", alignItems:"center", gap:"0.75rem", padding:"0.875rem 1rem", borderRadius:10, border:"1px solid rgba(255,255,255,0.08)", background:"rgba(255,255,255,0.03)", color:"rgba(255,255,255,0.45)", cursor:"pointer" }}>
+                    <span style={{ display:"flex", alignItems:"center", justifyContent:"center", width:34, height:34, borderRadius:7, background:"rgba(255,255,255,0.05)", flexShrink:0 }}>
+                      {restoring ? <RefreshCw size={16} style={{ animation:"spin 1s linear infinite" }} /> : <Upload size={16} />}
+                    </span>
+                    <span style={{ display:"flex", flexDirection:"column", alignItems:"flex-start" }}>
+                      <span style={{ fontSize:13, fontWeight:700, lineHeight:1.2, color:"rgba(255,255,255,0.6)" }}>{restoring ? "Restaurando..." : "Restaurar"}</span>
+                      <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{restoreFile ? restoreFile.name : "Seleccionar .zip"}</span>
+                    </span>
+                    <input type="file" accept=".zip" style={{ display:"none" }} onChange={e => { const f = e.target.files?.[0]; if (f) { setRestoreFile(f); setRestoreResult(null); doRestore(f, setRestoring, setRestoreResult, () => setRestoreFile(null)); } e.target.value = ""; }} />
+                  </label>
+                  {restoreResult && <p style={{ gridColumn:"1/-1", margin:0, fontSize:12, color: restoreResult.ok ? "#4ade80" : "#f87171", fontWeight:600 }}>{restoreResult.msg}</p>}
+                </div>
+              </div>
+
+              {/* Columna derecha: respaldo único de BD */}
+              <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", margin: 0 }}>Base de datos</p>
+                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 4 }}>Respaldo único de todas las tablas en un solo archivo.</p>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", flex: 1 }}>
+                  {DB_ONLY_KEYS.map(k => {
+                    const item = BACKUP_ITEMS.find(i => i.key === k);
+                    return item ? (
+                      <div key={k} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0.25rem" }}>
+                        <CheckSquare size={16} style={{ color: "#c9a84c", flexShrink: 0 }} />
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: "#c9a84c", margin: 0 }}>{item.label}</p>
+                          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", margin: 0 }}>{item.desc}</p>
+                        </div>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.625rem" }}>
+                  <button onClick={createDbBackup} disabled={dbBackupCreating}
+                    style={{ display:"flex", alignItems:"center", gap:"0.75rem", padding:"0.875rem 1rem", borderRadius:10, border:"1px solid rgba(201,168,76,0.35)", background:"linear-gradient(135deg,rgba(201,168,76,0.15),rgba(139,105,20,0.2))", color:"#c9a84c", cursor: dbBackupCreating ? "wait" : "pointer" }}>
+                    <span style={{ display:"flex", alignItems:"center", justifyContent:"center", width:34, height:34, borderRadius:7, background:"rgba(201,168,76,0.12)", flexShrink:0 }}>
+                      {dbBackupCreating ? <RefreshCw size={16} style={{ animation:"spin 1s linear infinite" }} /> : <Download size={16} />}
+                    </span>
+                    <span style={{ display:"flex", flexDirection:"column", alignItems:"flex-start" }}>
+                      <span style={{ fontSize:13, fontWeight:700, lineHeight:1.2 }}>{dbBackupCreating ? "Creando..." : "Crear backup"}</span>
+                      <span style={{ fontSize:10, color:"rgba(201,168,76,0.45)", marginTop:2 }}>Todas las tablas</span>
+                    </span>
+                  </button>
+                  <label style={{ display:"flex", alignItems:"center", gap:"0.75rem", padding:"0.875rem 1rem", borderRadius:10, border:"1px solid rgba(255,255,255,0.08)", background:"rgba(255,255,255,0.03)", color:"rgba(255,255,255,0.45)", cursor:"pointer" }}>
+                    <span style={{ display:"flex", alignItems:"center", justifyContent:"center", width:34, height:34, borderRadius:7, background:"rgba(255,255,255,0.05)", flexShrink:0 }}>
+                      {restoringDb ? <RefreshCw size={16} style={{ animation:"spin 1s linear infinite" }} /> : <Upload size={16} />}
+                    </span>
+                    <span style={{ display:"flex", flexDirection:"column", alignItems:"flex-start" }}>
+                      <span style={{ fontSize:13, fontWeight:700, lineHeight:1.2, color:"rgba(255,255,255,0.6)" }}>{restoringDb ? "Restaurando..." : "Restaurar"}</span>
+                      <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{restoreDbFile ? restoreDbFile.name : "Seleccionar .zip"}</span>
+                    </span>
+                    <input type="file" accept=".zip" style={{ display:"none" }} onChange={e => { const f = e.target.files?.[0]; if (f) { setRestoreDbFile(f); setRestoreDbResult(null); doRestore(f, setRestoringDb, setRestoreDbResult, () => setRestoreDbFile(null)); } e.target.value = ""; }} />
+                  </label>
+                  {restoreDbResult && <p style={{ gridColumn:"1/-1", margin:0, fontSize:12, color: restoreDbResult.ok ? "#4ade80" : "#f87171", fontWeight:600 }}>{restoreDbResult.msg}</p>}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Lista de backups */}
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+                <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", margin: 0 }}>Backups guardados</p>
+                <button onClick={loadBackupList} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem", fontSize: 12 }}>
+                  <RefreshCw size={13} /> Actualizar
+                </button>
+              </div>
+              {backupListLoading && <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>Cargando...</p>}
+              {!backupListLoading && backupList.length === 0 && (
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", fontStyle: "italic" }}>No hay backups todavía.</p>
+              )}
+              {backupList.map(b => (
+                <div key={b.filename} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.875rem 1rem", borderRadius: 6, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", marginBottom: "0.5rem" }}>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.7)", margin: 0 }}>{b.filename}</p>
+                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", margin: "2px 0 0" }}>
+                      {new Date(b.createdAt).toLocaleString("es-ES")} · {(b.size / 1024 / 1024).toFixed(1)} MB
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button onClick={() => downloadBackup(b.filename)}
+                      style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "6px 12px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.08)", color: "#c9a84c", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                      <Download size={13} /> Descargar
+                    </button>
+                    <button onClick={() => deleteBackup(b.filename)}
+                      style={{ display: "flex", alignItems: "center", padding: "6px 8px", borderRadius: 6, border: "1px solid rgba(252,165,165,0.15)", background: "transparent", color: "rgba(252,165,165,0.4)", cursor: "pointer" }}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          </div>
+        );
+      })()}
+
     </div>
   );
 }

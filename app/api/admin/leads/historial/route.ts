@@ -1,7 +1,9 @@
-import { prisma } from "@/lib/prisma";
+﻿import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { getSessionRole, deny403 } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
+  if (!(await getSessionRole())) return deny403();
   const email  = req.nextUrl.searchParams.get("email");
   const nombre = req.nextUrl.searchParams.get("nombre");
 
@@ -18,7 +20,8 @@ export async function GET(req: NextRequest) {
 
     return Response.json(reservas);
   } catch (e) {
-    console.error(e);
-    return Response.json([], { status: 200 });
+    console.error("[leads/historial]", e);
+    return Response.json({ error: "Error al cargar historial" }, { status: 500 });
   }
 }
+

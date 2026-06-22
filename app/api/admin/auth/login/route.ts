@@ -1,11 +1,12 @@
 import { SignJWT } from "jose";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { JWT_SECRET_BYTES } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   const { user, password } = await req.json();
-  const secret = new TextEncoder().encode(process.env.JWT_SECRET ?? "secret");
+  const secret = JWT_SECRET_BYTES;
 
   // 1. Comprobar admin del .env
   if (user === process.env.ADMIN_USER && password === process.env.ADMIN_PASSWORD) {

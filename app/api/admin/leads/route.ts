@@ -1,7 +1,9 @@
-import { prisma } from "@/lib/prisma";
+﻿import { prisma } from "@/lib/prisma";
 import { normEmail, normPhone, normNombre } from "@/lib/clienteSync";
+import { getSessionRole, deny403 } from "@/lib/auth";
 
 export async function GET() {
+  if (!(await getSessionRole())) return deny403();
   try {
     const [clientes, reservas] = await Promise.all([
       prisma.cliente.findMany({ orderBy: { ultimaReserva: "desc" } }),
@@ -10,10 +12,10 @@ export async function GET() {
       }),
     ]);
 
-    // Índices para cruzar reservas → cliente
-    const byEmail  = new Map<string, string>(); // email norm → clientKey
-    const byPhone  = new Map<string, string>(); // phone norm → clientKey
-    const byNombre = new Map<string, string>(); // nombre norm → clientKey
+    // Ãndices para cruzar reservas â†’ cliente
+    const byEmail  = new Map<string, string>(); // email norm â†’ clientKey
+    const byPhone  = new Map<string, string>(); // phone norm â†’ clientKey
+    const byNombre = new Map<string, string>(); // nombre norm â†’ clientKey
 
     for (const c of clientes) {
       if (c.email)    byEmail.set(normEmail(c.email)!,   c.clientKey);
@@ -56,6 +58,7 @@ export async function GET() {
         nombre: c.nombre, email: c.email ?? "", telefono: c.telefono,
         clientKey: c.clientKey,
         totalReservas: s.totalReservas, canceladas: s.canceladas,
+        totalPedidos: 0,
         noShows: s.noShows, pctAsistencia: pct,
         ultimaReserva: c.ultimaReserva ?? null,
         secciones: [...s.secciones],
@@ -64,7 +67,8 @@ export async function GET() {
 
     return Response.json(result);
   } catch (e) {
-    console.error(e);
-    return Response.json([], { status: 200 });
+    console.error("[leads]", e);
+    return Response.json({ error: "Error al cargar leads" }, { status: 500 });
   }
 }
+

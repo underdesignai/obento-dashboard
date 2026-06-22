@@ -38,7 +38,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const role = await getSessionRole();
   if (!role) return deny403();
-  const body = await req.json();
-  const item = await prisma.reservaServicio.create({ data: body });
-  return NextResponse.json(item, { status: 201 });
+  try {
+    const body = await req.json();
+    const { nombre, email, servicio, fecha, personas } = body;
+    if (!nombre || !email || !servicio || !fecha || !personas) {
+      return NextResponse.json({ error: "nombre, email, servicio, fecha y personas son requeridos" }, { status: 400 });
+    }
+    const item = await prisma.reservaServicio.create({ data: { ...body, fecha: new Date(fecha) } });
+    return NextResponse.json(item, { status: 201 });
+  } catch (e) {
+    console.error("[servicios POST]", e);
+    return NextResponse.json({ error: "Error al crear servicio" }, { status: 500 });
+  }
 }

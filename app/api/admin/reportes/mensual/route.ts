@@ -1,18 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import nodemailer from "nodemailer";
-import { readFile } from "fs/promises";
-import path from "path";
 import PDFDocument from "pdfkit";
 
 async function getEmailConfig() {
   let from = process.env.EMAIL_FROM;
   let pass = process.env.EMAIL_PASSWORD;
   try {
-    const raw = await readFile(path.join(process.cwd(), "data", "email-config.json"), "utf-8");
-    const cfg = JSON.parse(raw);
-    if (!from) from = cfg.from;
-    if (!pass) pass = cfg.password;
-  } catch { /* no config */ }
+    const row = await prisma.configuracion.findUnique({ where: { clave: "email_config" } });
+    if (row) {
+      const cfg = JSON.parse(row.valor);
+      if (!from) from = cfg.from;
+      if (!pass) pass = cfg.password;
+    }
+  } catch { /* sin config en BD */ }
   return { from, pass };
 }
 
