@@ -203,7 +203,7 @@ export default function PedidosPage() {
   const [fechaHasta, setFechaHasta]   = useState("");
 
   // Vista
-  const [vistaMode, setVistaMode] = useState<"hoy" | "todos">("hoy");
+  const [vistaMode, setVistaMode] = useState<"hoy" | "todos">("todos");
 
   // Sort + pagination
   const [sortKey, setSortKey] = useState<SortKey>("id");
@@ -360,7 +360,7 @@ export default function PedidosPage() {
                     color: vistaMode === m ? "#60a5fa" : "rgba(255,255,255,0.3)",
                     boxShadow: vistaMode === m ? "0 0 0 1px rgba(96,165,250,0.2)" : "none",
                   }}>
-                  {m === "hoy" ? "Pedidos hoy" : "Todos los pedidos"}
+                  {m === "hoy" ? a.pedidosHoy : a.todosLosPedidos}
                 </button>
               ))}
             </div>

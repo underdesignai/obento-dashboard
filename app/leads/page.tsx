@@ -276,7 +276,7 @@ export default function LeadsPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", gap: "1rem", flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: "0.625rem", margin: 0 }}>
           <UserRound size={20} style={{ color: "#c9a84c" }} /> {a.leads}
-          <span style={{ fontSize: 13, fontWeight: 400, color: "rgba(255,255,255,0.25)" }}>{filtrados.length} clientes</span>
+          <span style={{ fontSize: 13, fontWeight: 400, color: "rgba(255,255,255,0.25)" }}>{filtrados.length} {a.clientesCount}</span>
         </h1>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button onClick={exportCSV} style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 6, padding: "6px 12px", color: "#c9a84c", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
@@ -285,7 +285,7 @@ export default function LeadsPage() {
           <button onClick={handleSync} disabled={syncing} title="Sincronizar desde reservas y pedidos"
             style={{ background: syncing ? "rgba(201,168,76,0.15)" : "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 6, padding: "6px 12px", color: "#c9a84c", cursor: syncing ? "not-allowed" : "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
             <RefreshCw size={13} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} />
-            {syncing ? "Sincronizando..." : "Sincronizar"}
+            {syncing ? a.sincronizando : a.sincronizar}
           </button>
           <button onClick={load} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "6px 10px", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
             <RefreshCw size={13} />
@@ -295,25 +295,25 @@ export default function LeadsPage() {
 
       {/* Buscador */}
       <div style={{ marginBottom: "0.75rem" }}>
-        <input value={search} onChange={e => handleSearch(e.target.value)} placeholder="Buscar cliente..."
+        <input value={search} onChange={e => handleSearch(e.target.value)} placeholder={a.buscarCliente}
           style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "10px 16px", color: "#fff", fontSize: 17, outline: "none" }} />
       </div>
 
       {/* Cabecera de columnas — mismo grid que .lead-row */}
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 80px 80px 80px 80px 120px 40px", gap: "16px", padding: "6px 21px 8px", marginBottom: "4px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <button onClick={() => handleSort("reservas")} style={{ background:"none", border:"none", padding:0, textAlign:"left", cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color:"rgba(255,255,255,0.3)" }}>Cliente</button>
-        <div style={{ fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color:"rgba(255,255,255,0.2)" }}>Sección</div>
-        <button onClick={() => handleSort("reservas")}   style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="reservas"   ? "#c9a84c" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ Reservas</button>
-        <button onClick={() => handleSort("pedidos")}    style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="pedidos"    ? "#60a5fa" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ Pedidos</button>
-        <button onClick={() => handleSort("canceladas")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="canceladas" ? "#c9a84c" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ Cancel.</button>
-        <button onClick={() => handleSort("noshow")}     style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="noshow"     ? "#c9a84c" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ N.Show</button>
-        <button onClick={() => handleSort("asistencia")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="asistencia" ? "#c9a84c" : "rgba(255,255,255,0.3)" }}>↕ Asistencia</button>
+        <button onClick={() => handleSort("reservas")} style={{ background:"none", border:"none", padding:0, textAlign:"left", cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color:"rgba(255,255,255,0.3)" }}>{a.cliente}</button>
+        <div style={{ fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color:"rgba(255,255,255,0.2)" }}>{a.seccion}</div>
+        <button onClick={() => handleSort("reservas")}   style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="reservas"   ? "#c9a84c" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ {a.reservas2}</button>
+        <button onClick={() => handleSort("pedidos")}    style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="pedidos"    ? "#60a5fa" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ {a.pedidos}</button>
+        <button onClick={() => handleSort("canceladas")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="canceladas" ? "#c9a84c" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ {a.thCanceladas}</button>
+        <button onClick={() => handleSort("noshow")}     style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="noshow"     ? "#c9a84c" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ {a.noShow}</button>
+        <button onClick={() => handleSort("asistencia")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="asistencia" ? "#c9a84c" : "rgba(255,255,255,0.3)" }}>↕ {a.asistencia}</button>
         <div />
       </div>
 
       {loading ? (
         <div style={{ display: "flex", alignItems: "center", gap: 10, color: "rgba(255,255,255,0.25)", fontSize: 13, padding: "2rem 0" }}>
-          <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Cargando clientes...
+          <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> {a.cargandoClientes}
         </div>
       ) : filtrados.length === 0 ? (
         <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 13, textAlign: "center", padding: "3rem" }}>{a.noHayLeads}</p>
@@ -331,7 +331,7 @@ export default function LeadsPage() {
                 <ChevronLeft size={14} />
               </button>
               <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
-                {page + 1} / {totalPages} · {filtrados.length} clientes
+                {page + 1} / {totalPages} · {filtrados.length} {a.clientesCount}
               </span>
               <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}
                 style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "6px 10px", color: page === totalPages - 1 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", cursor: page === totalPages - 1 ? "default" : "pointer" }}>

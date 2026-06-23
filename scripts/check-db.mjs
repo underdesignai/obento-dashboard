@@ -1,0 +1,14 @@
+import pg from "pg";
+const { Client } = pg;
+const client = new Client({ connectionString: "postgresql://postgres:719503847b004afa6626026d7800b915@13.140.161.167:5435/coyo_admin" });
+await client.connect();
+const r = await client.query('SELECT COUNT(*) FROM "Reserva"');
+const p = await client.query('SELECT COUNT(*) FROM "Pedido"');
+const e = await client.query('SELECT estado, COUNT(*) FROM "Reserva" GROUP BY estado');
+const hoy = new Date(); hoy.setHours(0,0,0,0);
+const rHoy = await client.query('SELECT COUNT(*) FROM "Reserva" WHERE "createdAt" >= $1', [hoy]);
+console.log("Reservas total:", r.rows[0].count);
+console.log("Pedidos total:", p.rows[0].count);
+console.log("Reservas hoy (createdAt):", rHoy.rows[0].count);
+console.log("Estados:", e.rows);
+await client.end();

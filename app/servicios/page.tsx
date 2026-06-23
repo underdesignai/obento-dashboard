@@ -40,10 +40,12 @@ function getEstadoStyles(a: Record<string, string>): Record<string, { bg: string
   };
 }
 
-const SERVICIO_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  sushi_experience: { bg: "rgba(96,165,250,0.12)",  text: "#60a5fa", label: "Cocina y Aprende" },
-  catering:         { bg: "rgba(201,168,76,0.12)",   text: GOLD,      label: "Catering"         },
-};
+function getServicioStyles(a: Record<string, string>): Record<string, { bg: string; text: string; label: string }> {
+  return {
+    sushi_experience: { bg: "rgba(96,165,250,0.12)",  text: "#60a5fa", label: a.labelCocinayaprende },
+    catering:         { bg: "rgba(201,168,76,0.12)",   text: GOLD,      label: "Catering"            },
+  };
+}
 
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
@@ -58,8 +60,8 @@ function Badge({ estado, estadoStyles }: { estado: string; estadoStyles: Record<
   );
 }
 
-function ServicioBadge({ servicio }: { servicio: string }) {
-  const s = SERVICIO_STYLES[servicio] ?? { bg: "rgba(255,255,255,0.06)", text: "rgba(255,255,255,0.4)", label: servicio };
+function ServicioBadge({ servicio, servicioStyles }: { servicio: string; servicioStyles: Record<string, { bg: string; text: string; label: string }> }) {
+  const s = servicioStyles[servicio] ?? { bg: "rgba(255,255,255,0.06)", text: "rgba(255,255,255,0.4)", label: servicio };
   return (
     <span style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.12em", padding: "4px 13px", borderRadius: 20, background: s.bg, color: s.text, fontWeight: 700, whiteSpace: "nowrap", display: "inline-flex", width: "fit-content" }}>
       {s.label}
@@ -153,7 +155,7 @@ function DetailModal({ item, onClose, onDelete, onEstadoChange, a, estadoStyles 
           <div>
             <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.3em", color: "rgba(201,168,76,0.5)", margin: 0 }}>Servicio #{item.id}</p>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: "#fff", margin: "0.25rem 0 0.5rem" }}>{item.nombre}</h2>
-            <ServicioBadge servicio={item.servicio} />
+            <ServicioBadge servicio={item.servicio} servicioStyles={servicioStyles} />
           </div>
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, color: "rgba(255,255,255,0.4)", cursor: "pointer", padding: "6px", display: "flex", alignItems: "center", flexShrink: 0 }}>
             <X size={16} />
@@ -254,7 +256,7 @@ function ModalNueva({ onClose, onCreated, a }: { onClose: () => void; onCreated:
             <div>
               <label style={{ display: "block", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.2em", color: "rgba(255,255,255,0.35)", marginBottom: 5 }}>Servicio</label>
               <select value={form.servicio} onChange={e => set("servicio", e.target.value)} style={{ ...inputStyle }}>
-                <option value="sushi_experience">Cocina y Aprende</option>
+                <option value="sushi_experience">{a.labelCocinayaprende}</option>
                 <option value="catering">Catering</option>
               </select>
             </div>
@@ -287,7 +289,8 @@ function ModalNueva({ onClose, onCreated, a }: { onClose: () => void; onCreated:
 export default function ServiciosPage() {
   const { tr } = useAdminLanguage();
   const a = tr.admin;
-  const estadoStyles = getEstadoStyles(a);
+  const estadoStyles   = getEstadoStyles(a);
+  const servicioStyles = getServicioStyles(a);
   const [items, setItems]       = useState<Servicio[]>([]);
   const [loading, setLoading]   = useState(true);
   const [selected, setSelected] = useState<Servicio | null>(null);
@@ -438,8 +441,8 @@ export default function ServiciosPage() {
               <ConciergeBell size={24} style={{ color: GOLD }} /> {a.servicios}
             </h1>
             {[
-              { value: "catering",         label: "Catering"         },
-              { value: "sushi_experience", label: "Cocina y Aprende" },
+              { value: "catering",         label: "Catering"                },
+              { value: "sushi_experience", label: a.labelCocinayaprende },
             ].map(opt => {
               const active = filtroServicio === opt.value;
               return (
@@ -469,7 +472,7 @@ export default function ServiciosPage() {
         <StatCard icon={<ConciergeBell size={22} />} label={a.totalReservas} value={stats.total} color={GOLD} />
         <StatCard icon={<Clock size={22} />} label={a.pendientes} value={stats.pendientes} color="#fbbf24" />
         <StatCard icon={<CheckCircle size={22} />} label={a.confirmadas} value={stats.confirmadas} color="#4ade80" />
-        <StatCard icon={<Users size={22} />} label="Cocina y Aprende" value={stats.sushi} color="#60a5fa" />
+        <StatCard icon={<Users size={22} />} label={a.labelCocinayaprende} value={stats.sushi} color="#60a5fa" />
         <StatCard icon={<XCircle size={22} />} label="Catering" value={stats.catering} color={GOLD} />
       </div>
 
@@ -484,7 +487,7 @@ export default function ServiciosPage() {
         <Dropdown value={filtroEstado} onChange={v => { setFiltroEstado(v); setPage(1); }}
           options={[{ value: "all", label: a.todosEstados }, ...Object.entries(estadoStyles).map(([v, s]) => ({ value: v, label: s.label }))]} />
         <Dropdown value={filtroServicio} onChange={v => { setFiltroServicio(v); setPage(1); }}
-          options={[{ value: "all", label: a.todosServicios }, { value: "sushi_experience", label: "Cocina y Aprende" }, { value: "catering", label: "Catering" }]} />
+          options={[{ value: "all", label: a.todosServicios }, { value: "sushi_experience", label: a.labelCocinayaprende }, { value: "catering", label: "Catering" }]} />
         <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flex: "0 0 auto" }}>
           <Filter size={12} style={{ color: "rgba(255,255,255,0.25)" }} />
           <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} style={{ ...inputStyle }} />
@@ -564,7 +567,7 @@ export default function ServiciosPage() {
                     {r.empresa && <p style={{ fontSize: 12, color: "rgba(255,255,255,0.2)", fontStyle: "italic", margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.empresa}</p>}
                   </div>
                   <span style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.email || "—"}</span>
-                  <ServicioBadge servicio={r.servicio} />
+                  <ServicioBadge servicio={r.servicio} servicioStyles={servicioStyles} />
                   <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", fontVariantNumeric: "tabular-nums" }}>
                     {new Date(r.fecha).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
                   </span>

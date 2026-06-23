@@ -670,6 +670,7 @@ const t = {
       // Servicios page
       buscarServicio:   "Buscar nombre, email, empresa...",
       todosServicios:   "Todos los servicios",
+      labelCocinayaprende: "Cocina y Aprende",
       pendientes:       "Pendientes",
       servicio:         "Servicio",
       noHayServicios:   "No hay reservas de servicios aún.",
@@ -763,6 +764,16 @@ const t = {
       seccion:          "Sección",
       reservas2:        "Reservas",
       ultimaVisita:     "Última visita",
+      pedidosHoy:       "Pedidos hoy",
+      todosLosPedidos:  "Todos los pedidos",
+      buscarCliente:    "Buscar cliente...",
+      sincronizar:      "Sincronizar",
+      sincronizando:    "Sincronizando...",
+      cargandoClientes: "Cargando clientes...",
+      noShow:           "N.Show",
+      asistencia:       "Asistencia",
+      thCanceladas:     "Cancel.",
+      clientesCount:    "clientes",
 
       // Configuración page
       agente:           "Configuración",
@@ -1404,7 +1415,7 @@ const t = {
       galeria:       "Gallery",
       reviews:       "Reviews",
       analytics:     "Analytics",
-      leads:         "Clientes",
+      leads:         "Customers",
       configuracion: "Settings",
       trabajadores:  "Staff",
       monitorReservas: "Reservations Monitor",
@@ -1543,6 +1554,7 @@ const t = {
       // Servicios page
       buscarServicio:   "Search name, email, company...",
       todosServicios:   "All services",
+      labelCocinayaprende: "Cook & Learn",
       pendientes:       "Pending",
       servicio:         "Service",
       noHayServicios:   "No service bookings yet.",
@@ -1636,6 +1648,16 @@ const t = {
       seccion:          "Section",
       reservas2:        "Bookings",
       ultimaVisita:     "Last visit",
+      pedidosHoy:       "Today's orders",
+      todosLosPedidos:  "All orders",
+      buscarCliente:    "Search customer...",
+      sincronizar:      "Sync",
+      sincronizando:    "Syncing...",
+      cargandoClientes: "Loading customers...",
+      noShow:           "No Show",
+      asistencia:       "Attendance",
+      thCanceladas:     "Cancels.",
+      clientesCount:    "customers",
 
       // Configuración page
       agente:           "Settings",
