@@ -135,8 +135,8 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         {role === "admin" && (
           <>
             <NavSeparator />
-            <ExternalNavLink href="https://coyo.underai.site/admin" label={a.monitorReservas} icon={Monitor} />
-            <ExternalNavLink href="https://coyo.underai.site/admin" label={a.monitorTakeaway} icon={Monitor} />
+            <ExternalNavLink href="https://coyoreservas.underai.site/" label={a.monitorReservas} icon={Monitor} />
+            <ExternalNavLink href="https://coyotakeaway.underai.site/" label={a.monitorTakeaway} icon={Monitor} />
             <NavSeparator />
           </>
         )}
