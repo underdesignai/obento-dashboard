@@ -14,10 +14,20 @@ async function getStatus(clave: string): Promise<"online" | "offline"> {
   }
 }
 
+async function getPostgresStatus(): Promise<"online" | "offline"> {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return "online";
+  } catch {
+    return "offline";
+  }
+}
+
 export async function GET() {
-  const [reservas, takeaway] = await Promise.all([
+  const [reservas, takeaway, postgres] = await Promise.all([
     getStatus("monitor_reservas_last_seen"),
     getStatus("monitor_takeaway_last_seen"),
+    getPostgresStatus(),
   ]);
-  return NextResponse.json({ reservas, takeaway });
+  return NextResponse.json({ reservas, takeaway, postgres });
 }

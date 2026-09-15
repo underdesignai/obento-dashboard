@@ -162,7 +162,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const { tr, lang, setLang } = useAdminLanguage();
   const a = tr.admin;
-  const [monitorStatus, setMonitorStatus] = useState<{ reservas: "online"|"offline"; takeaway: "online"|"offline" }>({ reservas: "offline", takeaway: "offline" });
+  const [monitorStatus, setMonitorStatus] = useState<{ reservas: "online"|"offline"; takeaway: "online"|"offline"; postgres: "online"|"offline" }>({ reservas: "offline", takeaway: "offline", postgres: "offline" });
 
   const handleLogout = async () => {
     await fetch("/api/admin/auth/logout", { method: "POST" });
@@ -216,10 +216,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 </div>
               );
             })}
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.45rem 0.85rem", borderRadius: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 5px #4ade80", flexShrink: 0 }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.3)", letterSpacing: "0.12em" }}>PostgreSQL</span>
-              <code style={{ fontSize: 11, color: "rgba(74,222,128,0.5)", background: "rgba(255,255,255,0.04)", padding: "1px 4px", borderRadius: 3 }}>127.0.0.1:5435</code>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.45rem 0.85rem", borderRadius: 6, background: "rgba(255,255,255,0.04)", border: `1px solid ${monitorStatus.postgres === "online" ? "rgba(74,222,128,0.25)" : "rgba(239,68,68,0.25)"}` }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: monitorStatus.postgres === "online" ? "#4ade80" : "#ef4444", boxShadow: `0 0 6px ${monitorStatus.postgres === "online" ? "#4ade80" : "#ef4444"}`, flexShrink: 0 }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: monitorStatus.postgres === "online" ? "rgba(74,222,128,0.7)" : "rgba(239,68,68,0.6)", letterSpacing: "0.12em" }}>PostgreSQL</span>
             </div>
             <span style={{ fontSize: 18, color: "rgba(255,255,255,0.5)", textTransform: "capitalize" }}><LiveDate lang={lang} /></span>
             <span style={{ fontSize: 18, fontWeight: 700, color: "rgba(255,255,255,0.7)", fontFamily: "monospace" }}><LiveClock /></span>
