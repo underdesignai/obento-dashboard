@@ -5,7 +5,6 @@ import "./globals.css";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   LayoutDashboard, CalendarCheck, ShoppingBag, UtensilsCrossed,
   Images, Star, BarChart2, Settings, LogOut, Menu, Users, UserRound, X, ConciergeBell, Tag,
@@ -117,7 +116,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
     <aside style={{ width: 280, minWidth: 280, height: "100%", background: SIDE, borderRight: "1px solid rgba(201,168,76,0.08)", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "1.25rem 1.25rem 1rem", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div>
-          <Image src="/images/COYO-logo-2026-White.png" alt="Coyo" width={60} height={37} style={{ opacity: 0.7 }} />
+          <img src="/admin/images/COYO-logo-2026-White.png" alt="Coyo" width={60} height={37} style={{ opacity: 0.7 }} />
           <p style={{ marginTop: "0.4rem", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.3em", color: "rgba(201,168,76,0.4)" }}>Admin</p>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.5rem" }}>
@@ -243,7 +242,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               <button onClick={() => setDrawerOpen(true)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", display: "flex", alignItems: "center", padding: 4 }}>
                 <Menu size={22} />
               </button>
-              <Image src="/images/COYO-logo-2026-White.png" alt="Coyo" width={48} height={30} style={{ opacity: 0.7 }} />
+              <img src="/admin/images/COYO-logo-2026-White.png" alt="Coyo" width={48} height={30} style={{ opacity: 0.7 }} />
               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                 <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", textTransform: "capitalize", lineHeight: 1 }}><LiveDate lang={lang} /></span>
                 <span style={{ fontSize: 16, fontWeight: 700, color: "rgba(255,255,255,0.7)", fontFamily: "monospace", lineHeight: 1 }}><LiveClock /></span>

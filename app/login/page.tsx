@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { useAdminLanguage } from "@/lib/LanguageContext";
 
 export default function AdminLoginPage() {
@@ -39,7 +38,7 @@ export default function AdminLoginPage() {
       <div style={{ width: "100%", maxWidth: 400 }}>
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-          <Image src="/images/COYO-logo-2026-White.png" alt="Coyo" width={80} height={49} style={{ opacity: 0.8, margin: "0 auto" }} />
+          <img src="/admin/images/COYO-logo-2026-White.png" alt="Coyo" width={80} height={49} style={{ opacity: 0.8, margin: "0 auto", display: "block" }} />
           <p style={{ marginTop: "0.75rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.3em", color: "rgba(201,168,76,0.5)", fontFamily: "var(--font-dm-sans, sans-serif)" }}>
             {a.loginTitle}
           </p>
