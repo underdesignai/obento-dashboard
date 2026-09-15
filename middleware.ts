@@ -8,14 +8,14 @@ export async function middleware(req: NextRequest) {
   const token = req.cookies.get("admin_token")?.value;
 
   if (!token) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL("/admin/login", req.url));
   }
 
   try {
     await jwtVerify(token, JWT_SECRET_BYTES);
     return NextResponse.next();
   } catch {
-    const res = NextResponse.redirect(new URL("/login", req.url));
+    const res = NextResponse.redirect(new URL("/admin/login", req.url));
     res.cookies.delete("admin_token");
     return res;
   }

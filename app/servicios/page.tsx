@@ -120,12 +120,13 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
 }
 
 // ── Modal detalle ─────────────────────────────────────────────────────────────
-function DetailModal({ item, onClose, onDelete, onEstadoChange, a, estadoStyles }: {
+function DetailModal({ item, onClose, onDelete, onEstadoChange, a, estadoStyles, servicioStyles }: {
   item: Servicio; onClose: () => void;
   onDelete: (id: number) => void;
   onEstadoChange: (id: number, estado: string) => void;
   a: Record<string, string>;
   estadoStyles: Record<string, { bg: string; text: string; label: string }>;
+  servicioStyles: Record<string, { bg: string; text: string; label: string }>;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [savingEstado, setSavingEstado] = useState(false);
@@ -429,7 +430,7 @@ export default function ServiciosPage() {
 
   return (
     <div>
-      {selected && <DetailModal item={selected} onClose={() => setSelected(null)} onDelete={handleDelete} onEstadoChange={handleEstadoChange} a={a} estadoStyles={estadoStyles} />}
+      {selected && <DetailModal item={selected} onClose={() => setSelected(null)} onDelete={handleDelete} onEstadoChange={handleEstadoChange} a={a} estadoStyles={estadoStyles} servicioStyles={servicioStyles} />}
       {showNueva && <ModalNueva onClose={() => setShowNueva(false)} onCreated={load} a={a} />}
 
       {/* Header */}
