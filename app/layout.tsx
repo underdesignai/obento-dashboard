@@ -1,5 +1,6 @@
 "use client";
 
+import "@/lib/fetchBasePathPatch";
 import "./globals.css";
 import { useState, useEffect } from "react";
 import Link from "next/link";
