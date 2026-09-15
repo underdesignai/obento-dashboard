@@ -4,7 +4,7 @@ import { jwtVerify } from "jose";
 
 const JWT_SECRET_BYTES = new TextEncoder().encode(process.env.JWT_SECRET);
 
-export async function proxy(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const token = req.cookies.get("admin_token")?.value;
 
   if (!token) {
