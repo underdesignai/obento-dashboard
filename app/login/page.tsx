@@ -263,7 +263,6 @@ export default function AdminLoginPage() {
               opacity: loading ? 0.75 : 1,
               transition: "transform 120ms, filter 150ms, box-shadow 150ms",
             }}
-            }}
             onMouseEnter={e => {
               if (!loading) {
                 e.currentTarget.style.filter = "brightness(1.08)";
