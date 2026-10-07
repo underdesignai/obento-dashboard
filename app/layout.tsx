@@ -300,6 +300,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <AdminLayoutInner>{children}</AdminLayoutInner>
           </AdminLanguageProvider>
         </SessionProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').catch(function(err) {
+                    console.error('SW registration failed:', err);
+                  });
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );
