@@ -216,3 +216,119 @@ model Usuario {
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
 }
+
+// ==========================================
+// MÓDULO DE ALMACÉN, FACTURAS, MERMAS Y COSTES
+// ==========================================
+
+model StockItem {
+  id               Int                @id @default(autoincrement())
+  nombre           String             @db.VarChar(150)
+  categoria        String             @default("Pescados y Mariscos") @db.VarChar(100) // Pescados, Carnes, Verduras, Arroz y Granos, Nori y Algas, Packaging, Salsas y Condimentos, Bebidas, Limpieza, Otros
+  unidad           String             @default("kg") @db.VarChar(20) // kg, g, l, ml, unidad, caja, paquete
+  cantidadActual   Float              @default(0)
+  stockMinimo      Float              @default(5)
+  costeUnitario    Float              @default(0) // Precio medio ponderado actual (€/unidad)
+  ultimoCoste      Float              @default(0) // Último precio pagado según última factura
+  proveedorHabitual String?           @db.VarChar(150)
+  notas            String?
+  activo           Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  facturaItems     FacturaItem[]
+  movimientos      StockMovimiento[]
+  mermaItems       MermaItem[]
+  escandalloItems  EscandalloIngrediente[]
+
+  @@index([categoria], map: "idx_stock_categoria")
+  @@index([activo], map: "idx_stock_activo")
+}
+
+model Factura {
+  id              Int           @id @default(autoincrement())
+  numeroFactura   String        @db.VarChar(100)
+  proveedor       String        @db.VarChar(150)
+  cifProveedor    String?       @db.VarChar(50)
+  fechaEmision    DateTime      @db.Date
+  fechaRegistro   DateTime      @default(now())
+  totalBase       Float         @default(0)
+  totalIva        Float         @default(0)
+  totalFactura    Float         @default(0)
+  estadoPago      String        @default("pagado") @db.VarChar(50) // pagado, pendiente
+  metodoPago      String?       @default("transferencia") @db.VarChar(50)
+  archivoUrl      String?       @db.VarChar(255)
+  archivoNombre   String?       @db.VarChar(255)
+  notas           String?
+  items           FacturaItem[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([fechaEmision(sort: Desc)], map: "idx_factura_fecha")
+  @@index([proveedor], map: "idx_factura_proveedor")
+}
+
+model FacturaItem {
+  id              Int        @id @default(autoincrement())
+  facturaId       Int
+  stockItemId     Int?
+  descripcion     String     @db.VarChar(200)
+  categoria       String?    @db.VarChar(100)
+  cantidad        Float      @default(1)
+  unidad          String     @default("kg") @db.VarChar(20)
+  precioUnitario  Float      @default(0)
+  ivaPct          Float      @default(10) // 10% comida, 21% general/bebidas, 4% básico
+  subtotal        Float      @default(0)
+  factura         Factura    @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  stockItem       StockItem? @relation(fields: [stockItemId], references: [id], onDelete: SetNull)
+
+  @@index([facturaId], map: "idx_factura_item_factura")
+  @@index([stockItemId], map: "idx_factura_item_stock")
+}
+
+model MermaItem {
+  id              Int        @id @default(autoincrement())
+  stockItemId     Int
+  cantidad        Float
+  unidad          String     @db.VarChar(20)
+  motivo          String     @db.VarChar(100) // caducado, podrido, error_cocina, merma_limpieza, roto_transporte, otro
+  costePerdido    Float      @default(0) // Calculado automáticamente: cantidad * costeUnitario
+  notas           String?
+  registradoPor   String?    @db.VarChar(100)
+  fecha           DateTime   @default(now())
+  stockItem       StockItem  @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  @@index([fecha(sort: Desc)], map: "idx_merma_fecha")
+  @@index([stockItemId], map: "idx_merma_stock")
+}
+
+model StockMovimiento {
+  id              Int        @id @default(autoincrement())
+  stockItemId     Int
+  tipo            String     @db.VarChar(50) // entrada_factura, salida_venta, merma, ajuste_manual
+  cantidad        Float      // Positivo (entra) o Negativo (sale)
+  stockPrevio     Float
+  stockPosterior  Float
+  costeUnitario   Float      @default(0)
+  referencia      String?    @db.VarChar(150) // ej: "Factura F-2026-081" o "Pedido #OB-1024"
+  notas           String?
+  fecha           DateTime   @default(now())
+  stockItem       StockItem  @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  @@index([stockItemId, fecha(sort: Desc)], map: "idx_movimiento_stock_date")
+}
+
+// Escandallos: Recetas y relación plato -> ingredientes del almacén
+model EscandalloIngrediente {
+  id              Int        @id @default(autoincrement())
+  menuItemId      Int?       // Relacionado con MenuItem de la carta
+  dishId          String?    @db.VarChar(100) // Por si coincide con el dish_id del pedido
+  platoNombre     String     @db.VarChar(150)
+  stockItemId     Int
+  cantidad        Float      // Cantidad que consume un plato (ej: 0.080 para 80 gramos de salmón)
+  unidad          String     @default("kg") @db.VarChar(20)
+  notas           String?
+  stockItem       StockItem  @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  @@index([menuItemId], map: "idx_escandallo_menu_item")
+  @@index([stockItemId], map: "idx_escandallo_stock_item")
+}

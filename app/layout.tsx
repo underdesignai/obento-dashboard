@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, CalendarCheck, ShoppingBag, UtensilsCrossed,
   Images, BarChart2, Settings, LogOut, Menu, Users, UserRound, X, ConciergeBell, Tag,
-  Monitor, ExternalLink, Globe, MessageSquare, MessageCircle,
+  Monitor, ExternalLink, Globe, MessageSquare, MessageCircle, Boxes,
 } from "lucide-react";
 import { SessionProvider, useSession } from "@/lib/session";
 import { AdminLanguageProvider, useAdminLanguage } from "@/lib/LanguageContext";
@@ -98,6 +98,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
     { href: "/",             label: a.overview,   icon: LayoutDashboard },
     { href: "/pedidos",      label: a.pedidos,    icon: ShoppingBag },
     { href: "/carta",        label: a.platos,     icon: UtensilsCrossed },
+    { href: "/stock",        label: a.stock || "Almacén y Costes", icon: Boxes },
     { href: "/analytics",    label: a.analytics,  icon: BarChart2 },
     { href: "/leads",        label: a.leads,      icon: UserRound },
     { href: "/cupones",      label: a.cupones,    icon: Tag },
