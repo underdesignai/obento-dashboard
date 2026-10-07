@@ -5,7 +5,7 @@ import {
   ShoppingBag, RefreshCw, List, LayoutGrid, Search, Download,
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
   CheckSquare, Square, Trash2, X, Clock, CreditCard,
-  ChefHat, Bell, Package, TrendingUp,
+  ChefHat, Bell, Package, TrendingUp, Bike, CheckCircle2,
 } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { useAdminLanguage } from "@/lib/LanguageContext";
@@ -16,6 +16,14 @@ type Pedido = {
   nombre: string;
   email?: string;
   telefono?: string;
+  tipoEntrega?: string;
+  direccionEntrega?: string;
+  direccionDetalles?: string;
+  codigoPostal?: string;
+  repartidorNombre?: string;
+  fechaSalidaReparto?: string;
+  fechaEntregado?: string;
+  tiempoEntregaMinutos?: number;
   horaRecogida?: string;
   items: { name: string; nameEn?: string; qty: number; price: number }[];
   total: number;
@@ -29,7 +37,7 @@ type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 25;
 
-const ESTADOS = ["pendiente_pago", "nuevo", "preparando", "listo", "entregado"];
+const ESTADOS = ["pendiente_pago", "nuevo", "preparando", "listo", "listo_reparto", "en_camino", "entregado"];
 
 function getEstadoCfg(a: Record<string, string>): Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> {
   return {
@@ -37,7 +45,9 @@ function getEstadoCfg(a: Record<string, string>): Record<string, { label: string
     nuevo:          { label: a.statusNuevo,       color: "#60a5fa", bg: "rgba(96,165,250,0.12)",  icon: <ShoppingBag size={14} /> },
     preparando:     { label: a.statusPreparando,  color: "#fbbf24", bg: "rgba(251,191,36,0.12)",  icon: <ChefHat size={14} /> },
     listo:          { label: a.statusListo,       color: "#4ade80", bg: "rgba(74,222,128,0.12)",  icon: <Bell size={14} /> },
-    entregado:      { label: a.statusEntregado,   color: "rgba(255,255,255,0.3)", bg: "rgba(255,255,255,0.05)", icon: <Package size={14} /> },
+    listo_reparto:  { label: "Listo para Reparto",color: "#eab308", bg: "rgba(234,179,8,0.15)",   icon: <Bike size={14} /> },
+    en_camino:      { label: "En Reparto",        color: "#c084fc", bg: "rgba(168,85,247,0.15)", icon: <Bike size={14} /> },
+    entregado:      { label: a.statusEntregado,   color: "#22c55e", bg: "rgba(34,197,94,0.15)",   icon: <CheckCircle2 size={14} /> },
   };
 }
 
@@ -46,6 +56,8 @@ const NEXT_ESTADO: Record<string, string> = {
   nuevo:          "preparando",
   preparando:     "listo",
   listo:          "entregado",
+  listo_reparto:  "en_camino",
+  en_camino:      "entregado",
 };
 
 function getNextLabel(a: Record<string, string>): Record<string, string> {
@@ -54,6 +66,8 @@ function getNextLabel(a: Record<string, string>): Record<string, string> {
     nuevo:          a.enPreparacion,
     preparando:     a.listoParaRecoger,
     listo:          a.statusEntregado,
+    listo_reparto:  "Salir a Reparto",
+    en_camino:      "Completar Entrega",
   };
 }
 
@@ -62,6 +76,8 @@ const NEXT_BG: Record<string, string> = {
   nuevo:          "linear-gradient(135deg,#f97316,#ea580c)",
   preparando:     "linear-gradient(135deg,#4ade80,#16a34a)",
   listo:          "linear-gradient(135deg,#60a5fa,#2563eb)",
+  listo_reparto:  "linear-gradient(135deg,#a855f7,#7c3aed)",
+  en_camino:      "linear-gradient(135deg,#10b981,#059669)",
 };
 
 // ── Dropdown personalizado ──
@@ -427,6 +443,8 @@ export default function PedidosPage() {
             { value: "nuevo",         label: a.statusNuevo },
             { value: "preparando",    label: a.statusPreparando },
             { value: "listo",         label: a.statusListo },
+            { value: "listo_reparto", label: "Listo para Reparto" },
+            { value: "en_camino",     label: "En Reparto" },
             { value: "entregado",     label: a.statusEntregado },
           ]} />
 
@@ -495,7 +513,17 @@ export default function PedidosPage() {
                     {/* Fila 1: nombre + total */}
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "0.5rem", marginBottom: "0.5rem" }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</p>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</p>
+                          {(p.tipoEntrega === "domicilio" || p.tipoEntrega === "delivery") && (
+                            <span style={{ fontSize: 10, fontWeight: 800, padding: "1px 6px", borderRadius: 10, background: "rgba(59,130,246,0.2)", color: "#60a5fa", border: "1px solid rgba(59,130,246,0.35)", whiteSpace: "nowrap" }}>
+                              🛵 A Domicilio
+                            </span>
+                          )}
+                        </div>
+                        {p.direccionEntrega && (
+                          <p style={{ fontSize: 11, color: "#93c5fd", margin: "2px 0 0" }}>📍 {p.direccionEntrega} {p.direccionDetalles ? `(${p.direccionDetalles})` : ""}</p>
+                        )}
                         <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", margin: "2px 0 0", fontFamily: "monospace", fontWeight: 700 }}>{p.numeroPedido || `OB-${String(p.id).padStart(4,"0")}`}</p>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.25rem", flexShrink: 0 }}>
@@ -563,7 +591,19 @@ export default function PedidosPage() {
                     {isSelected ? <CheckSquare size={14} style={{ color: "#60a5fa" }} /> : <Square size={14} style={{ color: "rgba(255,255,255,0.2)" }} />}
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</p>
+                      {(p.tipoEntrega === "domicilio" || p.tipoEntrega === "delivery") && (
+                        <span style={{ fontSize: 10, fontWeight: 800, padding: "1px 6px", borderRadius: 10, background: "rgba(59,130,246,0.18)", color: "#60a5fa", border: "1px solid rgba(59,130,246,0.35)", whiteSpace: "nowrap" }}>
+                          🛵 Domicilio
+                        </span>
+                      )}
+                    </div>
+                    {p.direccionEntrega && (
+                      <p style={{ fontSize: 11, color: "#93c5fd", margin: "1px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        📍 {p.direccionEntrega} {p.direccionDetalles ? `(${p.direccionDetalles})` : ""}
+                      </p>
+                    )}
                     {p.items?.length > 0 && (
                       <p style={{ fontSize: 12, color: "rgba(255,255,255,0.2)", margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {p.items.map(i => `${i.qty}× ${lang === "en" && i.nameEn ? i.nameEn : i.name}`).join(", ")}
