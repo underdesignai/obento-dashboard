@@ -274,10 +274,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <html lang="es">
       <head>
         <title>OBENTO · Panel de Administración</title>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="icon" type="image/png" href="/images/logo-obento.png" />
+        <link rel="apple-touch-icon" href="/images/logo-obento.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Zen+Kaku+Gothic+New:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
@@ -285,14 +283,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <meta property="og:type" content="website" />
         <meta property="og:title" content="OBENTO · Panel de Administración" />
         <meta property="og:description" content="Panel de administración y gestión para el restaurante Obento Japanese Food." />
-        <meta property="og:image" content="https://dashboardobento.flowprintcorp.com/images/og-image.jpg" />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta property="og:image:alt" content="Obento Japanese Food Logo" />
-        <meta name="twitter:card" content="summary_large_image" />
+        <meta property="og:image" content="https://dashboardobento.flowprintcorp.com/images/logo-obento.png" />
+        <meta property="og:url" content="https://dashboardobento.flowprintcorp.com/" />
+        <meta name="twitter:card" content="summary" />
         <meta name="twitter:title" content="OBENTO · Panel de Administración" />
         <meta name="twitter:description" content="Panel de administración y gestión para el restaurante Obento Japanese Food." />
-        <meta name="twitter:image" content="https://dashboardobento.flowprintcorp.com/images/og-image.jpg" />
+        <meta name="twitter:image" content="https://dashboardobento.flowprintcorp.com/images/logo-obento.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Obento Admin" />
