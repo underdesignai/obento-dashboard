@@ -5,7 +5,7 @@ import {
   Boxes, Plus, Trash2, Pencil, Search, AlertTriangle,
   Receipt, TrendingUp, TrendingDown, ArrowDownRight,
   ArrowUpRight, DollarSign, Package, FileText, CheckCircle2,
-  Calendar, Layers, Filter, Eye, RefreshCw, X
+  Calendar, Layers, Filter, Eye, RefreshCw, X, Camera, Sparkles, Upload, Loader2
 } from "lucide-react";
 
 // Categorías estándar para cocina japonesa
@@ -63,6 +63,8 @@ export default function StockPage() {
   });
 
   const [modalFacturaOpen, setModalFacturaOpen] = useState(false);
+  const [scanningFactura, setScanningFactura] = useState(false);
+  const [scanMessage, setScanMessage] = useState("");
   const [facturaForm, setFacturaForm] = useState<any>({
     numeroFactura: "",
     proveedor: "",
@@ -75,6 +77,50 @@ export default function StockPage() {
       { descripcion: "", stockItemId: "", cantidad: 1, unidad: "kg", precioUnitario: 0, ivaPct: 10 }
     ]
   });
+
+  // Escanear Factura con Foto o PDF (IA Vision & OCR)
+  const handleScanInvoiceFile = async (file: File) => {
+    if (!file) return;
+    setScanningFactura(true);
+    setScanMessage("Analizando factura con IA y OCR...");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+
+      const res = await fetch("/api/admin/facturas/scan", {
+        method: "POST",
+        body: fd,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.factura) {
+        const f = data.factura;
+        setFacturaForm((prev: any) => ({
+          ...prev,
+          numeroFactura: f.numeroFactura || prev.numeroFactura,
+          proveedor: f.proveedor || prev.proveedor,
+          cifProveedor: f.cifProveedor || prev.cifProveedor,
+          fechaEmision: f.fechaEmision || prev.fechaEmision,
+          items: f.items && f.items.length > 0 ? f.items : prev.items,
+        }));
+        setScanMessage(
+          data.method === "ai_vision"
+            ? "¡Factura leída con IA y todos los campos rellenados!"
+            : "¡Datos extraídos con éxito mediante OCR!"
+        );
+        setTimeout(() => setScanMessage(""), 4500);
+      } else {
+        setScanMessage("No se pudieron extraer datos automáticos: " + (data.error || "Intente con otra foto"));
+        setTimeout(() => setScanMessage(""), 4000);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setScanMessage("Error procesando imagen: " + (err?.message || ""));
+      setTimeout(() => setScanMessage(""), 4000);
+    } finally {
+      setScanningFactura(false);
+    }
+  };
 
   const [modalMermaOpen, setModalMermaOpen] = useState(false);
   const [mermaForm, setMermaForm] = useState<any>({
@@ -1021,16 +1067,112 @@ export default function StockPage() {
           <div style={{ background: "#14151a", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, width: "100%", maxWidth: 680, padding: "1.75rem", maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#fff" }}>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
                   Registrar Factura de Proveedor
+                  <span style={{ fontSize: 11, background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
+                    IA Auto-Fill
+                  </span>
                 </h3>
                 <p style={{ margin: "3px 0 0", fontSize: 12, color: "rgba(255,255,255,0.45)" }}>
-                  Al guardar la factura, el stock de los ingredientes seleccionados aumentará automáticamente.
+                  Sube una foto o ticket y la IA rellenará automáticamente todos los datos y artículos.
                 </p>
               </div>
               <button onClick={() => setModalFacturaOpen(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
                 <X size={20} />
               </button>
+            </div>
+
+            {/* SECCIÓN IA / ESCANEAR FOTO DE FACTURA */}
+            <div style={{
+              background: "linear-gradient(135deg, rgba(239,68,68,0.08) 0%, rgba(201,168,76,0.08) 100%)",
+              border: "1px dashed rgba(239,68,68,0.35)",
+              borderRadius: 12,
+              padding: "1rem",
+              marginBottom: "1.25rem",
+              textAlign: "center",
+              position: "relative"
+            }}>
+              <input
+                type="file"
+                id="invoice-photo-input"
+                accept="image/*,application/pdf"
+                capture="environment"
+                disabled={scanningFactura}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleScanInvoiceFile(file);
+                }}
+                style={{ display: "none" }}
+              />
+
+              <label
+                htmlFor="invoice-photo-input"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  cursor: scanningFactura ? "not-allowed" : "pointer",
+                  padding: "0.5rem"
+                }}
+              >
+                {scanningFactura ? (
+                  <>
+                    <Loader2 size={32} className="animate-spin" style={{ color: "#ef4444" }} />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#f3ede0" }}>
+                      Analizando factura con Inteligencia Artificial...
+                    </span>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                      Detectando proveedor, importes, cantidades y asociando al stock
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ padding: 10, borderRadius: "50%", background: "rgba(239,68,68,0.15)", color: "#ef4444", display: "inline-flex" }}>
+                        <Camera size={22} />
+                      </span>
+                      <span style={{ padding: 10, borderRadius: "50%", background: "rgba(201,168,76,0.15)", color: "#c9a84c", display: "inline-flex" }}>
+                        <Sparkles size={22} />
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: "#fff", display: "block" }}>
+                        📷 Haz una foto o sube el ticket/factura
+                      </span>
+                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+                        La IA extraerá proveedor, fecha, base, IVA y todas las líneas automáticamente
+                      </span>
+                    </div>
+                    <span style={{
+                      marginTop: 4,
+                      background: "#ef4444",
+                      color: "#fff",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      padding: "5px 14px",
+                      borderRadius: 6,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5
+                    }}>
+                      <Upload size={14} /> Seleccionar Foto o Archivo
+                    </span>
+                  </>
+                )}
+              </label>
+
+              {scanMessage && (
+                <div style={{
+                  marginTop: 8,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: scanMessage.includes("éxito") || scanMessage.includes("leída") ? "#4ade80" : "#facc15"
+                }}>
+                  {scanMessage}
+                </div>
+              )}
             </div>
 
             <form onSubmit={handleSaveFactura} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
