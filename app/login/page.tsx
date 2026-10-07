@@ -37,31 +37,32 @@ export default function AdminLoginPage() {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: "#050507",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "1.5rem",
+        padding: "1rem 1.25rem",
+        boxSizing: "border-box",
         fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 390 }}>
+      <div style={{ width: "100%", maxWidth: 440, margin: "auto" }}>
         {/* Cabecera con Logo circular y títulos */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "1.75rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "2rem" }}>
           {/* Logo Circular */}
           <div
             style={{
-              width: 82,
-              height: 82,
+              width: 96,
+              height: 96,
               borderRadius: "50%",
               background: "#fff",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 6px 20px rgba(0, 0, 0, 0.6)",
+              boxShadow: "0 8px 25px rgba(0, 0, 0, 0.6), 0 0 15px rgba(220, 38, 38, 0.15)",
               marginBottom: "1.25rem",
-              padding: "4px",
+              padding: "6px",
               boxSizing: "border-box",
               overflow: "hidden",
             }}
@@ -69,9 +70,9 @@ export default function AdminLoginPage() {
             <Image
               src="/images/logo-obento.png"
               alt="OBENTO"
-              width={76}
-              height={76}
-              style={{ objectFit: "contain" }}
+              width={86}
+              height={86}
+              style={{ objectFit: "contain", width: "100%", height: "100%" }}
               priority
             />
           </div>
@@ -80,7 +81,7 @@ export default function AdminLoginPage() {
           <h1
             style={{
               margin: 0,
-              fontSize: 22,
+              fontSize: 26,
               fontWeight: 900,
               letterSpacing: "0.28em",
               color: "#ffffff",
@@ -95,7 +96,7 @@ export default function AdminLoginPage() {
           <div
             style={{
               marginTop: 6,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 700,
               letterSpacing: "0.26em",
               color: "#dc2626",
@@ -124,10 +125,12 @@ export default function AdminLoginPage() {
           onSubmit={handleSubmit}
           style={{
             background: "#111216",
-            border: "1px solid rgba(220, 38, 38, 0.16)",
-            borderRadius: 18,
-            padding: "2rem 1.85rem",
-            boxShadow: "0 20px 50px rgba(0, 0, 0, 0.75), 0 0 20px rgba(220, 38, 38, 0.04)",
+            border: "1px solid rgba(220, 38, 38, 0.2)",
+            borderRadius: 20,
+            padding: "2.25rem 2rem",
+            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(220, 38, 38, 0.06)",
+            boxSizing: "border-box",
+            width: "100%",
           }}
         >
           {/* Campo Usuario */}
@@ -156,10 +159,10 @@ export default function AdminLoginPage() {
                 width: "100%",
                 background: "#17181d",
                 border: "1px solid rgba(255, 255, 255, 0.09)",
-                borderRadius: 9,
-                padding: "0.85rem 1rem",
+                borderRadius: 10,
+                padding: "1rem 1.15rem",
                 color: "#ffffff",
-                fontSize: 14.5,
+                fontSize: 16,
                 fontWeight: 500,
                 outline: "none",
                 boxSizing: "border-box",
@@ -201,10 +204,10 @@ export default function AdminLoginPage() {
                 width: "100%",
                 background: "#17181d",
                 border: "1px solid rgba(255, 255, 255, 0.09)",
-                borderRadius: 9,
-                padding: "0.85rem 1rem",
+                borderRadius: 10,
+                padding: "1rem 1.15rem",
                 color: "#ffffff",
-                fontSize: 14.5,
+                fontSize: 16,
                 fontWeight: 500,
                 outline: "none",
                 boxSizing: "border-box",
@@ -226,11 +229,11 @@ export default function AdminLoginPage() {
             <div
               style={{
                 marginBottom: "1.25rem",
-                padding: "0.65rem 0.85rem",
-                borderRadius: 8,
+                padding: "0.75rem 1rem",
+                borderRadius: 10,
                 background: "rgba(220, 38, 38, 0.12)",
                 border: "1px solid rgba(220, 38, 38, 0.35)",
-                fontSize: 12.5,
+                fontSize: 13.5,
                 color: "#fca5a5",
                 textAlign: "center",
               }}
@@ -245,19 +248,21 @@ export default function AdminLoginPage() {
             disabled={loading}
             style={{
               width: "100%",
-              padding: "0.88rem 1rem",
+              minHeight: 52,
+              padding: "1rem 1.25rem",
               background: "linear-gradient(180deg, #c51d24 0%, #a0151b 100%)",
               color: "#ffffff",
-              fontSize: 13,
+              fontSize: 14,
               textTransform: "uppercase",
-              letterSpacing: "0.16em",
+              letterSpacing: "0.18em",
               fontWeight: 700,
               border: "1px solid rgba(255, 255, 255, 0.12)",
-              borderRadius: 10,
+              borderRadius: 12,
               cursor: loading ? "not-allowed" : "pointer",
-              boxShadow: "0 6px 20px rgba(185, 28, 28, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.18)",
+              boxShadow: "0 8px 25px rgba(185, 28, 28, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.18)",
               opacity: loading ? 0.75 : 1,
               transition: "transform 120ms, filter 150ms, box-shadow 150ms",
+            }}
             }}
             onMouseEnter={e => {
               if (!loading) {
