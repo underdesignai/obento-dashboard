@@ -14,22 +14,22 @@ interface LanguageCtx {
 }
 
 const LanguageContext = createContext<LanguageCtx>({
-  lang: "en",
+  lang: "es",
   setLang: () => {},
-  tr: t.en,
+  tr: t.es,
 });
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("en");
+  const [lang, setLangState] = useState<Lang>("es");
 
   useEffect(() => {
-    const stored = localStorage.getItem("coyo_lang") as Lang | null;
+    const stored = localStorage.getItem("obento_lang") as Lang | null;
     if (stored === "es" || stored === "en") setLangState(stored);
   }, []);
 
   const setLang = (l: Lang) => {
     setLangState(l);
-    localStorage.setItem("coyo_lang", l);
+    localStorage.setItem("obento_lang", l);
   };
 
   return (
@@ -51,22 +51,22 @@ interface AdminLanguageCtx {
 }
 
 const AdminLanguageContext = createContext<AdminLanguageCtx>({
-  lang: "en",
+  lang: "es",
   setLang: () => {},
-  tr: t.en,
+  tr: t.es,
 });
 
 export function AdminLanguageProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("en");
+  const [lang, setLangState] = useState<Lang>("es");
 
   useEffect(() => {
-    const stored = localStorage.getItem("coyo_admin_lang") as Lang | null;
+    const stored = localStorage.getItem("obento_admin_lang") as Lang | null;
     if (stored === "es" || stored === "en") setLangState(stored);
   }, []);
 
   const setLang = (l: Lang) => {
     setLangState(l);
-    localStorage.setItem("coyo_admin_lang", l);
+    localStorage.setItem("obento_admin_lang", l);
   };
 
   return (
@@ -82,22 +82,22 @@ export function useAdminLanguage() {
 
 // Independent monitor language context
 const MonitorLanguageContext = createContext<AdminLanguageCtx>({
-  lang: "en",
+  lang: "es",
   setLang: () => {},
-  tr: t.en,
+  tr: t.es,
 });
 
 export function MonitorLanguageProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("en");
+  const [lang, setLangState] = useState<Lang>("es");
 
   useEffect(() => {
-    const stored = localStorage.getItem("coyo_monitor_lang") as Lang | null;
+    const stored = localStorage.getItem("obento_monitor_lang") as Lang | null;
     if (stored === "es" || stored === "en") setLangState(stored);
   }, []);
 
   const setLang = (l: Lang) => {
     setLangState(l);
-    localStorage.setItem("coyo_monitor_lang", l);
+    localStorage.setItem("obento_monitor_lang", l);
   };
 
   return (

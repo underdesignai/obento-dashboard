@@ -28,10 +28,10 @@ export async function POST() {
     });
 
     await transporter.sendMail({
-      from: `"Coyo Restaurant" <${from}>`,
+      from: `"Obento Japanese Food" <${from}>`,
       to: from,
-      subject: "Test de email — Coyo Dashboard",
-      html: `<p style="font-family:sans-serif">✅ El email está configurado correctamente en el dashboard de Coyo.</p>`,
+      subject: "Test de email — Obento Dashboard",
+      html: `<p style="font-family:sans-serif">✅ El email está configurado correctamente en el dashboard de Obento.</p>`,
     });
 
     return Response.json({ ok: true, msg: `Email de prueba enviado a ${from}` });

@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Coyo Admin",
-    short_name: "Coyo Admin",
-    description: "Panel de administración del restaurante Coyo.",
+    name: "Obento Admin",
+    short_name: "Obento Admin",
+    description: "Panel de administración del restaurante Obento.",
     start_url: "/",
     display: "standalone",
     background_color: "#0a0a0f",

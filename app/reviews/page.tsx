@@ -29,14 +29,14 @@ export default function ReviewsPage() {
     const res = await fetch("/api/admin/reviews");
     if (res.ok) {
       const data = await res.json();
-      sessionStorage.setItem("coyo_reviews", JSON.stringify(data));
+      sessionStorage.setItem("obento_reviews", JSON.stringify(data));
       setReviews(data);
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    const cached = sessionStorage.getItem("coyo_reviews");
+    const cached = sessionStorage.getItem("obento_reviews");
     if (cached) { setReviews(JSON.parse(cached)); setLoading(false); }
     load();
   }, []);

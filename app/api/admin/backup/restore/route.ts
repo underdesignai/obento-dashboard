@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
           if (data.length) await prisma.reserva.createMany({ data, skipDuplicates: true });
           break;
         case "pedidos":
-          await prisma.pedido.deleteMany();
-          if (data.length) await prisma.pedido.createMany({ data, skipDuplicates: true });
+          await prisma.pedidos.deleteMany();
+          if (data.length) await prisma.pedidos.createMany({ data, skipDuplicates: true });
           break;
         case "clientes":
           await prisma.cliente.deleteMany();

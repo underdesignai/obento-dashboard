@@ -7,7 +7,7 @@ export async function POST() {
 
   const [reservas, pedidos] = await Promise.all([
     prisma.reserva.findMany({ select: { nombre: true, email: true, telefono: true, fecha: true } }),
-    prisma.pedido.findMany({ select: { nombre: true, email: true, telefono: true, createdAt: true } }),
+    prisma.pedidos.findMany({ select: { cliente_nombre: true, cliente_email: true, cliente_telefono: true, created_at: true } }),
   ]);
 
   let count = 0;
@@ -16,7 +16,13 @@ export async function POST() {
     count++;
   }
   for (const p of pedidos) {
-    await upsertCliente({ nombre: p.nombre, email: p.email, telefono: p.telefono, fecha: p.createdAt, tipo: "pedido" });
+    await upsertCliente({
+      nombre: p.cliente_nombre,
+      email: p.cliente_email,
+      telefono: p.cliente_telefono,
+      fecha: p.created_at || new Date(),
+      tipo: "pedido",
+    });
     count++;
   }
 

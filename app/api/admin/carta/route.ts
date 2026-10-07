@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionRole, deny403 } from "@/lib/auth";
+import { syncCartaToWeb } from "@/lib/syncCarta";
 
 export async function GET() {
   if (!(await getSessionRole())) return deny403();
@@ -20,6 +21,10 @@ export async function POST(req: Request) {
       return Response.json({ error: "nombre y precio son requeridos" }, { status: 400 });
     }
     const item = await prisma.menuItem.create({ data: { ...data, precio: Number(data.precio) } });
+    
+    // Sincronizar automáticamente con la web pública y la carta de pedidos
+    await syncCartaToWeb();
+
     return Response.json(item, { status: 201 });
   } catch (e) {
     console.error("[carta POST]", e);

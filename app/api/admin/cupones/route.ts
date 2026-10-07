@@ -14,11 +14,18 @@ export async function GET() {
 
 export async function POST(req: Request) {
   if (!(await getSessionRole())) return deny403();
-  const { codigo, descuento, tipo, maxUsos } = await req.json();
-  if (!codigo || !descuento) return Response.json({ error: "Faltan campos" }, { status: 400 });
+  const { codigo, descuento, tipo, maxUsos, minimo, descripcion } = await req.json();
+  if (!codigo || !descuento) return Response.json({ error: "Faltan campos obligatorios" }, { status: 400 });
   try {
     const c = await prisma.cupon.create({
-      data: { codigo: codigo.toUpperCase().trim(), descuento: Number(descuento), tipo: tipo || "porcentaje", maxUsos: maxUsos ? Number(maxUsos) : null },
+      data: {
+        codigo: codigo.toUpperCase().trim(),
+        descripcion: descripcion?.trim() || null,
+        descuento: Number(descuento),
+        tipo: tipo || "porcentaje",
+        minimo: minimo ? Number(minimo) : null,
+        maxUsos: maxUsos ? Number(maxUsos) : null,
+      },
     });
     return Response.json(c, { status: 201 });
   } catch (e) {

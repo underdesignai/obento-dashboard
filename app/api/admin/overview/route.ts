@@ -19,14 +19,14 @@ export async function GET() {
     reviewsPendientes,
     visitasHoy, visitasSemana,
     platosActivos,
-    ultimasReservas, ultimosPedidos, pedidosMes,
+    ultimasReservas, ultimosPedidosRaw, pedidosMes,
     leadsTotales,
   ] = await Promise.all([
     safe(() => prisma.reserva.count({ where: { fecha: { gte: hoy } } }), 0),
     safe(() => prisma.reserva.count({ where: { createdAt: { gte: semana } } }), 0),
     safe(() => prisma.reserva.count({ where: { createdAt: { gte: mes } } }), 0),
-    safe(() => prisma.pedido.count({ where: { estado: "nuevo" } }), 0),
-    safe(() => prisma.pedido.count({ where: { createdAt: { gte: hoy } } }), 0),
+    safe(() => prisma.pedidos.count({ where: { estado_pedido: { in: ["recibido", "nuevo"] } } }), 0),
+    safe(() => prisma.pedidos.count({ where: { created_at: { gte: hoy } } }), 0),
     safe(() => prisma.review.count({ where: { aprobado: false } }), 0),
     safe(() => prisma.visita.count({ where: { createdAt: { gte: hoy } } }), 0),
     safe(() => prisma.visita.count({ where: { createdAt: { gte: semana } } }), 0),
@@ -34,29 +34,36 @@ export async function GET() {
     safe(() => prisma.reserva.findMany({
       take: 6,
       orderBy: { createdAt: "desc" },
-      where: { createdAt: { gte: hoy } },
       select: { id: true, nombre: true, fecha: true, personas: true, seccion: true, estado: true, createdAt: true },
     }), []),
-    safe(() => prisma.pedido.findMany({
+    safe(() => prisma.pedidos.findMany({
       take: 6,
-      orderBy: { createdAt: "desc" },
-      where: { createdAt: { gte: hoy } },
-      select: { id: true, nombre: true, total: true, estado: true, createdAt: true },
+      orderBy: { id: "desc" },
+      select: { id: true, numero_pedido: true, cliente_nombre: true, total: true, estado_pedido: true, created_at: true },
     }), []),
-    safe(() => prisma.pedido.findMany({ where: { createdAt: { gte: mes } }, select: { total: true } }), []),
-    safe(() => prisma.reserva.count(), 0),
+    safe(() => prisma.pedidos.findMany({ where: { created_at: { gte: mes } }, select: { total: true } }), []),
+    safe(() => prisma.cliente.count(), 0),
   ]);
 
-  const ingresosMes = (pedidosMes as { total: number | null }[]).reduce((s, p) => s + (p.total ?? 0), 0);
+  const ingresosMes = (pedidosMes as { total: any }[]).reduce((s, p) => s + Number(p.total ?? 0), 0);
 
   return NextResponse.json({
     reservasHoy, reservasSemana, reservasMes,
     pedidosNuevos, pedidosHoy, ingresosMes,
     reviewsPendientes, visitasHoy, visitasSemana,
     platosActivos, leadsTotales,
-    ultimasReservas: (ultimasReservas as { id: number; nombre: string; fecha: Date; personas: number; seccion: string | null; estado: string; createdAt: Date }[])
-      .map(r => ({ ...r, fecha: r.fecha.toISOString(), createdAt: r.createdAt.toISOString() })),
-    ultimosPedidos: (ultimosPedidos as { id: number; nombre: string; total: number | null; estado: string; createdAt: Date }[])
-      .map(p => ({ ...p, createdAt: p.createdAt.toISOString() })),
+    ultimasReservas: (ultimasReservas as any[]).map(r => ({
+      ...r,
+      fecha: r.fecha instanceof Date ? r.fecha.toISOString() : r.fecha,
+      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+    })),
+    ultimosPedidos: (ultimosPedidosRaw as any[]).map(p => ({
+      id: p.id,
+      numeroPedido: p.numero_pedido || `OB-${p.id}`,
+      nombre: p.cliente_nombre,
+      total: Number(p.total),
+      estado: p.estado_pedido === "recibido" ? "nuevo" : p.estado_pedido,
+      createdAt: p.created_at instanceof Date ? p.created_at.toISOString() : (p.created_at || new Date().toISOString()),
+    })),
   });
 }

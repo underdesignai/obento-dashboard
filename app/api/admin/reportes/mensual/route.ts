@@ -39,9 +39,9 @@ async function generarPDF(reservas: {
     // ── Cabecera ──────────────────────────────────────────────────────────────
     doc.rect(0, 0, doc.page.width, 110).fill(DARK);
     doc.fontSize(28).fillColor(GOLD).font("Helvetica-Bold")
-       .text("COYO", 50, 30);
+       .text("OBENTO", 50, 30);
     doc.fontSize(10).fillColor("#aaaaaa").font("Helvetica")
-       .text("Mexican Food & Sushi Bar · Oslo", 50, 62);
+       .text("Japanese Food · Madrid", 50, 62);
     doc.fontSize(14).fillColor("#ffffff").font("Helvetica-Bold")
        .text(`Informe mensual de reservas`, 50, 82);
 
@@ -57,8 +57,8 @@ async function generarPDF(reservas: {
     // ── Estadísticas principales ───────────────────────────────────────────
     const confirmadas = reservas.filter(r => r.estado === "confirmada");
     const totalPersonas = confirmadas.reduce((s, r) => s + r.personas, 0);
-    const mexican = confirmadas.filter(r => r.seccion === "mexican").length;
-    const sushi   = confirmadas.filter(r => r.seccion === "sushi").length;
+    const sala    = confirmadas.filter(r => r.seccion !== "terraza").length;
+    const terraza = confirmadas.filter(r => r.seccion === "terraza").length;
 
     const statsY = 175;
     const boxW   = (W - 30) / 3;
@@ -80,12 +80,12 @@ async function generarPDF(reservas: {
 
     // ── Sección ───────────────────────────────────────────────────────────────
     const secY = statsY + 85;
-    doc.fontSize(11).fillColor(DARK).font("Helvetica-Bold").text("Por sección", 50, secY);
+    doc.fontSize(11).fillColor(DARK).font("Helvetica-Bold").text("Distribución de espacio", 50, secY);
     doc.moveTo(50, secY + 16).lineTo(50 + W, secY + 16).strokeColor(GOLD).lineWidth(0.5).stroke();
 
     const seccionData = [
-      { label: "🌮  Mexican", count: mexican, pct: confirmadas.length ? Math.round(mexican / confirmadas.length * 100) : 0 },
-      { label: "🍣  Sushi",   count: sushi,   pct: confirmadas.length ? Math.round(sushi   / confirmadas.length * 100) : 0 },
+      { label: "🍣  Sala Principal", count: sala, pct: confirmadas.length ? Math.round(sala / confirmadas.length * 100) : 0 },
+      { label: "🍱  Terraza / Otros", count: terraza, pct: confirmadas.length ? Math.round(terraza / confirmadas.length * 100) : 0 },
     ];
     seccionData.forEach((s, i) => {
       const y = secY + 26 + i * 22;
@@ -143,13 +143,13 @@ async function generarPDF(reservas: {
            .text(fecha.toLocaleDateString("es-ES"), 250, rowY)
            .text(fecha.toLocaleTimeString("es-ES", { hour:"2-digit", minute:"2-digit" }), 340, rowY)
            .text(String(r.personas), 395, rowY)
-           .text(r.seccion === "sushi" ? "Sushi" : "Mexican", 450, rowY);
+           .text(r.seccion === "terraza" ? "Terraza" : "Sala", 450, rowY);
         rowY += 18;
       });
 
     // ── Footer ────────────────────────────────────────────────────────────────
     doc.fontSize(8).fillColor(LIGHT).font("Helvetica")
-       .text("Coyo Restaurant · Oslo · Informe generado automáticamente", 50, doc.page.height - 40, { align: "center", width: W });
+       .text("Obento Japanese Food · Calle Mayor 45, La Ñora (Murcia) · Informe generado automáticamente", 50, doc.page.height - 40, { align: "center", width: W });
 
     doc.end();
   });
@@ -181,14 +181,14 @@ export async function POST(req: Request) {
     const transporter = nodemailer.createTransport({ service: "gmail", auth: { user: from, pass } });
 
     await transporter.sendMail({
-      from:    `"Coyo Restaurant" <${from}>`,
+      from:    `"Obento Japanese Food" <${from}>`,
       to:      from,
       subject: `Informe mensual de reservas — ${nombreMes(mes)} ${anyo}`,
       html: `
         <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
           <div style="background:#1a1a1a;padding:24px;border-radius:8px 8px 0 0">
-            <h2 style="color:#C9A84C;margin:0;font-size:22px">Coyo Restaurant</h2>
-            <p style="color:#aaa;margin:4px 0 0;font-size:12px">Mexican Food &amp; Sushi Bar · Oslo</p>
+            <h2 style="color:#C9A84C;margin:0;font-size:22px">Obento Japanese Food</h2>
+            <p style="color:#aaa;margin:4px 0 0;font-size:12px">Auténtica cocina japonesa · Madrid</p>
           </div>
           <div style="background:#f9f6f0;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e8dfc8">
             <h3 style="color:#1a1a1a;margin:0 0 16px">Informe mensual — ${nombreMes(mes)} ${anyo}</h3>

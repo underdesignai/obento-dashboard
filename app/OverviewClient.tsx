@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarCheck, ShoppingBag, Star, Users, UtensilsCrossed, TrendingUp, ArrowRight } from "lucide-react";
+import { CalendarCheck, ShoppingBag, Users, UtensilsCrossed, TrendingUp, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useAdminLanguage } from "@/lib/LanguageContext";
 
@@ -46,9 +46,9 @@ function QuickLink({ href, icon: Icon, label, count, color = GOLD, mobile = fals
 }
 
 export default function OverviewClient({
-  reservasHoy, pedidosNuevos, platosActivos, leadsTotales, reviewsPendientes,
+  pedidosNuevos, platosActivos, leadsTotales, reviewsPendientes,
 }: {
-  reservasHoy: number; pedidosNuevos: number; platosActivos: number; leadsTotales: number; reviewsPendientes: number;
+  pedidosNuevos: number; platosActivos: number; leadsTotales: number; reviewsPendientes?: number;
 }) {
   const [isMobile, setIsMobile] = useState(false);
   const { tr } = useAdminLanguage();
@@ -62,11 +62,9 @@ export default function OverviewClient({
   }, []);
 
   const links = [
-    { href: "/reservas",  icon: CalendarCheck,   label: a.reservas,    count: reservasHoy,       color: GOLD       },
     { href: "/pedidos",   icon: ShoppingBag,     label: a.pedidos,     count: pedidosNuevos,     color: "#60a5fa"  },
     { href: "/carta",     icon: UtensilsCrossed, label: a.carta,       count: platosActivos,     color: GOLD       },
     { href: "/leads",     icon: Users,           label: a.leads,       count: leadsTotales,      color: "#a78bfa"  },
-    { href: "/reviews",   icon: Star,            label: a.reviews,     count: reviewsPendientes, color: "#f59e0b"  },
     { href: "/analytics", icon: TrendingUp,      label: a.analytics,   count: undefined,         color: "#4ade80"  },
   ];
 

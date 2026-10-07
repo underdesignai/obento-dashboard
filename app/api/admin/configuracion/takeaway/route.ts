@@ -14,11 +14,11 @@ async function isAdmin(): Promise<boolean> {
 }
 
 const DEFAULTS = {
-  takeaway_dias_minimos: "2",
-  takeaway_hoy_habilitado: "false",
-  takeaway_horas_minimas: "2",
-  takeaway_mensaje_recuerda: "los pedidos realizados hoy se preparan y entregan a partir de pasado mañana. Selecciona el día y hora que mejor te convenga.",
-  takeaway_iva: "25",
+  takeaway_dias_minimos: "0",
+  takeaway_hoy_habilitado: "true",
+  takeaway_horas_minimas: "0",
+  takeaway_mensaje_recuerda: "Tu pedido se elabora al momento con pescado fresco e ingredientes de máxima calidad. Recogida en Calle Mayor 45 en aproximadamente 25-35 minutos.",
+  takeaway_iva: "10",
 };
 
 export async function GET() {

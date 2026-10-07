@@ -1,4 +1,4 @@
-﻿import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { normEmail, normPhone, normNombre } from "@/lib/clienteSync";
 import { getSessionRole, deny403 } from "@/lib/auth";
 
@@ -58,7 +58,7 @@ export async function GET() {
         nombre: c.nombre, email: c.email ?? "", telefono: c.telefono,
         clientKey: c.clientKey,
         totalReservas: s.totalReservas, canceladas: s.canceladas,
-        totalPedidos: 0,
+        totalPedidos: c.totalPedidos ?? 0,
         noShows: s.noShows, pctAsistencia: pct,
         ultimaReserva: c.ultimaReserva ?? null,
         secciones: [...s.secciones],

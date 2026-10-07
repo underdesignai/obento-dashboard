@@ -16,7 +16,7 @@ const t = {
       sub_inicio:      "Volver al principio",
       sub_concepto:    "Nuestra historia",
       sub_menu:        "Platos estrella",
-      sub_galeria:     "El espacio Coyo",
+      sub_galeria:     "El espacio Obento",
       sub_reservar:    "Mesa en el restaurante",
       sub_takeaway:    "Pide y recoge",
       sub_cocina:      "Aprende a hacer sushi",
@@ -27,7 +27,7 @@ const t = {
     hero: {
       line1:        "Donde México",
       line2:        "abraza al Japón",
-      subtitle:     "Cocina mexicana auténtica y sushi bar de autor a orillas del Oslofjord, Sørenga Oslo.",
+      subtitle:     "Cocina mexicana auténtica y sushi bar de autor a orillas del Murciafjord, La Ñora Murcia.",
       cta:          "Reservar Mesa",
       ctaSecondary: "Pedir Take Away",
     },
@@ -36,7 +36,7 @@ const t = {
     marquee: [
       "Cocina Mexicana Auténtica",
       "Sushi Bar de Autor",
-      "Sørenga · Oslo",
+      "La Ñora · Murcia",
       "Take Away · Foodora · Wolt",
       "Reservas Online",
       "Cocktails Premium",
@@ -49,10 +49,10 @@ const t = {
       label:     "Nuestra Historia",
       title1:    "Dos mundos.",
       title2:    "Un solo sabor.",
-      quote:     "Coyo nace en la confluencia de dos culturas apasionadas por el sabor. En Sørenga, donde el Oslofjord refleja las luces de la ciudad, México y Japón se encuentran en cada bocado.",
+      quote:     "Obento nace en la confluencia de dos culturas apasionadas por el sabor. En La Ñora, donde el Murciafjord refleja las luces de la ciudad, México y Japón se encuentran en cada bocado.",
       para:      "Cada plato es una conversación entre dos mundos. Ingredientes de primera calidad, técnica impecable y pasión auténtica — desde nuestra barra de sushi abierta hasta las brasas de nuestra cocina mexicana.",
       reviews:   "338+ reseñas en Google",
-      stat0:     "Años en Oslo",
+      stat0:     "Años en Murcia",
       stat1:     "Cocinas, 1 alma",
       stat2:     "338+ reseñas",
     },
@@ -70,17 +70,17 @@ const t = {
     // ── Galería ─────────────────────────────────────────────────────────
     galeria: {
       label:       "Galería",
-      title:       "El espacio Coyo",
+      title:       "El espacio Obento",
       verMas:      "Ver más",
       espacioLabel: "El Espacio",
-      atmosTitle:  "La Atmósfera Coyo",
-      atmosDesc:   "Un espacio diseñado para que México y Japón convivan en armonía, a orillas del Oslofjord.",
+      atmosTitle:  "La Atmósfera Obento",
+      atmosDesc:   "Un espacio diseñado para que México y Japón convivan en armonía, a orillas del Murciafjord.",
     },
 
     // ── Take Away CTA ───────────────────────────────────────────────────
     takeawayCta: {
       label:    "Take Away",
-      title1:   "Coyo en casa,",
+      title1:   "Obento en casa,",
       title2:   "sin esperar.",
       desc:     "Todos nuestros platos disponibles para llevar. Recógelos en el restaurante o pídelos por Foodora y Wolt.",
       btn:      "Pedir Ahora",
@@ -95,7 +95,7 @@ const t = {
       reviews: [
         { text: "Una experiencia culinaria absolutamente excepcional. La fusión entre México y Japón es perfecta.", author: "Maria K.", role: "Google Review" },
         { text: "El sushi bar es simplemente increíble. Cada bocado es una obra de arte. El Truffle Akami es único.", author: "Thomas B.", role: "TripAdvisor" },
-        { text: "El Brisket Norteño cocido 15 horas es el mejor que he probado en Oslo. Servicio impecable.", author: "Sofia L.", role: "Google Review" },
+        { text: "El Brisket Norteño cocido 15 horas es el mejor que he probado en Murcia. Servicio impecable.", author: "Sofia L.", role: "Google Review" },
         { text: "Ambiente sofisticado, equipo apasionado y una carta de cócteles que merece su propio viaje.", author: "Anders M.", role: "TripAdvisor" },
       ],
     },
@@ -112,9 +112,9 @@ const t = {
         { day: "Domingo",         time: "13:00 – 21:00" },
       ],
       info: [
-        "Sorengkaia 165, 0194 Oslo",
+        "Sorengkaia 165, 0194 Murcia",
         "+47 23 68 75 57",
-        "booking@coyorestaurant.no",
+        "booking@obentorestaurant.no",
       ],
       secciones: { mexican: "Mexican Food", sushi: "Sushi Bar" },
       btn:         "Reservar ahora",
@@ -145,7 +145,7 @@ const t = {
 
     // ── Footer ──────────────────────────────────────────────────────────
     footer: {
-      tagline:    "Cocina mexicana auténtica y sushi bar de autor en Sørenga, Oslo.",
+      tagline:    "Cocina mexicana auténtica y sushi bar de autor en La Ñora, Murcia.",
       links:      "Enlaces",
       contacto:   "Contacto",
       horario:    "Horario",
@@ -184,7 +184,7 @@ const t = {
       gratis:       "Gratis",
       total:        "Total",
       confirmar:    "Confirmar Pedido",
-      recogidaInfo: "Recogida en Sørengkaia 165 · Oslo",
+      recogidaInfo: "Recogida en Sørengkaia 165 · Murcia",
     },
 
     // ── Take Away page ───────────────────────────────────────────────────
@@ -366,12 +366,12 @@ const t = {
 
     // ── Catering ─────────────────────────────────────────────────────────
     catering: {
-      heroLabel:   "Catering Premium · Coyo Oslo",
+      heroLabel:   "Catering Premium · Obento Murcia",
       heroTitle:   "Sushi premium\npara tu evento.",
       heroH1a:     "Eleva tu evento.",
       heroH1b:     "Deja una huella",
       heroH1c:     "imborrable.",
-      heroDesc:    "Olvídate de los caterings convencionales. Coyo Sushi transforma cualquier reunión en una experiencia culinaria premium que tus invitados recordarán mucho después de que termine la velada.",
+      heroDesc:    "Olvídate de los caterings convencionales. Obento Sushi transforma cualquier reunión en una experiencia culinaria premium que tus invitados recordarán mucho después de que termine la velada.",
       heroBtn:     "Reservar catering",
       heroBtnSec:  "Pedir presupuesto",
       heroStatLabels: ["Desde / persona", "Menús", "Llave en mano", "Cobertura"],
@@ -386,7 +386,7 @@ const t = {
         { t: "Excelencia en cada pieza",   d: "Nuestros chefs equilibran tradición y vanguardia en cada preparación." },
         { t: "Adaptabilidad total",         d: "Diseñamos menús a medida para que tu evento sea tan único como tú." },
         { t: "Servicio llave en mano",      d: "Recogida, entrega o chefs cocinando en vivo en tu propio espacio." },
-        { t: "Estética impecable",          d: "Bandejas listas para impresionar, con el cuidado visual que solo Coyo garantiza." },
+        { t: "Estética impecable",          d: "Bandejas listas para impresionar, con el cuidado visual que solo Obento garantiza." },
       ],
       whyBadge1: "llave en mano",
       whyBadge2: "cobertura total",
@@ -400,10 +400,10 @@ const t = {
       menusSolicitar:   "Solicitar este menú",
       menusUnit:        "por persona",
       menus: [
-        { name: "Coyo Enkel",    price: "320,-", tag: "La elección segura",    desc: "Un surtido clásico que nunca falla. Ideal para reuniones donde la calidad y el sabor son los protagonistas sin complicaciones.", items: ["Surtido de makis clásicos", "Nigiris de salmón y atún", "Gyozas de cerdo artesanales", "Salsa de soja premium y wasabi"] },
-        { name: "Coyo Signatur", price: "380,-", tag: "La opción refinada",    desc: "Maki exclusivo y combinaciones audaces pensadas para impresionar en los eventos más exigentes. La firma de Coyo.", items: ["Maki exclusivo de temporada", "Combinaciones de autor", "Rolls premium con trufa", "Presentación de alta cocina"] },
-        { name: "Coyo Varm",     price: "330,-", tag: "Para amantes del calor", desc: "Una explosión de sabor con nigiris flambeados, hot rolls y gyozas artesanales. Para quienes buscan algo más que frío.", items: ["Nigiris flambeados al momento", "Hot rolls con salsa spicy", "Gyozas artesanales calientes", "Caldo dashi de acompañamiento"] },
-        { name: "Coyo Veggie",   price: "290,-", tag: "Vanguardia vegetal",    desc: "La prueba de que el sushi vegetariano puede ser el centro de atención. Fresco, creativo y sorprendente.", items: ["Rolls de aguacate y pepino", "Nigiris de tofu marinado", "Maki de mango y remolacha", "Salsas veganas de autor"] },
+        { name: "Obento Enkel",    price: "320,-", tag: "La elección segura",    desc: "Un surtido clásico que nunca falla. Ideal para reuniones donde la calidad y el sabor son los protagonistas sin complicaciones.", items: ["Surtido de makis clásicos", "Nigiris de salmón y atún", "Gyozas de cerdo artesanales", "Salsa de soja premium y wasabi"] },
+        { name: "Obento Signatur", price: "380,-", tag: "La opción refinada",    desc: "Maki exclusivo y combinaciones audaces pensadas para impresionar en los eventos más exigentes. La firma de Obento.", items: ["Maki exclusivo de temporada", "Combinaciones de autor", "Rolls premium con trufa", "Presentación de alta cocina"] },
+        { name: "Obento Varm",     price: "330,-", tag: "Para amantes del calor", desc: "Una explosión de sabor con nigiris flambeados, hot rolls y gyozas artesanales. Para quienes buscan algo más que frío.", items: ["Nigiris flambeados al momento", "Hot rolls con salsa spicy", "Gyozas artesanales calientes", "Caldo dashi de acompañamiento"] },
+        { name: "Obento Veggie",   price: "290,-", tag: "Vanguardia vegetal",    desc: "La prueba de que el sushi vegetariano puede ser el centro de atención. Fresco, creativo y sorprendente.", items: ["Rolls de aguacate y pepino", "Nigiris de tofu marinado", "Maki de mango y remolacha", "Salsas veganas de autor"] },
       ],
       howLabel:  "El proceso",
       howTitle1: "Simple, rápido y ",
@@ -483,7 +483,7 @@ const t = {
       sushiMenu:    "Carta Sushi",
       drinks:       "Bebidas",
       allergens:    "Alérgenos",
-      halalNote:    "(H) Disponible en versión Halal · Precios sujetos a cambios · © Coyo 2026",
+      halalNote:    "(H) Disponible en versión Halal · Precios sujetos a cambios · © Obento 2026",
     },
 
     // ── Monitor ──────────────────────────────────────────────────────────
@@ -518,7 +518,7 @@ const t = {
       sinReservasSec: "Sin reservas",
       personasLabel:  "personas",
       sinPedidosSec:  "Sin pedidos activos",
-      monitorFooter:  "Coyo Restaurant · Oslo · Monitor de operaciones",
+      monitorFooter:  "Obento Restaurant · Murcia · Monitor de operaciones",
     },
 
     // ── Admin ────────────────────────────────────────────────────────────
@@ -541,23 +541,45 @@ const t = {
       resumen:       "Resumen del día",
 
       // Cupones
-      cupones:                "Cupones",
-      cuponesCreados:         "cupones creados",
-      cuponesNuevo:           "Nuevo cupón",
+      cupones:                "Cupones y Ofertas",
+      cuponesCreados:         "cupones y ofertas creados",
+      cuponesNuevo:           "Nuevo cupón de descuento",
       cuponesCodigo:          "Código",
       cuponesDescuento:       "Descuento",
       cuponesTipo:            "Tipo",
       cuponesMaxUsos:         "Usos máx. (opcional)",
       cuponesMaxUsosPh:       "Sin límite",
       cuponesTipoPct:         "Porcentaje (%)",
-      cuponesTipoFijo:        "Importe fijo (,-)",
+      cuponesTipoFijo:        "Importe fijo (€)",
       cuponesCrear:           "Crear cupón",
       cuponesCreando:         "Creando...",
       cuponesUsos:            "Usos",
       cuponesActivo:          "Activo",
       cuponesInactivo:        "Inactivo",
-      cuponesVacio:           "No hay cupones aún. Crea el primero.",
+      cuponesVacio:           "No hay cupones creados aún. Crea el primero.",
       cuponesEliminarConfirm: "¿Eliminar este cupón?",
+      cuponesColumna:         "Cupones de Descuento",
+      cuponesSubtitulo:       "Códigos promocionales canjeables en pedidos",
+      cuponesMinimo:          "Pedido mín. (€)",
+      cuponesMinimoPh:        "Sin pedido mínimo",
+      cuponesDescripcion:     "Descripción",
+      cuponesDescripcionPh:   "Ej: 10% en tu primer pedido",
+
+      // Ofertas
+      ofertasColumna:         "Ofertas y Promociones",
+      ofertasSubtitulo:       "Promociones activas en la carta y takeaway",
+      ofertasNueva:           "Nueva oferta o promoción",
+      ofertasCampoTitulo:     "Título de la oferta",
+      ofertasCampoDesc:       "Descripción / Condiciones",
+      ofertasCampoBadge:      "Etiqueta / Badge",
+      ofertasCampoTipo:       "Tipo de oferta",
+      ofertasCampoDescuento:  "Descuento",
+      ofertasCampoValido:     "Válido hasta / Horario",
+      ofertasCrear:           "Crear oferta",
+      ofertasCreando:         "Creando oferta...",
+      ofertasVacio:           "No hay ofertas creadas aún. Crea la primera.",
+      ofertasEliminarConfirm: "¿Eliminar esta oferta?",
+      ofertasTipoEspecial:    "Promoción Especial / 2x1",
 
       // Login
       loginTitle:    "Panel de Administración",
@@ -716,7 +738,7 @@ const t = {
       campoNombreEs:    "Nombre (ES)",
       campoNombreEn:    "Nombre (EN)",
       campoDescripcion: "Descripción",
-      campoPrecio:      "Precio (NOK)",
+      campoPrecio:      "Precio (EUR)",
       campoImagen:      "Imagen",
       placeholderNombrePlato: "Nombre del plato",
       placeholderNombrePlatoEn: "Nombre del plato en inglés",
@@ -907,7 +929,7 @@ const t = {
       sub_inicio:      "Back to top",
       sub_concepto:    "Our story",
       sub_menu:        "Signature dishes",
-      sub_galeria:     "The Coyo space",
+      sub_galeria:     "The Obento space",
       sub_reservar:    "Table at the restaurant",
       sub_takeaway:    "Order and collect",
       sub_cocina:      "Learn to make sushi",
@@ -918,7 +940,7 @@ const t = {
     hero: {
       line1:        "Where Mexico",
       line2:        "embraces Japan",
-      subtitle:     "Authentic Mexican cuisine and signature sushi bar on the shores of Oslofjord, Sørenga Oslo.",
+      subtitle:     "Authentic Mexican cuisine and signature sushi bar on the shores of Murciafjord, La Ñora Murcia.",
       cta:          "Book a Table",
       ctaSecondary: "Order Take Away",
     },
@@ -927,7 +949,7 @@ const t = {
     marquee: [
       "Authentic Mexican Cuisine",
       "Signature Sushi Bar",
-      "Sørenga · Oslo",
+      "La Ñora · Murcia",
       "Take Away · Foodora · Wolt",
       "Online Reservations",
       "Premium Cocktails",
@@ -940,10 +962,10 @@ const t = {
       label:     "Our Story",
       title1:    "Two worlds.",
       title2:    "One flavour.",
-      quote:     "Coyo was born at the crossroads of two cultures passionate about flavour. In Sørenga, where the Oslofjord reflects the city lights, Mexico and Japan meet in every bite.",
+      quote:     "Obento was born at the crossroads of two cultures passionate about flavour. In La Ñora, where the Murciafjord reflects the city lights, Mexico and Japan meet in every bite.",
       para:      "Every dish is a conversation between two worlds. First-class ingredients, flawless technique and authentic passion — from our open sushi bar to the flames of our Mexican kitchen.",
       reviews:   "338+ reviews on Google",
-      stat0:     "Years in Oslo",
+      stat0:     "Years in Murcia",
       stat1:     "Kitchens, 1 soul",
       stat2:     "338+ reviews",
     },
@@ -961,17 +983,17 @@ const t = {
     // ── Galería ─────────────────────────────────────────────────────────
     galeria: {
       label:       "Gallery",
-      title:       "The Coyo Space",
+      title:       "The Obento Space",
       verMas:      "See more",
       espacioLabel: "The Space",
-      atmosTitle:  "The Coyo Atmosphere",
-      atmosDesc:   "A space designed for Mexico and Japan to coexist in harmony, on the shores of the Oslofjord.",
+      atmosTitle:  "The Obento Atmosphere",
+      atmosDesc:   "A space designed for Mexico and Japan to coexist in harmony, on the shores of the Murciafjord.",
     },
 
     // ── Take Away CTA ───────────────────────────────────────────────────
     takeawayCta: {
       label:    "Take Away",
-      title1:   "Coyo at home,",
+      title1:   "Obento at home,",
       title2:   "without the wait.",
       desc:     "All our dishes available to take away. Collect at the restaurant or order via Foodora and Wolt.",
       btn:      "Order Now",
@@ -986,7 +1008,7 @@ const t = {
       reviews: [
         { text: "An absolutely exceptional culinary experience. The fusion of Mexico and Japan is perfect.", author: "Maria K.", role: "Google Review" },
         { text: "The sushi bar is simply incredible. Every bite is a work of art. The Truffle Akami is unique.", author: "Thomas B.", role: "TripAdvisor" },
-        { text: "The 15-hour slow-cooked Northern Brisket is the best I've had in Oslo. Impeccable service.", author: "Sofia L.", role: "Google Review" },
+        { text: "The 15-hour slow-cooked Northern Brisket is the best I've had in Murcia. Impeccable service.", author: "Sofia L.", role: "Google Review" },
         { text: "Sophisticated atmosphere, passionate team and a cocktail menu worthy of its own trip.", author: "Anders M.", role: "TripAdvisor" },
       ],
     },
@@ -1003,9 +1025,9 @@ const t = {
         { day: "Sunday",          time: "13:00 – 21:00" },
       ],
       info: [
-        "Sorengkaia 165, 0194 Oslo",
+        "Sorengkaia 165, 0194 Murcia",
         "+47 23 68 75 57",
-        "booking@coyorestaurant.no",
+        "booking@obentorestaurant.no",
       ],
       secciones: { mexican: "Mexican Food", sushi: "Sushi Bar" },
       btn:         "Book now",
@@ -1036,7 +1058,7 @@ const t = {
 
     // ── Footer ──────────────────────────────────────────────────────────
     footer: {
-      tagline:    "Authentic Mexican cuisine and signature sushi bar in Sørenga, Oslo.",
+      tagline:    "Authentic Mexican cuisine and signature sushi bar in La Ñora, Murcia.",
       links:      "Links",
       contacto:   "Contact",
       horario:    "Opening Hours",
@@ -1075,7 +1097,7 @@ const t = {
       gratis:       "Free",
       total:        "Total",
       confirmar:    "Confirm Order",
-      recogidaInfo: "Pick-up at Sørengkaia 165 · Oslo",
+      recogidaInfo: "Pick-up at Sørengkaia 165 · Murcia",
     },
 
     // ── Take Away page ───────────────────────────────────────────────────
@@ -1250,12 +1272,12 @@ const t = {
 
     // ── Catering ─────────────────────────────────────────────────────────
     catering: {
-      heroLabel:   "Premium Catering · Coyo Oslo",
+      heroLabel:   "Premium Catering · Obento Murcia",
       heroTitle:   "Premium sushi\nfor your event.",
       heroH1a:     "Elevate your event.",
       heroH1b:     "Leave a lasting",
       heroH1c:     "impression.",
-      heroDesc:    "Forget conventional catering. Coyo Sushi transforms any gathering into a premium culinary experience your guests will remember long after the evening ends.",
+      heroDesc:    "Forget conventional catering. Obento Sushi transforms any gathering into a premium culinary experience your guests will remember long after the evening ends.",
       heroBtn:     "Book catering",
       heroBtnSec:  "Request a quote",
       heroStatLabels: ["From / person", "Menus", "Turnkey service", "Coverage"],
@@ -1270,7 +1292,7 @@ const t = {
         { t: "Excellence in every piece",  d: "Our chefs balance tradition and innovation in every preparation." },
         { t: "Total adaptability",          d: "We design bespoke menus so your event is as unique as you are." },
         { t: "Turnkey service",             d: "Collection, delivery or chefs cooking live in your own space." },
-        { t: "Impeccable presentation",     d: "Trays ready to impress, with the visual care only Coyo guarantees." },
+        { t: "Impeccable presentation",     d: "Trays ready to impress, with the visual care only Obento guarantees." },
       ],
       whyBadge1: "turnkey service",
       whyBadge2: "full coverage",
@@ -1284,10 +1306,10 @@ const t = {
       menusSolicitar:   "Request this menu",
       menusUnit:        "per person",
       menus: [
-        { name: "Coyo Enkel",    price: "320,-", tag: "The safe choice",       desc: "A classic assortment that never fails. Ideal for gatherings where quality and flavour take centre stage without any fuss.", items: ["Classic maki assortment", "Salmon and tuna nigiris", "Artisan pork gyozas", "Premium soy sauce and wasabi"] },
-        { name: "Coyo Signatur", price: "380,-", tag: "The refined option",    desc: "Exclusive maki and bold combinations designed to impress at the most demanding events. The Coyo signature.", items: ["Seasonal exclusive maki", "Chef's combination rolls", "Premium truffle rolls", "Fine-dining presentation"] },
-        { name: "Coyo Varm",     price: "330,-", tag: "For warm food lovers",  desc: "A flavour explosion with flambéed nigiris, hot rolls and artisan gyozas. For those who want more than cold.", items: ["Freshly flambéed nigiris", "Hot rolls with spicy sauce", "Warm artisan gyozas", "Dashi broth on the side"] },
-        { name: "Coyo Veggie",   price: "290,-", tag: "Plant-based vanguard",  desc: "Proof that vegetarian sushi can steal the show. Fresh, creative and surprisingly delicious — no fish needed.", items: ["Avocado and cucumber rolls", "Marinated tofu nigiris", "Mango and beetroot maki", "Vegan signature sauces"] },
+        { name: "Obento Enkel",    price: "320,-", tag: "The safe choice",       desc: "A classic assortment that never fails. Ideal for gatherings where quality and flavour take centre stage without any fuss.", items: ["Classic maki assortment", "Salmon and tuna nigiris", "Artisan pork gyozas", "Premium soy sauce and wasabi"] },
+        { name: "Obento Signatur", price: "380,-", tag: "The refined option",    desc: "Exclusive maki and bold combinations designed to impress at the most demanding events. The Obento signature.", items: ["Seasonal exclusive maki", "Chef's combination rolls", "Premium truffle rolls", "Fine-dining presentation"] },
+        { name: "Obento Varm",     price: "330,-", tag: "For warm food lovers",  desc: "A flavour explosion with flambéed nigiris, hot rolls and artisan gyozas. For those who want more than cold.", items: ["Freshly flambéed nigiris", "Hot rolls with spicy sauce", "Warm artisan gyozas", "Dashi broth on the side"] },
+        { name: "Obento Veggie",   price: "290,-", tag: "Plant-based vanguard",  desc: "Proof that vegetarian sushi can steal the show. Fresh, creative and surprisingly delicious — no fish needed.", items: ["Avocado and cucumber rolls", "Marinated tofu nigiris", "Mango and beetroot maki", "Vegan signature sauces"] },
       ],
       howLabel:  "The process",
       howTitle1: "Simple, fast and ",
@@ -1367,7 +1389,7 @@ const t = {
       sushiMenu:    "Sushi Menu",
       drinks:       "Drinks",
       allergens:    "Allergens",
-      halalNote:    "(H) Available in Halal version · Prices subject to change · © Coyo 2026",
+      halalNote:    "(H) Available in Halal version · Prices subject to change · © Obento 2026",
     },
 
     // ── Monitor ──────────────────────────────────────────────────────────
@@ -1402,7 +1424,7 @@ const t = {
       sinReservasSec: "No reservations",
       personasLabel:  "guests",
       sinPedidosSec:  "No active orders",
-      monitorFooter:  "Coyo Restaurant · Oslo · Operations Monitor",
+      monitorFooter:  "Obento Restaurant · Murcia · Operations Monitor",
     },
 
     // ── Admin ────────────────────────────────────────────────────────────
@@ -1425,23 +1447,45 @@ const t = {
       resumen:       "Day summary",
 
       // Cupones
-      cupones:                "Coupons",
-      cuponesCreados:         "coupons created",
-      cuponesNuevo:           "New coupon",
+      cupones:                "Coupons & Offers",
+      cuponesCreados:         "coupons & offers created",
+      cuponesNuevo:           "New discount coupon",
       cuponesCodigo:          "Code",
       cuponesDescuento:       "Discount",
       cuponesTipo:            "Type",
       cuponesMaxUsos:         "Max uses (optional)",
       cuponesMaxUsosPh:       "No limit",
       cuponesTipoPct:         "Percentage (%)",
-      cuponesTipoFijo:        "Fixed amount (,-)",
+      cuponesTipoFijo:        "Fixed amount (€)",
       cuponesCrear:           "Create coupon",
       cuponesCreando:         "Creating...",
       cuponesUsos:            "Uses",
       cuponesActivo:          "Active",
       cuponesInactivo:        "Inactive",
-      cuponesVacio:           "No coupons yet. Create the first one.",
+      cuponesVacio:           "No coupons created yet. Create the first one.",
       cuponesEliminarConfirm: "Delete this coupon?",
+      cuponesColumna:         "Discount Coupons",
+      cuponesSubtitulo:       "Promo codes redeemable on orders",
+      cuponesMinimo:          "Min. order (€)",
+      cuponesMinimoPh:        "No minimum",
+      cuponesDescripcion:     "Description",
+      cuponesDescripcionPh:   "E.g.: 10% on your first order",
+
+      // Ofertas
+      ofertasColumna:         "Offers & Promotions",
+      ofertasSubtitulo:       "Active promotions on menu & takeaway",
+      ofertasNueva:           "New offer or promotion",
+      ofertasCampoTitulo:     "Offer title",
+      ofertasCampoDesc:       "Description / Terms",
+      ofertasCampoBadge:      "Badge / Tag",
+      ofertasCampoTipo:       "Offer type",
+      ofertasCampoDescuento:  "Discount",
+      ofertasCampoValido:     "Valid until / Schedule",
+      ofertasCrear:           "Create offer",
+      ofertasCreando:         "Creating offer...",
+      ofertasVacio:           "No offers created yet. Create the first one.",
+      ofertasEliminarConfirm: "Delete this offer?",
+      ofertasTipoEspecial:    "Special Promo / 2-for-1",
 
       // Login
       loginTitle:    "Administration Panel",
@@ -1600,7 +1644,7 @@ const t = {
       campoNombreEs:    "Name (ES)",
       campoNombreEn:    "Name (EN)",
       campoDescripcion: "Description",
-      campoPrecio:      "Price (NOK)",
+      campoPrecio:      "Price (EUR)",
       campoImagen:      "Image",
       placeholderNombrePlato: "Dish name",
       placeholderNombrePlatoEn: "Dish name in English",

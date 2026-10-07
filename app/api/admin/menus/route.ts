@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionRole, deny403 } from "@/lib/auth";
 
 const CLAVE = "menus_cartas";
-const VACIO = { mexicana: [], sushi: [], bebidas: [] };
+const VACIO = { sushi: [], calientes: [], entrantes: [], postres: [], bebidas: [] };
 
 export async function GET() {
   if (!(await getSessionRole())) return deny403();

@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   };
 
   if (items.includes("reservas"))      addJson("reservas",      await prisma.reserva.findMany());
-  if (items.includes("pedidos"))       addJson("pedidos",       await prisma.pedido.findMany());
+  if (items.includes("pedidos"))       addJson("pedidos",       await prisma.pedidos.findMany({ include: { pedido_items: true } }));
   if (items.includes("clientes"))      addJson("clientes",      await prisma.cliente.findMany());
   if (items.includes("reseñas"))       addJson("reseñas",       await prisma.review.findMany().catch(() => []));
   if (items.includes("cupones"))       addJson("cupones",       await prisma.cupon.findMany().catch(() => []));

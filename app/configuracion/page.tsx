@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bot, Save, Check, Eye, EyeOff, Key, Clock, BookOpen, Settings2, Mail, ShoppingBag, CreditCard, Globe, HardDrive, Download, Trash2, RefreshCw, CheckSquare, Square, Upload } from "lucide-react";
+import {
+  Settings, Globe, ShoppingBag, Clock, Bot, CreditCard, Mail,
+  HardDrive, Save, Check, Eye, EyeOff, Key, BookOpen, AlertCircle,
+  RefreshCw, CheckSquare, Square, Download, Trash2, ArrowRight
+} from "lucide-react";
 import { useAdminLanguage } from "@/lib/LanguageContext";
 
+// ─── TIPOS ───────────────────────────────────────────────────────────────────
+
 type Hours = Record<string, { open: string; close: string; active: boolean }>;
-type Config = {
+
+type AgentConfig = {
   enabled: boolean;
   apiProvider: "anthropic" | "openai";
   apiKey: string;
@@ -16,70 +23,6 @@ type Config = {
   apiKeySet?: boolean;
 };
 
-const DAY_KEYS = ["lunes","martes","miercoles","jueves","viernes","sabado","domingo"] as const;
-
-const MODELS = {
-  anthropic: ["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-opus-4-8"],
-  openai:    ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo"],
-};
-
-const INPUT: React.CSSProperties = {
-  width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-  borderRadius: 4, padding: "0.6rem 0.9rem", color: "#fff", fontSize: 14, outline: "none",
-  boxSizing: "border-box",
-};
-
-const TIMEZONES = [
-  { value: "Europe/Oslo",      label: "Oslo (UTC+1/+2)" },
-  { value: "Europe/Madrid",    label: "Madrid (UTC+1/+2)" },
-  { value: "Europe/London",    label: "Londres (UTC+0/+1)" },
-  { value: "Europe/Paris",     label: "París (UTC+1/+2)" },
-  { value: "Europe/Berlin",    label: "Berlín (UTC+1/+2)" },
-  { value: "Europe/Rome",      label: "Roma (UTC+1/+2)" },
-  { value: "Europe/Amsterdam", label: "Ámsterdam (UTC+1/+2)" },
-  { value: "Europe/Stockholm", label: "Estocolmo (UTC+1/+2)" },
-  { value: "Europe/Copenhagen",label: "Copenhague (UTC+1/+2)" },
-  { value: "Europe/Helsinki",  label: "Helsinki (UTC+2/+3)" },
-  { value: "Europe/Lisbon",    label: "Lisboa (UTC+0/+1)" },
-  { value: "Europe/Warsaw",    label: "Varsovia (UTC+1/+2)" },
-  { value: "America/New_York", label: "Nueva York (UTC-5/-4)" },
-  { value: "America/Chicago",  label: "Chicago (UTC-6/-5)" },
-  { value: "America/Denver",   label: "Denver (UTC-7/-6)" },
-  { value: "America/Los_Angeles", label: "Los Ángeles (UTC-8/-7)" },
-  { value: "America/Mexico_City", label: "Ciudad de México (UTC-6/-5)" },
-  { value: "America/Bogota",   label: "Bogotá (UTC-5)" },
-  { value: "America/Lima",     label: "Lima (UTC-5)" },
-  { value: "America/Santiago", label: "Santiago (UTC-4/-3)" },
-  { value: "America/Buenos_Aires", label: "Buenos Aires (UTC-3)" },
-  { value: "America/Sao_Paulo",label: "São Paulo (UTC-3/-2)" },
-  { value: "Asia/Dubai",       label: "Dubái (UTC+4)" },
-  { value: "Asia/Tokyo",       label: "Tokio (UTC+9)" },
-  { value: "Asia/Shanghai",    label: "Shanghái (UTC+8)" },
-  { value: "Australia/Sydney", label: "Sídney (UTC+10/+11)" },
-  { value: "UTC",              label: "UTC (UTC+0)" },
-];
-
-const TAB_ICONS: Record<string, React.ElementType> = {
-  sitio: Globe, general: Settings2, horarios: Clock, email: Mail, takeaway: ShoppingBag, stripe: CreditCard, backup: HardDrive,
-};
-const TAB_KEYS = ["sitio","general","horarios","email","takeaway","stripe","backup"] as const;
-
-const BACKUP_ITEMS = [
-  { key: "reservas",      label: "Reservas",      desc: "Todas las reservas de la BD" },
-  { key: "pedidos",       label: "Pedidos",        desc: "Todos los pedidos takeaway" },
-  { key: "clientes",      label: "Clientes",       desc: "Base de datos de clientes" },
-  { key: "reseñas",       label: "Reseñas",        desc: "Reseñas y reviews" },
-  { key: "cupones",       label: "Cupones",        desc: "Cupones de descuento" },
-  { key: "configuracion", label: "Configuración",  desc: "Ajustes del sistema" },
-  { key: "usuarios",      label: "Usuarios",       desc: "Trabajadores con acceso" },
-  { key: "platos",        label: "Carta / Platos", desc: "Menú y platos" },
-  { key: "servicios",     label: "Servicios",      desc: "Servicios del restaurante" },
-  { key: "galeria",       label: "Galería (BD)",   desc: "Entradas de galería en BD" },
-  { key: "imagenes",      label: "Imágenes",       desc: "Todas las fotos JPG/PNG/WEBP" },
-  { key: "videos",        label: "Vídeos",         desc: "Archivos MP4 de la web" },
-  { key: "frames",        label: "Frames de vídeo",desc: "Fotogramas del hero animado" },
-];
-
 type TakeawayConfig = {
   takeaway_dias_minimos: string;
   takeaway_hoy_habilitado: string;
@@ -88,114 +31,209 @@ type TakeawayConfig = {
   takeaway_iva: string;
 };
 
-export default function AgentePage() {
-  const { tr } = useAdminLanguage();
-  const a = tr.admin;
-  const [config, setConfig]   = useState<Config | null>(null);
-  const [tab, setTab]         = useState("general");
+type GeneralConfig = {
+  sitio_nombre: string;
+  sitio_telefono: string;
+  sitio_direccion: string;
+  sitio_email: string;
+  sitio_zona_horaria: string;
+};
 
-  // Take Away config
-  const [tConfig, setTConfig]   = useState<TakeawayConfig>({
-    takeaway_dias_minimos: "2",
-    takeaway_hoy_habilitado: "false",
-    takeaway_horas_minimas: "2",
-    takeaway_mensaje_recuerda: "los pedidos realizados hoy se preparan y entregan a partir de pasado mañana. Selecciona el día y hora que mejor te convenga.",
-    takeaway_iva: "25",
+const DAY_KEYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
+
+const DEFAULT_HOURS: Hours = {
+  lunes: { open: "13:00", close: "23:30", active: true },
+  martes: { open: "13:00", close: "23:30", active: true },
+  miercoles: { open: "13:00", close: "23:30", active: true },
+  jueves: { open: "13:00", close: "23:30", active: true },
+  viernes: { open: "13:00", close: "23:59", active: true },
+  sabado: { open: "13:00", close: "23:59", active: true },
+  domingo: { open: "13:00", close: "23:30", active: true },
+};
+
+const MODELS = {
+  anthropic: ["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-opus-4-8"],
+  openai: ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo"],
+};
+
+const TIMEZONES = [
+  { value: "Europe/Madrid", label: "Murcia / Madrid (Península UTC+1/+2)" },
+  { value: "Atlantic/Canary", label: "Canarias (UTC+0/+1)" },
+  { value: "Europe/London", label: "Londres (UTC+0/+1)" },
+  { value: "Europe/Paris", label: "París (UTC+1/+2)" },
+  { value: "Europe/Berlin", label: "Berlín (UTC+1/+2)" },
+  { value: "Europe/Rome", label: "Roma (UTC+1/+2)" },
+  { value: "UTC", label: "UTC Universal" },
+];
+
+const BACKUP_ITEMS = [
+  { key: "pedidos", label: "Pedidos Takeaway", desc: "Histórico completo de pedidos online" },
+  { key: "platos", label: "Carta & Platos", desc: "Catálogo completo de platos, precios y alérgenos" },
+  { key: "clientes", label: "Clientes", desc: "Base de datos de compradores y teléfonos" },
+  { key: "cupones", label: "Cupones y Ofertas", desc: "Códigos promocionales y descuentos" },
+  { key: "reseñas", label: "Reseñas & Reviews", desc: "Opiniones y valoraciones" },
+  { key: "configuracion", label: "Configuración", desc: "Ajustes del restaurante y sistema" },
+  { key: "usuarios", label: "Usuarios & Permisos", desc: "Cuentas de administradores" },
+];
+
+const INPUT_STYLE: React.CSSProperties = {
+  width: "100%",
+  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: 6,
+  padding: "0.65rem 0.95rem",
+  color: "#fff",
+  fontSize: 14,
+  outline: "none",
+  boxSizing: "border-box",
+};
+
+export default function ConfiguracionPage() {
+  const { tr } = useAdminLanguage();
+  const [tab, setTab] = useState<"general" | "takeaway" | "horarios" | "agente" | "stripe" | "email" | "backup">("general");
+
+  // 1. General Config
+  const [generalConfig, setGeneralConfig] = useState<GeneralConfig>({
+    sitio_nombre: "Obento Japanese Food",
+    sitio_telefono: "968 00 00 00",
+    sitio_direccion: "Calle Mayor 45, 30830 La Ñora (Murcia)",
+    sitio_email: "pedidos@obentojapanesefood.es",
+    sitio_zona_horaria: "Europe/Madrid",
+  });
+  const [generalSaving, setGeneralSaving] = useState(false);
+  const [generalSaved, setGeneralSaved] = useState(false);
+
+  // 2. Takeaway Config
+  const [tConfig, setTConfig] = useState<TakeawayConfig>({
+    takeaway_dias_minimos: "0",
+    takeaway_hoy_habilitado: "true",
+    takeaway_horas_minimas: "0",
+    takeaway_mensaje_recuerda: "Tu pedido se elabora al momento con pescado fresco e ingredientes de máxima calidad. Recogida en Calle Mayor 45 en aproximadamente 25-35 minutos.",
+    takeaway_iva: "10",
   });
   const [tSaving, setTSaving] = useState(false);
-  const [tSaved,  setTSaved]  = useState(false);
-  const [saving, setSaving]   = useState(false);
-  const [saved, setSaved]     = useState(false);
-  const [showKey, setShowKey] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const [tSaved, setTSaved] = useState(false);
 
-  // General / sitio config
-  const [timezone,      setTimezone]      = useState("Europe/Oslo");
-  const [sitioSaving,   setSitioSaving]   = useState(false);
-  const [sitioSaved,    setSitioSaved]    = useState(false);
+  // 3. Agent Config (Chatbot IA)
+  const [agentConfig, setAgentConfig] = useState<AgentConfig>({
+    enabled: true,
+    apiProvider: "openai",
+    apiKey: "",
+    model: "gpt-4o-mini",
+    systemPrompt: `Eres el Asistente Virtual Oficial de Obento Japanese Food, ubicado en Calle Mayor 45, La Ñora (Murcia).
+Tu misión es atender con cortesía y rapidez a los clientes sobre la carta de sushi artesanal, entrantes, platos calientes, precios, alérgenos, recogida en local (takeaway) y pedidos online.
+Eres amable, profesional y conciso. Destacas la frescura de los ingredientes y el cuidado en cada elaboración.`,
+    knowledgeBase: `# OBENTO JAPANESE FOOD - CARTA Y SERVICIOS
+Ubicación: Calle Mayor 45, 30830 La Ñora, Murcia
+Teléfono: 968 00 00 00
+Especialidades: Sushi artesanal, Nigiris de autor, Uramakis premium, Gyozas caseras, Platos Wok y Mochis tradicionales.
+Takeaway & Pedidos Online: Los clientes pueden pedir directamente por la web y recoger en el restaurante. Tiempo medio de preparación: 25-35 minutos.
+Métodos de pago: Tarjeta online (Stripe) y pago en local (tarjeta o efectivo).
+Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado completo de alérgenos.`,
+    businessHours: DEFAULT_HOURS,
+    apiKeySet: false,
+  });
+  const [agentSaving, setAgentSaving] = useState(false);
+  const [agentSaved, setAgentSaved] = useState(false);
+  const [showAgentKey, setShowAgentKey] = useState(false);
+  const [testingAgent, setTestingAgent] = useState(false);
+  const [agentTestResult, setAgentTestResult] = useState<string | null>(null);
 
-  // Stripe config
-  const [stripePk,       setStripePk]       = useState("");
-  const [stripeSk,       setStripeSk]       = useState("");
-  const [stripeHasSk,    setStripeHasSk]    = useState(false);
+  // 4. Stripe Config
+  const [stripePk, setStripePk] = useState("");
+  const [stripeSk, setStripeSk] = useState("");
+  const [stripeHasSk, setStripeHasSk] = useState(false);
   const [stripeTestMode, setStripeTestMode] = useState(true);
-  const [showSk,         setShowSk]         = useState(false);
-  const [stripeSaving,   setStripeSaving]   = useState(false);
-  const [stripeSaved,    setStripeSaved]    = useState(false);
+  const [showSk, setShowSk] = useState(false);
+  const [stripeSaving, setStripeSaving] = useState(false);
+  const [stripeSaved, setStripeSaved] = useState(false);
 
-  // Email config
-  const [emailFrom, setEmailFrom]       = useState("");
-  const [emailPass, setEmailPass]       = useState("");
+  // 5. Email Config
+  const [emailFrom, setEmailFrom] = useState("");
+  const [emailPass, setEmailPass] = useState("");
   const [showEmailPass, setShowEmailPass] = useState(false);
-  const [emailSaving, setEmailSaving]   = useState(false);
-  const [emailSaved, setEmailSaved]     = useState(false);
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailSaved, setEmailSaved] = useState(false);
   const [emailTesting, setEmailTesting] = useState(false);
   const [emailTestResult, setEmailTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  // Backup
+  // 6. Backup Config
   type BackupFile = { filename: string; size: number; createdAt: string };
-  const [backupSelected, setBackupSelected] = useState<string[]>(BACKUP_ITEMS.map(i => i.key));
+  const [backupSelected, setBackupSelected] = useState<string[]>(BACKUP_ITEMS.map((i) => i.key));
   const [backupCreating, setBackupCreating] = useState(false);
-  const [backupList, setBackupList]         = useState<BackupFile[]>([]);
+  const [backupList, setBackupList] = useState<BackupFile[]>([]);
   const [backupListLoading, setBackupListLoading] = useState(false);
-  const [scheduleEnabled, setScheduleEnabled] = useState(false);
-  const [scheduleSaving, setScheduleSaving] = useState(false);
-  const [dbBackupCreating, setDbBackupCreating] = useState(false);
-  const [restoreFile, setRestoreFile]         = useState<File | null>(null);
-  const [restoring, setRestoring]             = useState(false);
-  const [restoreResult, setRestoreResult]     = useState<{ ok: boolean; msg: string } | null>(null);
-  const [restoreDbFile, setRestoreDbFile]     = useState<File | null>(null);
-  const [restoringDb, setRestoringDb]         = useState(false);
-  const [restoreDbResult, setRestoreDbResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // ─── CARGAR CONFIGURACIONES INICIALES ────────────────────────────────────────
 
   useEffect(() => {
+    // General
     fetch("/api/admin/configuracion/general")
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.sitio_zona_horaria) setTimezone(d.sitio_zona_horaria); })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setGeneralConfig((prev) => ({ ...prev, ...d }));
+      })
+      .catch(() => {});
+
+    // Takeaway
+    fetch("/api/admin/configuracion/takeaway")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setTConfig((prev) => ({ ...prev, ...d }));
+      })
+      .catch(() => {});
+
+    // Stripe
+    fetch("/api/admin/configuracion/stripe")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) {
+          setStripePk(d.publishableKey ?? "");
+          setStripeHasSk(Boolean(d.hasSecretKey));
+          setStripeTestMode(Boolean(d.isTestMode));
+        }
+      })
+      .catch(() => {});
+
+    // Email
+    fetch("/api/admin/configuracion/email")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setEmailFrom(d.from ?? "");
+      })
+      .catch(() => {});
+
+    // Agente
+    fetch("/api/admin/agente")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) {
+          setAgentConfig((prev) => ({
+            ...prev,
+            ...d,
+            businessHours: d.businessHours ? { ...DEFAULT_HOURS, ...d.businessHours } : DEFAULT_HOURS,
+            apiProvider: d.apiProvider === "anthropic" ? "anthropic" : "openai",
+            model: d.model || "gpt-4o-mini",
+            apiKey: "",
+          }));
+        }
+      })
       .catch(() => {});
   }, []);
 
-  const saveSitio = async () => {
-    setSitioSaving(true);
+  // ─── FUNCIONES DE GUARDADO ───────────────────────────────────────────────────
+
+  const saveGeneral = async () => {
+    setGeneralSaving(true);
     await fetch("/api/admin/configuracion/general", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sitio_zona_horaria: timezone }),
+      body: JSON.stringify(generalConfig),
     });
-    setSitioSaving(false);
-    setSitioSaved(true);
-    setTimeout(() => setSitioSaved(false), 2500);
+    setGeneralSaving(false);
+    setGeneralSaved(true);
+    setTimeout(() => setGeneralSaved(false), 2500);
   };
-
-  useEffect(() => {
-    fetch("/api/admin/configuracion/stripe")
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) { setStripePk(d.publishableKey ?? ""); setStripeHasSk(d.hasSecretKey); setStripeTestMode(d.isTestMode); } })
-      .catch(() => {});
-  }, []);
-
-  const saveStripe = async () => {
-    setStripeSaving(true);
-    await fetch("/api/admin/configuracion/stripe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ publishableKey: stripePk, secretKey: stripeSk || undefined }),
-    });
-    setStripeSaving(false);
-    setStripeSaved(true);
-    setStripeSk("");
-    if (stripePk) setStripeTestMode(stripePk.startsWith("pk_test_"));
-    setStripeHasSk(prev => prev || !!stripeSk);
-    setTimeout(() => setStripeSaved(false), 2500);
-  };
-
-  useEffect(() => {
-    fetch("/api/admin/configuracion/takeaway")
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) setTConfig(d); })
-      .catch(() => {});
-  }, []);
 
   const saveTakeaway = async () => {
     setTSaving(true);
@@ -209,19 +247,45 @@ export default function AgentePage() {
     setTimeout(() => setTSaved(false), 2500);
   };
 
-  useEffect(() => {
-    fetch("/api/admin/configuracion/email")
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) { setEmailFrom(d.from ?? ""); } })
-      .catch(() => {});
-  }, []);
+  const saveAgent = async () => {
+    setAgentSaving(true);
+    await fetch("/api/admin/agente", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(agentConfig),
+    });
+    setAgentSaving(false);
+    setAgentSaved(true);
+    setTimeout(() => setAgentSaved(false), 2500);
+  };
+
+  const saveStripe = async () => {
+    setStripeSaving(true);
+    await fetch("/api/admin/configuracion/stripe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        publishableKey: stripePk,
+        secretKey: stripeSk || undefined,
+      }),
+    });
+    setStripeSaving(false);
+    setStripeSaved(true);
+    setStripeSk("");
+    if (stripePk) setStripeTestMode(stripePk.startsWith("pk_test_"));
+    setStripeHasSk((prev) => prev || Boolean(stripeSk));
+    setTimeout(() => setStripeSaved(false), 2500);
+  };
 
   const saveEmail = async () => {
     setEmailSaving(true);
     await fetch("/api/admin/configuracion/email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ from: emailFrom, password: emailPass || undefined }),
+      body: JSON.stringify({
+        from: emailFrom,
+        password: emailPass || undefined,
+      }),
     });
     setEmailSaving(false);
     setEmailSaved(true);
@@ -232,842 +296,1020 @@ export default function AgentePage() {
   const testEmail = async () => {
     setEmailTesting(true);
     setEmailTestResult(null);
-    const res = await fetch("/api/admin/configuracion/email/test", { method: "POST" });
-    const data = await res.json();
-    setEmailTestResult(data);
-    setEmailTesting(false);
+    try {
+      const res = await fetch("/api/admin/configuracion/email/test", { method: "POST" });
+      const data = await res.json();
+      setEmailTestResult(data);
+    } catch {
+      setEmailTestResult({ ok: false, msg: "Error al conectar con el servidor de correo" });
+    } finally {
+      setEmailTesting(false);
+    }
   };
 
-  useEffect(() => {
-    const cached = sessionStorage.getItem("coyo_agente_config");
-    if (cached) setConfig({ ...JSON.parse(cached), apiKey: "" });
-    fetch("/api/admin/agente")
-      .then(r => r.json())
-      .then(d => {
-        sessionStorage.setItem("coyo_agente_config", JSON.stringify(d));
-        setConfig(prev => ({ ...d, apiKey: prev?.apiKey ?? "" }));
+  const testAgentChat = async () => {
+    setTestingAgent(true);
+    setAgentTestResult(null);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "¿Cuáles son las especialidades de sushi de Obento y qué horario tenéis?" }],
+        }),
       });
-  }, []);
-
-  const save = async () => {
-    if (!config) return;
-    setSaving(true);
-    await fetch("/api/admin/agente", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(config),
-    });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+      const data = await res.json();
+      setAgentTestResult(data.reply || "El asistente respondió correctamente.");
+    } catch {
+      setAgentTestResult("No se pudo conectar con el servicio de IA. Verifica la API Key.");
+    } finally {
+      setTestingAgent(false);
+    }
   };
 
-  const testAgent = async () => {
-    setTesting(true);
-    setTestResult(null);
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: [{ role: "user", content: "¿Cuáles son vuestros horarios?" }] }),
-    });
-    const { reply } = await res.json();
-    setTestResult(reply);
-    setTesting(false);
-  };
-
-  const set = (k: keyof Config, v: unknown) => setConfig(prev => prev ? { ...prev, [k]: v } : prev);
-
-  const setHour = (day: string, field: "open" | "close" | "active", value: string | boolean) => {
-    if (!config) return;
-    setConfig({ ...config, businessHours: { ...config.businessHours, [day]: { ...config.businessHours[day], [field]: value } } });
+  const setHourField = (day: string, field: "open" | "close" | "active", value: string | boolean) => {
+    setAgentConfig((prev) => ({
+      ...prev,
+      businessHours: {
+        ...prev.businessHours,
+        [day]: {
+          ...(prev.businessHours[day] ?? { open: "13:00", close: "23:30", active: true }),
+          [field]: value,
+        },
+      },
+    }));
   };
 
   const loadBackupList = async () => {
     setBackupListLoading(true);
-    const r = await fetch("/api/admin/backup/list");
-    setBackupList(await r.json());
-    setBackupListLoading(false);
-  };
-
-  const loadSchedule = async () => {
-    const r = await fetch("/api/admin/backup/schedule");
-    const d = await r.json();
-    setScheduleEnabled(d.enabled);
+    try {
+      const r = await fetch("/api/admin/backup/list");
+      if (r.ok) {
+        setBackupList(await r.json());
+      }
+    } catch {
+      // Ignorar error de lista
+    } finally {
+      setBackupListLoading(false);
+    }
   };
 
   const createBackup = async () => {
     setBackupCreating(true);
-    await fetch("/api/admin/backup/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: backupSelected }),
-    });
-    setBackupCreating(false);
-    loadBackupList();
-  };
-
-  const downloadBackup = (filename: string) => {
-    window.open(`/api/admin/backup/download/${filename}`, "_blank");
-  };
-
-  const deleteBackup = async (filename: string) => {
-    await fetch("/api/admin/backup/list", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename }),
-    });
-    loadBackupList();
-  };
-
-  const saveSchedule = async (val: boolean) => {
-    setScheduleSaving(true);
-    setScheduleEnabled(val);
-    await fetch("/api/admin/backup/schedule", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled: val }),
-    });
-    setScheduleSaving(false);
+    try {
+      const r = await fetch("/api/admin/backup/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: backupSelected }),
+      });
+      const d = await r.json();
+      if (d.ok && d.filename) {
+        window.open(`/api/admin/backup/download/${d.filename}`, "_blank");
+        await loadBackupList();
+      }
+    } catch {
+      alert("Error al generar copia de seguridad");
+    } finally {
+      setBackupCreating(false);
+    }
   };
 
   const toggleBackupItem = (key: string) => {
-    setBackupSelected(prev =>
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    setBackupSelected((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
   };
 
-  const doRestore = async (file: File, setR: (v: boolean) => void, setRes: (v: { ok: boolean; msg: string } | null) => void, clearFile: () => void) => {
-    if (!confirm("¿Restaurar este backup? Se sobreescribirán los datos actuales.")) return;
-    setR(true); setRes(null);
-    try {
-      const fd = new FormData(); fd.append("file", file);
-      const d = await (await fetch("/api/admin/backup/restore", { method: "POST", body: fd })).json();
-      setRes({ ok: d.ok, msg: d.message || (d.ok ? "Restauración completada." : "Error al restaurar.") });
-      if (d.ok) clearFile();
-    } catch { setRes({ ok: false, msg: "Error de red al restaurar." }); }
-    finally { setR(false); }
-  };
-  const restoreBackup   = () => restoreFile   && doRestore(restoreFile,   setRestoring,   setRestoreResult,   () => setRestoreFile(null));
-  const restoreDbBackup = () => restoreDbFile && doRestore(restoreDbFile, setRestoringDb, setRestoreDbResult, () => setRestoreDbFile(null));
+  // ─── TABS DEFINITION ─────────────────────────────────────────────────────────
 
-  const DB_ONLY_KEYS = ["reservas","pedidos","clientes","reseñas","cupones","configuracion","usuarios","platos","servicios","galeria"];
-  const createDbBackup = async () => {
-    setDbBackupCreating(true);
-    try {
-      const r = await fetch("/api/admin/backup/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: DB_ONLY_KEYS }) });
-      const d = await r.json();
-      if (d.ok) { downloadBackup(d.filename); loadBackupList(); }
-    } finally { setDbBackupCreating(false); }
-  };
-
-  if (!config) return (
-    <div style={{ opacity: 0.4, pointerEvents: "none" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
-        <div>
-          <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.3em", color: "rgba(201,168,76,0.5)", marginBottom: "0.25rem" }}>{a.sistema}</p>
-          <h1 style={{ fontSize: 28, fontWeight: 700, fontFamily: "var(--font-playfair, serif)", color: "#fff" }}>{a.configuracion}</h1>
-        </div>
-        <div style={{ display: "flex", gap: "0.75rem" }}>
-          <div style={{ width: 120, height: 36, borderRadius: 4, background: "rgba(255,255,255,0.04)" }} />
-          <div style={{ width: 100, height: 36, borderRadius: 4, background: "rgba(201,168,76,0.15)" }} />
-        </div>
-      </div>
-      <div style={{ height: 62, borderRadius: 6, background: "rgba(255,255,255,0.02)", marginBottom: "1.5rem" }} />
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", paddingBottom: "1rem", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        {TAB_KEYS.map(k => <div key={k} style={{ width: 100, height: 34, borderRadius: 4, background: "rgba(255,255,255,0.03)" }} />)}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-        {[1,2,3].map(i => <div key={i} style={{ height: 52, borderRadius: 4, background: "rgba(255,255,255,0.02)" }} />)}
-      </div>
-    </div>
-  );
+  const TABS = [
+    { id: "general", label: "General & Local", icon: Globe },
+    { id: "takeaway", label: "Take Away & Pedidos", icon: ShoppingBag },
+    { id: "horarios", label: "Horarios de Cocina", icon: Clock },
+    { id: "agente", label: "Asistente IA", icon: Bot },
+    { id: "stripe", label: "Pagos Online (Stripe)", icon: CreditCard },
+    { id: "email", label: "Correo (SMTP)", icon: Mail },
+    { id: "backup", label: "Copias de Seguridad", icon: HardDrive },
+  ] as const;
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+    <div style={{ maxWidth: 1180, margin: "0 auto", paddingBottom: "3rem" }}>
+      {/* Cabecera Principal */}
+      <div style={{
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "1rem",
+        marginBottom: "2rem",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        paddingBottom: "1.25rem",
+      }}>
         <div>
-          <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.3em", color: "rgba(201,168,76,0.5)", marginBottom: "0.25rem" }}>{a.sistema}</p>
-          <h1 style={{ fontSize: 28, fontWeight: 700, fontFamily: "var(--font-playfair, serif)", color: "#fff", display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <Bot size={24} style={{ color: "#c9a84c" }} /> {a.configuracion}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.35rem" }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#c81e22", display: "inline-block" }} />
+            <p style={{
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: "0.25em",
+              color: "#c9a84c",
+              fontWeight: 700,
+              margin: 0,
+            }}>
+              Configuración y Parámetros del Sistema
+            </p>
+          </div>
+          <h1 style={{
+            fontSize: 26,
+            fontWeight: 800,
+            color: "#fff",
+            margin: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            letterSpacing: "-0.02em",
+          }}>
+            <Settings size={24} style={{ color: "#c81e22" }} /> Configuración Obento
           </h1>
-        </div>
-        <div style={{ display: "flex", gap: "0.75rem" }}>
-          <button onClick={testAgent} disabled={testing}
-            style={{ padding: "0.625rem 1.25rem", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 4, color: "rgba(255,255,255,0.5)", fontSize: 13, cursor: "pointer" }}>
-            {testing ? a.probando : a.probarAgente}
-          </button>
-          <button onClick={save} disabled={saving}
-            style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.625rem 1.5rem", background: saved ? "rgba(74,222,128,0.15)" : "linear-gradient(135deg, #c9a84c, #8b6914)", color: saved ? "#4ade80" : "#0a0a0f", border: saved ? "1px solid rgba(74,222,128,0.3)" : "none", borderRadius: 4, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-            {saved ? <><Check size={14} /> {a.guardado}</> : <><Save size={14} /> {saving ? a.guardando : a.guardar}</>}
-          </button>
         </div>
       </div>
 
-      {/* Test result */}
-      {testResult && (
-        <div style={{ background: "rgba(96,165,250,0.08)", border: "1px solid rgba(96,165,250,0.2)", borderRadius: 6, padding: "1rem 1.25rem", marginBottom: "1.5rem" }}>
-          <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.7)", marginBottom: "0.4rem" }}>{a.respuestaAgente}</p>
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", lineHeight: 1.6 }}>{testResult}</p>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "1rem" }}>
-        {TAB_KEYS.map(k => {
-          const Icon = TAB_ICONS[k];
-          const active = tab === k;
-          const labelMap: Record<string, string> = {
-            sitio: "General", general: a.tabAgenteIA, horarios: a.tabHorarios,
-            email: "Email", takeaway: "Take Away", stripe: "Stripe", backup: "Backup",
-          };
+      {/* Navegación por Pestañas */}
+      <div style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "0.4rem",
+        marginBottom: "1.75rem",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        paddingBottom: "0.85rem",
+      }}>
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          const active = tab === t.id;
           return (
-            <button key={k} onClick={() => setTab(k)}
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.6rem 0.9rem", borderRadius: 4, border: "1px solid", fontSize: 14, cursor: "pointer",
-                background: active ? "rgba(201,168,76,0.1)" : "transparent",
-                borderColor: active ? "rgba(201,168,76,0.3)" : "rgba(255,255,255,0.08)",
-                color: active ? "#c9a84c" : "rgba(255,255,255,0.35)" }}>
-              <Icon size={13} /> {labelMap[k]}
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id as any)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.55rem 0.95rem",
+                borderRadius: 8,
+                border: active ? "1px solid rgba(200,30,34,0.4)" : "1px solid rgba(255,255,255,0.06)",
+                fontSize: 13,
+                fontWeight: active ? 700 : 500,
+                cursor: "pointer",
+                background: active ? "rgba(200,30,34,0.15)" : "rgba(255,255,255,0.02)",
+                color: active ? "#ff6b6e" : "rgba(255,255,255,0.55)",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <Icon size={14} style={{ color: active ? "#ff6b6e" : "rgba(255,255,255,0.4)" }} />
+              {t.label}
             </button>
           );
         })}
       </div>
 
-      {/* ── TAB: GENERAL ── */}
+      {/* ─── TAB 1: GENERAL & LOCAL ────────────────────────────────────────── */}
       {tab === "general" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          {/* Enable toggle */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: "1rem 1.25rem" }}>
-            <div>
-              <p style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{a.agenteActivo}</p>
-              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>{a.chatFlotante}</p>
-            </div>
-            <button onClick={() => set("enabled", !config.enabled)}
-              style={{ width: 48, height: 26, borderRadius: 13, border: "none", cursor: "pointer", position: "relative", transition: "background 200ms", background: config.enabled ? "#c9a84c" : "rgba(255,255,255,0.1)" }}>
-              <span style={{ position: "absolute", top: 3, left: config.enabled ? 25 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 200ms", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
-            </button>
-          </div>
-
-          {/* Provider */}
-          <div>
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: "0.5rem" }}>{a.proveedorIA}</label>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              {(["anthropic", "openai"] as const).map(p => (
-                <button key={p} onClick={() => { set("apiProvider", p); set("model", MODELS[p][0]); }}
-                  style={{ padding: "0.6rem 0.9rem", borderRadius: 4, border: "1px solid", fontSize: 14, cursor: "pointer",
-                    background: config.apiProvider === p ? "rgba(201,168,76,0.1)" : "transparent",
-                    borderColor: config.apiProvider === p ? "rgba(201,168,76,0.3)" : "rgba(255,255,255,0.08)",
-                    color: config.apiProvider === p ? "#c9a84c" : "rgba(255,255,255,0.35)" }}>
-                  {p === "anthropic" ? "Anthropic (Claude)" : "OpenAI (GPT)"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* API Key */}
-          <div>
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: "0.5rem" }}>
-              <Key size={11} style={{ display: "inline", marginRight: 4 }} />
-              API Key {config.apiKeySet && <span style={{ color: "#4ade80", marginLeft: 6 }}>{a.apiKeyConfigurada}</span>}
-            </label>
-            <div style={{ position: "relative" }}>
-              <input
-                type={showKey ? "text" : "password"}
-                style={{ ...INPUT, paddingRight: "2.5rem" }}
-                value={config.apiKey}
-                onChange={e => set("apiKey", e.target.value)}
-                placeholder={config.apiKeySet ? a.dejaVacioMantenerActual : "sk-ant-... o sk-..."}
-              />
-              <button onClick={() => setShowKey(s => !s)}
-                style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer" }}>
-                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Model */}
-          <div>
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: "0.5rem" }}>{a.modelo}</label>
-            <select value={config.model} onChange={e => set("model", e.target.value)}
-              style={{ ...INPUT, cursor: "pointer" }}>
-              {MODELS[config.apiProvider].map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-
-          {/* System prompt */}
-          <div>
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: "0.5rem" }}>System Prompt</label>
-            <textarea
-              style={{ ...INPUT, resize: "vertical", minHeight: 160, lineHeight: 1.6 }}
-              value={config.systemPrompt}
-              onChange={e => set("systemPrompt", e.target.value)}
-            />
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: "0.4rem" }}>
-              {a.systemPromptDesc}
-            </p>
-          </div>
-
-          {/* Base de conocimiento */}
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "1.25rem" }}>
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", display: "flex", alignItems: "center", gap: 6, marginBottom: "0.5rem" }}>
-              <BookOpen size={11} /> {a.baseConocimiento}
-            </label>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", marginBottom: "0.75rem", lineHeight: 1.6 }}>
-              {a.baseConocimientoDesc}
-            </p>
-            <textarea
-              style={{ ...INPUT, resize: "vertical", minHeight: 280, lineHeight: 1.7, fontFamily: "monospace", fontSize: 12 }}
-              value={config.knowledgeBase}
-              onChange={e => set("knowledgeBase", e.target.value)}
-            />
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.15)", marginTop: "0.4rem" }}>
-              {config.knowledgeBase.length} {a.caracteres} · ~{Math.ceil(config.knowledgeBase.length / 4)} tokens
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ── TAB: HORARIOS ── */}
-      {tab === "horarios" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: "0.5rem" }}>
-            {a.horariosDesc}
-          </p>
-          {DAY_KEYS.map(key => {
-            const dayLabelKey = ("day" + key.charAt(0).toUpperCase() + key.slice(1)) as keyof typeof a;
-            const label = (a as any)[dayLabelKey] ?? key;
-            const day = config.businessHours[key] ?? { open: "12:00", close: "22:00", active: false };
-            return (
-              <div key={key} style={{ display: "flex", alignItems: "center", gap: "1rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: "0.875rem 1.25rem" }}>
-                {/* Toggle */}
-                <button onClick={() => setHour(key, "active", !day.active)}
-                  style={{ width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer", position: "relative", transition: "background 200ms", background: day.active ? "#c9a84c" : "rgba(255,255,255,0.1)", flexShrink: 0 }}>
-                  <span style={{ position: "absolute", top: 2, left: day.active ? 20 : 2, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 200ms" }} />
-                </button>
-                <span style={{ fontSize: 13, fontWeight: 600, color: day.active ? "#fff" : "rgba(255,255,255,0.3)", width: 90, flexShrink: 0 }}>{label}</span>
-                {day.active ? (
-                  <>
-                    <input type="time" value={day.open} onChange={e => setHour(key, "open", e.target.value)}
-                      style={{ ...INPUT, width: 110 }} />
-                    <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>—</span>
-                    <input type="time" value={day.close} onChange={e => setHour(key, "close", e.target.value)}
-                      style={{ ...INPUT, width: 110 }} />
-                  </>
-                ) : (
-                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.2)" }}>{a.cerrado}</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── TAB: CONOCIMIENTO ── */}
-      {/* ── TAB: GENERAL / SITIO ── */}
-      {tab === "sitio" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-
-          <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "1.25rem" }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: "0.25rem" }}>{a.zonaHorariaTitle}</p>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: "1.25rem", lineHeight: 1.6 }}>
-              {a.zonaHorariaDesc}
+          <div style={cardSectionStyle}>
+            <h2 style={sectionTitleStyle}>
+              <Globe size={18} style={{ color: "#c9a84c" }} /> Datos del Restaurante & Ubicación
+            </h2>
+            <p style={sectionDescStyle}>
+              Información de contacto oficial mostrada a los clientes en la web y tickets de pedido.
             </p>
 
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: "0.5rem" }}>
-              <Globe size={11} style={{ display: "inline", marginRight: 4 }} /> {a.zonaHorariaLabel}
-            </label>
-            <select
-              value={timezone}
-              onChange={e => setTimezone(e.target.value)}
-              style={{ ...INPUT, width: "100%", maxWidth: 380, cursor: "pointer" }}
-            >
-              {TIMEZONES.map(tz => (
-                <option key={tz.value} value={tz.value} style={{ background: "#0a0a0f" }}>
-                  {tz.label}
-                </option>
-              ))}
-            </select>
-
-            {/* Hora actual en la zona seleccionada */}
-            <div style={{ marginTop: "1rem", display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.875rem", background: "rgba(201,168,76,0.05)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 6 }}>
-              <Clock size={12} style={{ color: "rgba(201,168,76,0.6)" }} />
-              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
-                {a.ahoraEn} <strong style={{ color: "rgba(255,255,255,0.75)" }}>{timezone}</strong>:{" "}
-                <strong style={{ color: "#c9a84c" }}>
-                  {new Intl.DateTimeFormat("es-ES", { timeZone: timezone, hour: "2-digit", minute: "2-digit", weekday: "long", day: "numeric", month: "long" }).format(new Date())}
-                </strong>
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <button onClick={saveSitio} disabled={sitioSaving}
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 2rem", background: sitioSaved ? "rgba(74,222,128,0.15)" : "linear-gradient(135deg, #c9a84c, #8b6914)", color: sitioSaved ? "#4ade80" : "#0a0a0f", border: sitioSaved ? "1px solid rgba(74,222,128,0.3)" : "none", borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-              {sitioSaved ? <><Check size={14} /> {a.guardado}</> : <><Save size={14} /> {sitioSaving ? a.guardando : a.guardarConfigGeneral}</>}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── TAB: STRIPE ── */}
-      {tab === "stripe" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-
-          {/* Badge modo test/live */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "1rem 1.25rem", background: stripeTestMode ? "rgba(96,165,250,0.06)" : "rgba(74,222,128,0.06)", border: `1px solid ${stripeTestMode ? "rgba(96,165,250,0.2)" : "rgba(74,222,128,0.2)"}`, borderRadius: 8 }}>
-            <span style={{ fontSize: 20 }}>{stripeTestMode ? "🧪" : "✅"}</span>
-            <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: stripeTestMode ? "rgb(147,197,253)" : "#4ade80", margin: 0 }}>
-                {stripeTestMode ? a.stripeModoTest : a.stripeModoProd}
-              </p>
-              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", margin: "2px 0 0" }}>
-                {stripeTestMode ? a.stripeModoTestDesc : a.stripeModoProdDesc}
-              </p>
-            </div>
-          </div>
-
-          {/* Info */}
-          <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "1.25rem" }}>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.7, margin: "0 0 0.75rem" }}>
-              <strong style={{ color: "rgba(255,255,255,0.7)" }}>{a.stripeComoObtener}</strong><br />
-              1. <strong style={{ color: "#c9a84c" }}>dashboard.stripe.com</strong><br />
-              2. <strong style={{ color: "#c9a84c" }}>Developers → API keys</strong><br />
-              3. <em>Publishable key</em> + <em>Secret key</em><br />
-              4. <code style={{ color: "#c9a84c" }}>pk_test_</code> / <code style={{ color: "#c9a84c" }}>sk_test_</code>
-            </p>
-            <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer"
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#c9a84c", textDecoration: "none", background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.25)", padding: "6px 14px", borderRadius: 4, fontWeight: 600 }}>
-              🔗 {a.stripeAbrirDashboard}
-            </a>
-          </div>
-
-          {/* Publishable Key */}
-          <div>
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: "0.5rem" }}>
-              <Key size={11} style={{ display: "inline", marginRight: 4 }} /> {a.stripePublishableLabel}
-              {stripePk && <span style={{ color: "#4ade80", marginLeft: 8 }}>{a.apiKeyConfigurada}</span>}
-            </label>
-            <input
-              type="text"
-              value={stripePk}
-              onChange={e => setStripePk(e.target.value)}
-              placeholder="pk_test_... o pk_live_..."
-              style={INPUT}
-            />
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: "0.4rem" }}>
-              {a.stripePublishableDesc}
-            </p>
-          </div>
-
-          {/* Secret Key */}
-          <div>
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: "0.5rem" }}>
-              <Key size={11} style={{ display: "inline", marginRight: 4 }} /> {a.stripeSecretLabel}
-              {stripeHasSk && <span style={{ color: "#4ade80", marginLeft: 8 }}>{a.apiKeyConfigurada}</span>}
-            </label>
-            <div style={{ position: "relative" }}>
-              <input
-                type={showSk ? "text" : "password"}
-                value={stripeSk}
-                onChange={e => setStripeSk(e.target.value)}
-                placeholder={stripeHasSk ? a.dejaVacioMantenerActual : "sk_test_... o sk_live_..."}
-                style={{ ...INPUT, paddingRight: "2.5rem" }}
-              />
-              <button onClick={() => setShowSk(s => !s)}
-                style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer" }}>
-                {showSk ? <EyeOff size={14} /> : <Eye size={14} />}
-              </button>
-            </div>
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: "0.4rem" }}>
-              {a.stripeSecretDesc}
-            </p>
-          </div>
-
-          {/* Guardar */}
-          <div>
-            <button onClick={saveStripe} disabled={stripeSaving || !stripePk}
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 2rem", background: stripeSaved ? "rgba(74,222,128,0.15)" : "linear-gradient(135deg, #c9a84c, #8b6914)", color: stripeSaved ? "#4ade80" : "#0a0a0f", border: stripeSaved ? "1px solid rgba(74,222,128,0.3)" : "none", borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-              {stripeSaved ? <><Check size={14} /> {a.guardado}</> : <><Save size={14} /> {stripeSaving ? a.guardando : a.guardarStripe}</>}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── TAB: TAKE AWAY ── */}
-      {tab === "takeaway" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-
-          {/* Días de antelación */}
-          <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "1.25rem" }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: "0.25rem" }}>{a.takeawayDiasTitle}</p>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: "1rem", lineHeight: 1.6 }}>
-              {a.takeawayDiasDesc}
-            </p>
-
-            {/* Checkbox Hoy */}
-            <label style={{ display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer", marginBottom: "1rem" }}>
-              <div
-                onClick={() => setTConfig(p => ({ ...p, takeaway_hoy_habilitado: p.takeaway_hoy_habilitado === "true" ? "false" : "true" }))}
-                style={{
-                  width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
-                  position: "relative", transition: "background 200ms", flexShrink: 0,
-                  background: tConfig.takeaway_hoy_habilitado === "true" ? "#c9a84c" : "rgba(255,255,255,0.1)",
-                }}>
-                <span style={{
-                  position: "absolute", top: 3,
-                  left: tConfig.takeaway_hoy_habilitado === "true" ? 22 : 3,
-                  width: 18, height: 18, borderRadius: "50%", background: "#fff",
-                  transition: "left 200ms", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                }} />
-              </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.25rem", marginTop: "1.25rem" }}>
               <div>
-                <span style={{ fontSize: 13, fontWeight: 600, color: tConfig.takeaway_hoy_habilitado === "true" ? "#c9a84c" : "rgba(255,255,255,0.5)" }}>
-                  {a.takeawayPermitirHoy}
-                </span>
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", margin: "2px 0 0" }}>
-                  {a.takeawayPermitirHoyDesc}
+                <label style={labelStyle}>Nombre Comercial</label>
+                <input
+                  type="text"
+                  value={generalConfig.sitio_nombre}
+                  onChange={(e) => setGeneralConfig({ ...generalConfig, sitio_nombre: e.target.value })}
+                  style={INPUT_STYLE}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Teléfono de Atención / Pedidos</label>
+                <input
+                  type="text"
+                  value={generalConfig.sitio_telefono}
+                  onChange={(e) => setGeneralConfig({ ...generalConfig, sitio_telefono: e.target.value })}
+                  style={INPUT_STYLE}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Dirección del Local (Recogida Takeaway)</label>
+                <input
+                  type="text"
+                  value={generalConfig.sitio_direccion}
+                  onChange={(e) => setGeneralConfig({ ...generalConfig, sitio_direccion: e.target.value })}
+                  style={INPUT_STYLE}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Email Oficial de Notificaciones</label>
+                <input
+                  type="email"
+                  value={generalConfig.sitio_email}
+                  onChange={(e) => setGeneralConfig({ ...generalConfig, sitio_email: e.target.value })}
+                  style={INPUT_STYLE}
+                />
+              </div>
+
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={labelStyle}>Zona Horaria del Restaurante</label>
+                <select
+                  value={generalConfig.sitio_zona_horaria}
+                  onChange={(e) => setGeneralConfig({ ...generalConfig, sitio_zona_horaria: e.target.value })}
+                  style={{ ...INPUT_STYLE, maxWidth: 360, cursor: "pointer" }}
+                >
+                  {TIMEZONES.map((tz) => (
+                    <option key={tz.value} value={tz.value} style={{ background: "#111" }}>
+                      {tz.label}
+                    </option>
+                  ))}
+                </select>
+                <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.35)", marginTop: "0.4rem" }}>
+                  Hora actual en el sistema:{" "}
+                  <strong style={{ color: "#c9a84c" }}>
+                    {new Intl.DateTimeFormat("es-ES", {
+                      timeZone: generalConfig.sitio_zona_horaria || "Europe/Madrid",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                    }).format(new Date())}
+                  </strong>
                 </p>
               </div>
-            </label>
+            </div>
 
-            {/* Dropdown días */}
-            <div style={{ opacity: tConfig.takeaway_hoy_habilitado === "true" ? 0.35 : 1, pointerEvents: tConfig.takeaway_hoy_habilitado === "true" ? "none" : "auto", transition: "opacity 200ms" }}>
-              <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: "0.5rem" }}>
-                {a.takeawayDiasLabel}
-              </label>
-              <select
-                value={tConfig.takeaway_dias_minimos}
-                onChange={e => setTConfig(p => ({ ...p, takeaway_dias_minimos: e.target.value }))}
-                style={{ ...INPUT, width: 200, cursor: "pointer" }}
+            <div style={{ marginTop: "1.5rem" }}>
+              <button
+                type="button"
+                onClick={saveGeneral}
+                disabled={generalSaving}
+                style={primaryButtonStyle(generalSaved)}
               >
-                {Array.from({ length: 14 }, (_, i) => i + 1).map(d => (
-                  <option key={d} value={String(d)} style={{ background: "#0a0a0f" }}>
-                    {d} {d === 1 ? a.takeawayDia : a.takeawayDias}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Horas mínimas */}
-          <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "1.25rem" }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: "0.25rem" }}>{a.takeawayHorasTitle}</p>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: "1rem", lineHeight: 1.6 }}>
-              {a.takeawayHorasDesc}
-            </p>
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: "0.5rem" }}>
-              {a.takeawayHorasLabel}
-            </label>
-            <select
-              value={tConfig.takeaway_horas_minimas}
-              onChange={e => setTConfig(p => ({ ...p, takeaway_horas_minimas: e.target.value }))}
-              style={{ ...INPUT, width: 200, cursor: "pointer" }}
-            >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
-                <option key={h} value={String(h)} style={{ background: "#0a0a0f" }}>
-                  {h} {h === 1 ? a.takeawayHora : a.takeawayHoras}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Mensaje Recuerda */}
-          <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "1.25rem" }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: "0.25rem" }}>{a.takeawayMensajeTitle}</p>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: "1rem", lineHeight: 1.6 }}>
-              {a.takeawayMensajeDesc}
-            </p>
-            <textarea
-              value={tConfig.takeaway_mensaje_recuerda}
-              onChange={e => setTConfig(p => ({ ...p, takeaway_mensaje_recuerda: e.target.value }))}
-              style={{ ...INPUT, resize: "vertical", minHeight: 80, lineHeight: 1.6 }}
-            />
-            {/* Preview */}
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "0.625rem", padding: "0.875rem 1rem", background: "rgba(201,168,76,0.05)", border: "1px solid rgba(201,168,76,0.18)", borderRadius: 8, marginTop: "0.75rem" }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>📅</span>
-              <p style={{ fontSize: 13, color: "rgba(201,168,76,0.8)", lineHeight: 1.55, margin: 0 }}>
-                <strong style={{ color: "#c9a84c" }}>{a.takeawayRecuerda}</strong> — {tConfig.takeaway_mensaje_recuerda}
-              </p>
-            </div>
-          </div>
-
-          {/* IVA */}
-          <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.7)", display: "block", marginBottom: "0.5rem" }}>
-              IVA (%)
-            </label>
-            <input
-              type="number" min="0" max="100" step="1"
-              value={tConfig.takeaway_iva}
-              onChange={e => setTConfig(p => ({ ...p, takeaway_iva: e.target.value }))}
-              style={{ ...INPUT, width: 100 }}
-            />
-          </div>
-
-          {/* Guardar */}
-          <div>
-            <button onClick={saveTakeaway} disabled={tSaving} style={{
-              display: "flex", alignItems: "center", gap: "0.5rem",
-              padding: "0.75rem 2rem",
-              background: tSaved ? "rgba(74,222,128,0.15)" : "linear-gradient(135deg, #c9a84c, #8b6914)",
-              color: tSaved ? "#4ade80" : "#0a0a0f",
-              border: tSaved ? "1px solid rgba(74,222,128,0.3)" : "none",
-              borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: "pointer",
-            }}>
-              {tSaved ? <><Check size={14} /> {a.guardado}</> : <><Save size={14} /> {tSaving ? a.guardando : a.guardarTakeAway}</>}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── TAB: EMAIL ── */}
-      {tab === "email" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          <div style={{ background: "rgba(201,168,76,0.04)", border: "1px solid rgba(201,168,76,0.12)", borderRadius: 6, padding: "1.25rem" }}>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", lineHeight: 1.7, margin: "0 0 1rem" }}>
-              {a.emailConfigDesc}
-            </p>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", lineHeight: 1.8, margin: "0 0 0.75rem" }}>
-              <strong style={{ color: "rgba(255,255,255,0.6)" }}>{a.emailComoObtenerPass}</strong><br />
-              1. <strong style={{ color: "#c9a84c" }}>Google → 2-Step Verification</strong><br />
-              2. <strong style={{ color: "#c9a84c" }}>Security → App passwords</strong><br />
-              3. <em>"App"</em> → 16-char key<br />
-              4. Copy &amp; paste below
-            </p>
-            <a
-              href="https://myaccount.google.com/apppasswords"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#c9a84c", textDecoration: "none", background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.25)", padding: "6px 14px", borderRadius: 4, fontWeight: 600 }}
-            >
-              🔗 {a.emailAbrirGoogle}
-            </a>
-          </div>
-
-          {/* Email remitente */}
-          <div>
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: "0.5rem" }}>
-              <Mail size={11} style={{ display: "inline", marginRight: 4 }} /> {a.emailRemitenteLabel}
-            </label>
-            <input
-              type="email"
-              value={emailFrom}
-              onChange={e => setEmailFrom(e.target.value)}
-              placeholder="correo@gmail.com"
-              style={INPUT}
-            />
-          </div>
-
-          {/* App Password */}
-          <div>
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: "0.5rem" }}>
-              <Key size={11} style={{ display: "inline", marginRight: 4 }} /> {a.emailAppPasswordLabel}
-            </label>
-            <div style={{ position: "relative" }}>
-              <input
-                type={showEmailPass ? "text" : "password"}
-                value={emailPass}
-                onChange={e => setEmailPass(e.target.value)}
-                placeholder={a.dejaVacioMantenerActual}
-                style={{ ...INPUT, paddingRight: "2.5rem" }}
-              />
-              <button onClick={() => setShowEmailPass(s => !s)}
-                style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer" }}>
-                {showEmailPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                {generalSaved ? (
+                  <><Check size={15} /> Cambios Guardados</>
+                ) : (
+                  <><Save size={15} /> {generalSaving ? "Guardando..." : "Guardar Datos del Local"}</>
+                )}
               </button>
             </div>
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: "0.4rem" }}>
-              {a.emailPassDesc}
-            </p>
-          </div>
-
-          {/* Test result */}
-          {emailTestResult && (
-            <div style={{ background: emailTestResult.ok ? "rgba(74,222,128,0.08)" : "rgba(252,165,165,0.08)", border: `1px solid ${emailTestResult.ok ? "rgba(74,222,128,0.2)" : "rgba(252,165,165,0.2)"}`, borderRadius: 6, padding: "0.875rem 1.25rem" }}>
-              <p style={{ fontSize: 13, color: emailTestResult.ok ? "#4ade80" : "#fca5a5", margin: 0 }}>
-                {emailTestResult.ok ? "✓ " : "✗ "}{emailTestResult.msg}
-              </p>
-            </div>
-          )}
-
-          {/* Botones */}
-          <div style={{ display: "flex", gap: "0.75rem" }}>
-            <button onClick={testEmail} disabled={emailTesting || !emailFrom}
-              style={{ padding: "0.625rem 1.25rem", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 4, color: "rgba(255,255,255,0.5)", fontSize: 13, cursor: "pointer" }}>
-              {emailTesting ? a.enviando : a.enviarPrueba}
-            </button>
-            <button onClick={saveEmail} disabled={emailSaving || !emailFrom}
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.625rem 1.5rem", background: emailSaved ? "rgba(74,222,128,0.15)" : "linear-gradient(135deg, #c9a84c, #8b6914)", color: emailSaved ? "#4ade80" : "#0a0a0f", border: emailSaved ? "1px solid rgba(74,222,128,0.3)" : "none", borderRadius: 4, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              {emailSaved ? <><Check size={14} /> {a.guardado}</> : <><Save size={14} /> {emailSaving ? a.guardando : a.guardar}</>}
-            </button>
           </div>
         </div>
       )}
-      {tab === "backup" && (() => {
-        // Cargar lista al montar
-        if (backupList.length === 0 && !backupListLoading) { loadBackupList(); loadSchedule(); }
-        return (
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
 
-            {/* Backup automático semanal */}
-            <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "1.25rem" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      {/* ─── TAB 2: TAKE AWAY & PEDIDOS ────────────────────────────────────── */}
+      {tab === "takeaway" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={cardSectionStyle}>
+            <h2 style={sectionTitleStyle}>
+              <ShoppingBag size={18} style={{ color: "#c9a84c" }} /> Configuración del Servicio Takeaway
+            </h2>
+            <p style={sectionDescStyle}>
+              Ajusta los plazos de preparación, pedidos en el mismo día y mensajes informativos de la carta online.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", marginTop: "1.25rem" }}>
+              {/* Permitir pedidos para hoy */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "1rem 1.25rem",
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 8,
+              }}>
                 <div>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", margin: 0 }}>Backup automático semanal</p>
-                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 4 }}>Se ejecuta cada domingo a las 03:00 (hora del servidor). Guarda los últimos 8 backups.</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", margin: 0 }}>
+                    Permitir Pedidos para Recoger Hoy
+                  </p>
+                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", margin: "0.2rem 0 0 0" }}>
+                    Los clientes pueden pedir sushi elaborado al momento para recoger hoy mismo (~25-35 min).
+                  </p>
                 </div>
-                <button onClick={() => saveSchedule(!scheduleEnabled)} disabled={scheduleSaving}
-                  style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", transition: "background 200ms", background: scheduleEnabled ? "#c9a84c" : "rgba(255,255,255,0.1)", position: "relative", flexShrink: 0 }}>
-                  <span style={{ position: "absolute", top: 3, left: scheduleEnabled ? 22 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 200ms" }} />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setTConfig((p) => ({
+                      ...p,
+                      takeaway_hoy_habilitado: p.takeaway_hoy_habilitado === "true" ? "false" : "true",
+                    }))
+                  }
+                  style={{
+                    width: 48,
+                    height: 26,
+                    borderRadius: 13,
+                    border: "none",
+                    cursor: "pointer",
+                    position: "relative",
+                    background: tConfig.takeaway_hoy_habilitado === "true" ? "#c81e22" : "rgba(255,255,255,0.15)",
+                    transition: "background 0.2s",
+                  }}
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 3,
+                      left: tConfig.takeaway_hoy_habilitado === "true" ? 25 : 3,
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      background: "#fff",
+                      transition: "left 0.2s",
+                    }}
+                  />
                 </button>
               </div>
-            </div>
 
-            {/* Checklist + Respaldo único BD — 50/50 */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", alignItems: "stretch" }}>
-
-              {/* Columna izquierda: checklist personalizado */}
-              <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", margin: 0 }}>Seleccionar contenido</p>
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button onClick={() => setBackupSelected(BACKUP_ITEMS.map(i => i.key))}
-                      style={{ fontSize: 12, padding: "4px 10px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
-                      Todo
-                    </button>
-                    <button onClick={() => setBackupSelected([])}
-                      style={{ fontSize: 12, padding: "4px 10px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
-                      Ninguno
-                    </button>
-                  </div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", flex: 1 }}>
-                  {BACKUP_ITEMS.map(item => {
-                    const checked = backupSelected.includes(item.key);
-                    return (
-                      <button key={item.key} onClick={() => toggleBackupItem(item.key)}
-                        style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0.25rem", borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }}>
-                        {checked
-                          ? <CheckSquare size={16} style={{ color: "#c9a84c", flexShrink: 0 }} />
-                          : <Square size={16} style={{ color: "rgba(255,255,255,0.2)", flexShrink: 0 }} />}
-                        <div>
-                          <p style={{ fontSize: 13, fontWeight: 600, color: checked ? "#c9a84c" : "rgba(255,255,255,0.6)", margin: 0 }}>{item.label}</p>
-                          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", margin: 0 }}>{item.desc}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.625rem" }}>
-                  <button onClick={createBackup} disabled={backupCreating || backupSelected.length === 0}
-                    style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.875rem 1rem", borderRadius: 10, border: "1px solid rgba(201,168,76,0.35)", background: "linear-gradient(135deg,rgba(201,168,76,0.15),rgba(139,105,20,0.2))", color: "#c9a84c", cursor: backupCreating ? "wait" : "pointer", opacity: backupSelected.length === 0 ? 0.35 : 1 }}>
-                    <span style={{ display:"flex", alignItems:"center", justifyContent:"center", width:34, height:34, borderRadius:7, background:"rgba(201,168,76,0.12)", flexShrink:0 }}>
-                      {backupCreating ? <RefreshCw size={16} style={{ animation:"spin 1s linear infinite" }} /> : <Download size={16} />}
-                    </span>
-                    <span style={{ display:"flex", flexDirection:"column", alignItems:"flex-start" }}>
-                      <span style={{ fontSize:13, fontWeight:700, lineHeight:1.2 }}>{backupCreating ? "Creando..." : "Crear backup"}</span>
-                      <span style={{ fontSize:10, color:"rgba(201,168,76,0.45)", marginTop:2 }}>{backupSelected.length} elementos</span>
-                    </span>
-                  </button>
-                  <label style={{ display:"flex", alignItems:"center", gap:"0.75rem", padding:"0.875rem 1rem", borderRadius:10, border:"1px solid rgba(255,255,255,0.08)", background:"rgba(255,255,255,0.03)", color:"rgba(255,255,255,0.45)", cursor:"pointer" }}>
-                    <span style={{ display:"flex", alignItems:"center", justifyContent:"center", width:34, height:34, borderRadius:7, background:"rgba(255,255,255,0.05)", flexShrink:0 }}>
-                      {restoring ? <RefreshCw size={16} style={{ animation:"spin 1s linear infinite" }} /> : <Upload size={16} />}
-                    </span>
-                    <span style={{ display:"flex", flexDirection:"column", alignItems:"flex-start" }}>
-                      <span style={{ fontSize:13, fontWeight:700, lineHeight:1.2, color:"rgba(255,255,255,0.6)" }}>{restoring ? "Restaurando..." : "Restaurar"}</span>
-                      <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{restoreFile ? restoreFile.name : "Seleccionar .zip"}</span>
-                    </span>
-                    <input type="file" accept=".zip" style={{ display:"none" }} onChange={e => { const f = e.target.files?.[0]; if (f) { setRestoreFile(f); setRestoreResult(null); doRestore(f, setRestoring, setRestoreResult, () => setRestoreFile(null)); } e.target.value = ""; }} />
-                  </label>
-                  {restoreResult && <p style={{ gridColumn:"1/-1", margin:0, fontSize:12, color: restoreResult.ok ? "#4ade80" : "#f87171", fontWeight:600 }}>{restoreResult.msg}</p>}
-                </div>
+              {/* Mensaje Informativo para el Cliente */}
+              <div>
+                <label style={labelStyle}>Mensaje Informativo de Recogida (Mostrado en Checkout)</label>
+                <textarea
+                  value={tConfig.takeaway_mensaje_recuerda}
+                  onChange={(e) => setTConfig({ ...tConfig, takeaway_mensaje_recuerda: e.target.value })}
+                  style={{ ...INPUT_STYLE, minHeight: 70, resize: "vertical", lineHeight: 1.5 }}
+                />
               </div>
 
-              {/* Columna derecha: respaldo único de BD */}
-              <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <div>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", margin: 0 }}>Base de datos</p>
-                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 4 }}>Respaldo único de todas las tablas en un solo archivo.</p>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", flex: 1 }}>
-                  {DB_ONLY_KEYS.map(k => {
-                    const item = BACKUP_ITEMS.find(i => i.key === k);
-                    return item ? (
-                      <div key={k} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0.25rem" }}>
-                        <CheckSquare size={16} style={{ color: "#c9a84c", flexShrink: 0 }} />
-                        <div>
-                          <p style={{ fontSize: 13, fontWeight: 600, color: "#c9a84c", margin: 0 }}>{item.label}</p>
-                          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", margin: 0 }}>{item.desc}</p>
-                        </div>
-                      </div>
-                    ) : null;
-                  })}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.625rem" }}>
-                  <button onClick={createDbBackup} disabled={dbBackupCreating}
-                    style={{ display:"flex", alignItems:"center", gap:"0.75rem", padding:"0.875rem 1rem", borderRadius:10, border:"1px solid rgba(201,168,76,0.35)", background:"linear-gradient(135deg,rgba(201,168,76,0.15),rgba(139,105,20,0.2))", color:"#c9a84c", cursor: dbBackupCreating ? "wait" : "pointer" }}>
-                    <span style={{ display:"flex", alignItems:"center", justifyContent:"center", width:34, height:34, borderRadius:7, background:"rgba(201,168,76,0.12)", flexShrink:0 }}>
-                      {dbBackupCreating ? <RefreshCw size={16} style={{ animation:"spin 1s linear infinite" }} /> : <Download size={16} />}
-                    </span>
-                    <span style={{ display:"flex", flexDirection:"column", alignItems:"flex-start" }}>
-                      <span style={{ fontSize:13, fontWeight:700, lineHeight:1.2 }}>{dbBackupCreating ? "Creando..." : "Crear backup"}</span>
-                      <span style={{ fontSize:10, color:"rgba(201,168,76,0.45)", marginTop:2 }}>Todas las tablas</span>
-                    </span>
-                  </button>
-                  <label style={{ display:"flex", alignItems:"center", gap:"0.75rem", padding:"0.875rem 1rem", borderRadius:10, border:"1px solid rgba(255,255,255,0.08)", background:"rgba(255,255,255,0.03)", color:"rgba(255,255,255,0.45)", cursor:"pointer" }}>
-                    <span style={{ display:"flex", alignItems:"center", justifyContent:"center", width:34, height:34, borderRadius:7, background:"rgba(255,255,255,0.05)", flexShrink:0 }}>
-                      {restoringDb ? <RefreshCw size={16} style={{ animation:"spin 1s linear infinite" }} /> : <Upload size={16} />}
-                    </span>
-                    <span style={{ display:"flex", flexDirection:"column", alignItems:"flex-start" }}>
-                      <span style={{ fontSize:13, fontWeight:700, lineHeight:1.2, color:"rgba(255,255,255,0.6)" }}>{restoringDb ? "Restaurando..." : "Restaurar"}</span>
-                      <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{restoreDbFile ? restoreDbFile.name : "Seleccionar .zip"}</span>
-                    </span>
-                    <input type="file" accept=".zip" style={{ display:"none" }} onChange={e => { const f = e.target.files?.[0]; if (f) { setRestoreDbFile(f); setRestoreDbResult(null); doRestore(f, setRestoringDb, setRestoreDbResult, () => setRestoreDbFile(null)); } e.target.value = ""; }} />
-                  </label>
-                  {restoreDbResult && <p style={{ gridColumn:"1/-1", margin:0, fontSize:12, color: restoreDbResult.ok ? "#4ade80" : "#f87171", fontWeight:600 }}>{restoreDbResult.msg}</p>}
-                </div>
+              {/* IVA Aplicable */}
+              <div style={{ maxWidth: 220 }}>
+                <label style={labelStyle}>IVA Aplicable en Comida (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={tConfig.takeaway_iva}
+                  onChange={(e) => setTConfig({ ...tConfig, takeaway_iva: e.target.value })}
+                  style={INPUT_STYLE}
+                />
               </div>
-
             </div>
 
-            {/* Lista de backups */}
-            <div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-                <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", margin: 0 }}>Backups guardados</p>
-                <button onClick={loadBackupList} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem", fontSize: 12 }}>
-                  <RefreshCw size={13} /> Actualizar
-                </button>
-              </div>
-              {backupListLoading && <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>Cargando...</p>}
-              {!backupListLoading && backupList.length === 0 && (
-                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", fontStyle: "italic" }}>No hay backups todavía.</p>
-              )}
-              {backupList.map(b => (
-                <div key={b.filename} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.875rem 1rem", borderRadius: 6, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", marginBottom: "0.5rem" }}>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.7)", margin: 0 }}>{b.filename}</p>
-                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", margin: "2px 0 0" }}>
-                      {new Date(b.createdAt).toLocaleString("es-ES")} · {(b.size / 1024 / 1024).toFixed(1)} MB
-                    </p>
-                  </div>
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button onClick={() => downloadBackup(b.filename)}
-                      style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "6px 12px", borderRadius: 6, border: "1px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.08)", color: "#c9a84c", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                      <Download size={13} /> Descargar
-                    </button>
-                    <button onClick={() => deleteBackup(b.filename)}
-                      style={{ display: "flex", alignItems: "center", padding: "6px 8px", borderRadius: 6, border: "1px solid rgba(252,165,165,0.15)", background: "transparent", color: "rgba(252,165,165,0.4)", cursor: "pointer" }}>
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+            <div style={{ marginTop: "1.5rem" }}>
+              <button
+                type="button"
+                onClick={saveTakeaway}
+                disabled={tSaving}
+                style={primaryButtonStyle(tSaved)}
+              >
+                {tSaved ? (
+                  <><Check size={15} /> Ajustes Guardados</>
+                ) : (
+                  <><Save size={15} /> {tSaving ? "Guardando..." : "Guardar Parámetros Takeaway"}</>
+                )}
+              </button>
             </div>
-
           </div>
-        );
-      })()}
+        </div>
+      )}
 
+      {/* ─── TAB 3: HORARIOS DE COCINA ────────────────────────────────────── */}
+      {tab === "horarios" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={cardSectionStyle}>
+            <h2 style={sectionTitleStyle}>
+              <Clock size={18} style={{ color: "#c9a84c" }} /> Horario Semanal de Cocina y Takeaway
+            </h2>
+            <p style={sectionDescStyle}>
+              Define los días de apertura y el rango horario disponible para pedidos online.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem", marginTop: "1.25rem" }}>
+              {DAY_KEYS.map((key) => {
+                const day = agentConfig.businessHours[key] ?? { open: "13:00", close: "23:30", active: true };
+                const dayLabels: Record<string, string> = {
+                  lunes: "Lunes",
+                  martes: "Martes",
+                  miercoles: "Miércoles",
+                  jueves: "Jueves",
+                  viernes: "Viernes",
+                  sabado: "Sábado",
+                  domingo: "Domingo",
+                };
+
+                return (
+                  <div
+                    key={key}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "1rem",
+                      padding: "0.75rem 1rem",
+                      background: "rgba(255,255,255,0.02)",
+                      border: "1px solid rgba(255,255,255,0.05)",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", width: 140 }}>
+                      <button
+                        type="button"
+                        onClick={() => setHourField(key, "active", !day.active)}
+                        style={{
+                          width: 36,
+                          height: 20,
+                          borderRadius: 10,
+                          border: "none",
+                          cursor: "pointer",
+                          position: "relative",
+                          background: day.active ? "#c81e22" : "rgba(255,255,255,0.15)",
+                          transition: "background 0.2s",
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: 2,
+                            left: day.active ? 18 : 2,
+                            width: 16,
+                            height: 16,
+                            borderRadius: "50%",
+                            background: "#fff",
+                            transition: "left 0.2s",
+                          }}
+                        />
+                      </button>
+                      <span style={{ fontSize: 13.5, fontWeight: 700, color: day.active ? "#fff" : "rgba(255,255,255,0.3)" }}>
+                        {dayLabels[key] || key}
+                      </span>
+                    </div>
+
+                    {day.active ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>Apertura:</span>
+                        <input
+                          type="time"
+                          value={day.open}
+                          onChange={(e) => setHourField(key, "open", e.target.value)}
+                          style={{ ...INPUT_STYLE, width: 110, padding: "0.35rem 0.6rem" }}
+                        />
+                        <span style={{ color: "rgba(255,255,255,0.3)" }}>—</span>
+                        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>Cierre:</span>
+                        <input
+                          type="time"
+                          value={day.close}
+                          onChange={(e) => setHourField(key, "close", e.target.value)}
+                          style={{ ...INPUT_STYLE, width: 110, padding: "0.35rem 0.6rem" }}
+                        />
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 12.5, color: "#f87171", fontWeight: 600 }}>Cerrado</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ marginTop: "1.5rem" }}>
+              <button
+                type="button"
+                onClick={saveAgent}
+                disabled={agentSaving}
+                style={primaryButtonStyle(agentSaved)}
+              >
+                {agentSaved ? (
+                  <><Check size={15} /> Horarios Guardados</>
+                ) : (
+                  <><Save size={15} /> {agentSaving ? "Guardando..." : "Guardar Horarios de Cocina"}</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB 4: ASISTENTE IA (CHATBOT) ─────────────────────────────────── */}
+      {tab === "agente" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={cardSectionStyle}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+              <div>
+                <h2 style={sectionTitleStyle}>
+                  <Bot size={18} style={{ color: "#c9a84c" }} /> Asistente Virtual Inteligente (Chatbot Web)
+                </h2>
+                <p style={sectionDescStyle}>
+                  Configura el modelo y las instrucciones del asistente que responde dudas a tus clientes en la web.
+                </p>
+              </div>
+
+              {/* Botón de prueba interactiva */}
+              <button
+                type="button"
+                onClick={testAgentChat}
+                disabled={testingAgent}
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  padding: "0.45rem 0.85rem",
+                  borderRadius: 6,
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {testingAgent ? "Probando..." : "Probar Asistente"}
+              </button>
+            </div>
+
+            {agentTestResult && (
+              <div style={{
+                padding: "0.85rem 1rem",
+                background: "rgba(56,189,248,0.08)",
+                border: "1px solid rgba(56,189,248,0.25)",
+                borderRadius: 8,
+                marginBottom: "1.25rem",
+                fontSize: 13,
+                color: "#e0f2fe",
+                lineHeight: 1.5,
+              }}>
+                <strong style={{ color: "#38bdf8", display: "block", marginBottom: 4 }}>Respuesta de prueba:</strong>
+                {agentTestResult}
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+              {/* Toggle Habilitado */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0.85rem 1.15rem",
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 8,
+              }}>
+                <div>
+                  <p style={{ fontSize: 13.5, fontWeight: 700, color: "#fff", margin: 0 }}>
+                    Asistente Virtual Activo en la Web
+                  </p>
+                  <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.45)", margin: "0.15rem 0 0 0" }}>
+                    Muestra el botón flotante de chat en la esquina de la página web oficial.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAgentConfig({ ...agentConfig, enabled: !agentConfig.enabled })}
+                  style={{
+                    width: 44,
+                    height: 24,
+                    borderRadius: 12,
+                    border: "none",
+                    cursor: "pointer",
+                    position: "relative",
+                    background: agentConfig.enabled ? "#c81e22" : "rgba(255,255,255,0.15)",
+                    transition: "background 0.2s",
+                  }}
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 2,
+                      left: agentConfig.enabled ? 22 : 2,
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      background: "#fff",
+                      transition: "left 0.2s",
+                    }}
+                  />
+                </button>
+              </div>
+
+              {/* Proveedor y Modelo */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div>
+                  <label style={labelStyle}>Proveedor de Inteligencia Artificial</label>
+                  <select
+                    value={agentConfig.apiProvider}
+                    onChange={(e) => {
+                      const prov = e.target.value as "openai" | "anthropic";
+                      setAgentConfig({
+                        ...agentConfig,
+                        apiProvider: prov,
+                        model: MODELS[prov][0],
+                      });
+                    }}
+                    style={{ ...INPUT_STYLE, cursor: "pointer" }}
+                  >
+                    <option value="openai" style={{ background: "#111" }}>OpenAI (ChatGPT)</option>
+                    <option value="anthropic" style={{ background: "#111" }}>Anthropic (Claude)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Modelo</label>
+                  <select
+                    value={agentConfig.model}
+                    onChange={(e) => setAgentConfig({ ...agentConfig, model: e.target.value })}
+                    style={{ ...INPUT_STYLE, cursor: "pointer" }}
+                  >
+                    {(MODELS[agentConfig.apiProvider] || MODELS.openai).map((m) => (
+                      <option key={m} value={m} style={{ background: "#111" }}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* API Key */}
+              <div>
+                <label style={labelStyle}>
+                  Clave API ({agentConfig.apiProvider === "anthropic" ? "Anthropic" : "OpenAI"})
+                  {agentConfig.apiKeySet && (
+                    <span style={{ color: "#4ade80", marginLeft: 8, fontWeight: 700 }}>✓ Clave configurada</span>
+                  )}
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showAgentKey ? "text" : "password"}
+                    value={agentConfig.apiKey}
+                    onChange={(e) => setAgentConfig({ ...agentConfig, apiKey: e.target.value })}
+                    placeholder={agentConfig.apiKeySet ? "Dejar vacío para mantener la actual" : "sk-..."}
+                    style={{ ...INPUT_STYLE, paddingRight: "2.5rem" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAgentKey(!showAgentKey)}
+                    style={{
+                      position: "absolute",
+                      right: 10,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.4)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {showAgentKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* System Prompt */}
+              <div>
+                <label style={labelStyle}>Instrucciones del Sistema (System Prompt)</label>
+                <textarea
+                  value={agentConfig.systemPrompt}
+                  onChange={(e) => setAgentConfig({ ...agentConfig, systemPrompt: e.target.value })}
+                  style={{ ...INPUT_STYLE, minHeight: 110, resize: "vertical", lineHeight: 1.5 }}
+                />
+              </div>
+
+              {/* Base de Conocimiento */}
+              <div>
+                <label style={labelStyle}>Base de Conocimiento de Obento (Carta, Alérgenos, Local)</label>
+                <textarea
+                  value={agentConfig.knowledgeBase}
+                  onChange={(e) => setAgentConfig({ ...agentConfig, knowledgeBase: e.target.value })}
+                  style={{ ...INPUT_STYLE, minHeight: 150, resize: "vertical", fontFamily: "monospace", fontSize: 12.5 }}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: "1.5rem" }}>
+              <button
+                type="button"
+                onClick={saveAgent}
+                disabled={agentSaving}
+                style={primaryButtonStyle(agentSaved)}
+              >
+                {agentSaved ? (
+                  <><Check size={15} /> Asistente Actualizado</>
+                ) : (
+                  <><Save size={15} /> {agentSaving ? "Guardando..." : "Guardar Configuración IA"}</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB 5: STRIPE ─────────────────────────────────────────────────── */}
+      {tab === "stripe" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={cardSectionStyle}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+              <div>
+                <h2 style={sectionTitleStyle}>
+                  <CreditCard size={18} style={{ color: "#c9a84c" }} /> Pasarela de Pagos Stripe (Tarjetas Online)
+                </h2>
+                <p style={sectionDescStyle}>
+                  Permite a tus clientes pagar online sus pedidos con tarjeta bancaria de forma segura.
+                </p>
+              </div>
+
+              <span style={{
+                padding: "0.3rem 0.65rem",
+                borderRadius: 6,
+                fontSize: 11.5,
+                fontWeight: 700,
+                background: stripeTestMode ? "rgba(56,189,248,0.12)" : "rgba(74,222,128,0.12)",
+                color: stripeTestMode ? "#38bdf8" : "#4ade80",
+                border: `1px solid ${stripeTestMode ? "rgba(56,189,248,0.3)" : "rgba(74,222,128,0.3)"}`,
+              }}>
+                {stripeTestMode ? "Modo Pruebas (Test)" : "Modo Real (Producción)"}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", marginTop: "1.25rem" }}>
+              <div>
+                <label style={labelStyle}>
+                  Stripe Publishable Key (Clave Pública)
+                  {stripePk && <span style={{ color: "#4ade80", marginLeft: 8 }}>✓ Configurada</span>}
+                </label>
+                <input
+                  type="text"
+                  value={stripePk}
+                  onChange={(e) => setStripePk(e.target.value)}
+                  placeholder="pk_test_... o pk_live_..."
+                  style={INPUT_STYLE}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>
+                  Stripe Secret Key (Clave Secreta)
+                  {stripeHasSk && <span style={{ color: "#4ade80", marginLeft: 8 }}>✓ Clave secreta activa</span>}
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showSk ? "text" : "password"}
+                    value={stripeSk}
+                    onChange={(e) => setStripeSk(e.target.value)}
+                    placeholder={stripeHasSk ? "Dejar vacío para mantener la actual" : "sk_test_... o sk_live_..."}
+                    style={{ ...INPUT_STYLE, paddingRight: "2.5rem" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSk(!showSk)}
+                    style={{
+                      position: "absolute",
+                      right: 10,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.4)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {showSk ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: "1.5rem" }}>
+              <button
+                type="button"
+                onClick={saveStripe}
+                disabled={stripeSaving}
+                style={primaryButtonStyle(stripeSaved)}
+              >
+                {stripeSaved ? (
+                  <><Check size={15} /> Claves Stripe Guardadas</>
+                ) : (
+                  <><Save size={15} /> {stripeSaving ? "Guardando..." : "Guardar Claves Stripe"}</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB 6: EMAIL (SMTP) ───────────────────────────────────────────── */}
+      {tab === "email" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={cardSectionStyle}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+              <div>
+                <h2 style={sectionTitleStyle}>
+                  <Mail size={18} style={{ color: "#c9a84c" }} /> Configuración de Envío de Correos (SMTP)
+                </h2>
+                <p style={sectionDescStyle}>
+                  Configura la cuenta para enviar confirmaciones automáticas de pedidos a clientes y avisos al restaurante.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={testEmail}
+                disabled={emailTesting || !emailFrom}
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  padding: "0.45rem 0.85rem",
+                  borderRadius: 6,
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {emailTesting ? "Enviando prueba..." : "Enviar Correo de Prueba"}
+              </button>
+            </div>
+
+            {emailTestResult && (
+              <div style={{
+                padding: "0.85rem 1rem",
+                background: emailTestResult.ok ? "rgba(74,222,128,0.08)" : "rgba(239,68,68,0.08)",
+                border: `1px solid ${emailTestResult.ok ? "rgba(74,222,128,0.25)" : "rgba(239,68,68,0.25)"}`,
+                borderRadius: 8,
+                marginBottom: "1.25rem",
+                fontSize: 13,
+                color: emailTestResult.ok ? "#4ade80" : "#f87171",
+              }}>
+                {emailTestResult.ok ? "✓ " : "✕ "} {emailTestResult.msg}
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+              <div>
+                <label style={labelStyle}>Email Remitente (ej. Gmail / Servidor SMTP)</label>
+                <input
+                  type="email"
+                  value={emailFrom}
+                  onChange={(e) => setEmailFrom(e.target.value)}
+                  placeholder="pedidos@obentojapanesefood.es"
+                  style={INPUT_STYLE}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Contraseña de Aplicación (App Password)</label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showEmailPass ? "text" : "password"}
+                    value={emailPass}
+                    onChange={(e) => setEmailPass(e.target.value)}
+                    placeholder="Dejar vacío para mantener la actual"
+                    style={{ ...INPUT_STYLE, paddingRight: "2.5rem" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEmailPass(!showEmailPass)}
+                    style={{
+                      position: "absolute",
+                      right: 10,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.4)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {showEmailPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: "1.5rem" }}>
+              <button
+                type="button"
+                onClick={saveEmail}
+                disabled={emailSaving}
+                style={primaryButtonStyle(emailSaved)}
+              >
+                {emailSaved ? (
+                  <><Check size={15} /> Correo Guardado</>
+                ) : (
+                  <><Save size={15} /> {emailSaving ? "Guardando..." : "Guardar Configuración de Correo"}</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB 7: BACKUP ─────────────────────────────────────────────────── */}
+      {tab === "backup" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={cardSectionStyle}>
+            <h2 style={sectionTitleStyle}>
+              <HardDrive size={18} style={{ color: "#c9a84c" }} /> Copias de Seguridad (Backup de Base de Datos)
+            </h2>
+            <p style={sectionDescStyle}>
+              Genera y descarga copias de seguridad de la base de datos de Obento en formato seguro JSON/SQL.
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "0.75rem", margin: "1.25rem 0" }}>
+              {BACKUP_ITEMS.map((item) => {
+                const checked = backupSelected.includes(item.key);
+                return (
+                  <div
+                    key={item.key}
+                    onClick={() => toggleBackupItem(item.key)}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "0.75rem",
+                      padding: "0.85rem 1rem",
+                      background: checked ? "rgba(200,30,34,0.08)" : "rgba(255,255,255,0.02)",
+                      border: checked ? "1px solid rgba(200,30,34,0.3)" : "1px solid rgba(255,255,255,0.05)",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span style={{ color: checked ? "#ff6b6e" : "rgba(255,255,255,0.3)", marginTop: 2 }}>
+                      {checked ? <CheckSquare size={17} /> : <Square size={17} />}
+                    </span>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", margin: 0 }}>{item.label}</p>
+                      <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.4)", margin: "0.15rem 0 0 0" }}>{item.desc}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ marginTop: "1rem" }}>
+              <button
+                type="button"
+                onClick={createBackup}
+                disabled={backupCreating || backupSelected.length === 0}
+                style={primaryButtonStyle(false)}
+              >
+                <Download size={15} />
+                {backupCreating ? "Generando y descargando backup..." : "Descargar Copia de Seguridad"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+// ─── ESTILOS REUTILIZABLES ───────────────────────────────────────────────────
+
+const cardSectionStyle: React.CSSProperties = {
+  background: "rgba(255,255,255,0.02)",
+  border: "1px solid rgba(255,255,255,0.07)",
+  borderRadius: 12,
+  padding: "1.75rem",
+};
+
+const sectionTitleStyle: React.CSSProperties = {
+  fontSize: 16,
+  fontWeight: 700,
+  color: "#fff",
+  margin: "0 0 0.35rem 0",
+  display: "flex",
+  alignItems: "center",
+  gap: "0.5rem",
+};
+
+const sectionDescStyle: React.CSSProperties = {
+  fontSize: 12.5,
+  color: "rgba(255,255,255,0.45)",
+  margin: 0,
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 11.5,
+  textTransform: "uppercase",
+  letterSpacing: "0.12em",
+  color: "rgba(255,255,255,0.4)",
+  display: "block",
+  marginBottom: "0.45rem",
+  fontWeight: 600,
+};
+
+function primaryButtonStyle(isSaved: boolean): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    padding: "0.75rem 1.75rem",
+    borderRadius: 8,
+    border: isSaved ? "1px solid rgba(74,222,128,0.3)" : "none",
+    background: isSaved ? "rgba(74,222,128,0.15)" : "linear-gradient(135deg, #c81e22, #991316)",
+    color: isSaved ? "#4ade80" : "#fff",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+    boxShadow: isSaved ? "none" : "0 4px 14px rgba(200,30,34,0.35)",
+    transition: "all 0.2s ease",
+  };
 }

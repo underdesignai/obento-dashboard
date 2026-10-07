@@ -1,22 +1,22 @@
 "use client";
 
-import "@/lib/fetchBasePathPatch";
 import "./globals.css";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, CalendarCheck, ShoppingBag, UtensilsCrossed,
-  Images, Star, BarChart2, Settings, LogOut, Menu, Users, UserRound, X, ConciergeBell, Tag,
-  Monitor, ExternalLink,
+  Images, BarChart2, Settings, LogOut, Menu, Users, UserRound, X, ConciergeBell, Tag,
+  Monitor, ExternalLink, Globe, MessageSquare, MessageCircle,
 } from "lucide-react";
 import { SessionProvider, useSession } from "@/lib/session";
 import { AdminLanguageProvider, useAdminLanguage } from "@/lib/LanguageContext";
 import LanguageSelector from "@/components/LanguageSelector";
 
-const GOLD = "#c9a84c";
-const BG   = "#0a0a0f";
-const SIDE = "#0e0d0b";
+const GOLD    = "#c9a84c";
+const CRIMSON = "#c81e22";
+const BG      = "#080808";
+const SIDE    = "#0c0b0a";
 
 function LiveClock() {
   const [time, setTime] = useState("");
@@ -45,13 +45,15 @@ function NavLink({ href, label, icon: Icon, onClick }: {
   return (
     <Link href={href} onClick={onClick} style={{
       display: "flex", alignItems: "center", gap: "0.75rem",
-      padding: "1rem 1.125rem", borderRadius: 6,
-      background: active ? "rgba(201,168,76,0.1)" : "transparent",
-      color: active ? GOLD : "rgba(255,255,255,0.45)",
-      fontSize: 18, textDecoration: "none", transition: "all 150ms",
-      borderLeft: `3px solid ${active ? GOLD : "transparent"}`,
+      padding: "0.85rem 1.125rem", borderRadius: 8,
+      background: active ? "rgba(200,30,34,0.12)" : "transparent",
+      color: active ? "#f3ede0" : "rgba(255,255,255,0.5)",
+      fontSize: 15, textDecoration: "none", transition: "all 150ms",
+      borderLeft: `3px solid ${active ? CRIMSON : "transparent"}`,
+      fontWeight: active ? 600 : 400,
     }}>
-      <Icon size={22} />{label}
+      <Icon size={20} style={{ color: active ? CRIMSON : "inherit" }} />
+      <span>{label}</span>
     </Link>
   );
 }
@@ -62,22 +64,28 @@ function ExternalNavLink({ href, label, icon: Icon }: {
   return (
     <a href={href} target="_blank" rel="noopener noreferrer" style={{
       display: "flex", alignItems: "center", gap: "0.75rem",
-      padding: "1rem 1.125rem", borderRadius: 6,
-      background: "transparent", color: "rgba(255,255,255,0.45)",
-      fontSize: 18, textDecoration: "none", transition: "all 150ms",
+      padding: "0.85rem 1.125rem", borderRadius: 8,
+      background: "transparent", color: "rgba(255,255,255,0.5)",
+      fontSize: 15, textDecoration: "none", transition: "all 150ms",
       borderLeft: "3px solid transparent",
     }}
-      onMouseEnter={e => (e.currentTarget.style.color = GOLD)}
-      onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.45)")}>
-      <Icon size={22} />
+      onMouseEnter={e => {
+        e.currentTarget.style.color = GOLD;
+        e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.color = "rgba(255,255,255,0.5)";
+        e.currentTarget.style.background = "transparent";
+      }}>
+      <Icon size={20} />
       <span style={{ flex: 1 }}>{label}</span>
-      <ExternalLink size={15} style={{ opacity: 0.5 }} />
+      <ExternalLink size={14} style={{ opacity: 0.5 }} />
     </a>
   );
 }
 
 function NavSeparator() {
-  return <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "0.5rem 0.5rem" }} />;
+  return <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "0.5rem 0.5rem" }} />;
 }
 
 function Sidebar({ onClose }: { onClose?: () => void }) {
@@ -88,23 +96,19 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
 
   const NAV_MAIN = [
     { href: "/",             label: a.overview,   icon: LayoutDashboard },
-    { href: "/reservas",     label: a.reservas,   icon: CalendarCheck },
     { href: "/pedidos",      label: a.pedidos,    icon: ShoppingBag },
-    { href: "/servicios",    label: a.servicios,  icon: ConciergeBell },
     { href: "/carta",        label: a.platos,     icon: UtensilsCrossed },
-    { href: "/galeria",      label: a.galeria,    icon: Images },
-    { href: "/reviews",      label: a.reviews,    icon: Star },
     { href: "/analytics",    label: a.analytics,  icon: BarChart2 },
     { href: "/leads",        label: a.leads,      icon: UserRound },
     { href: "/cupones",      label: a.cupones,    icon: Tag },
+    { href: "/bots-web",     label: "Bots Web",   icon: MessageSquare },
+    { href: "/whatsapp-bot", label: "WhatsApp Bot", icon: MessageCircle },
   ];
 
-  const NAV_CONFIG = [
-    { href: "/configuracion", label: a.configuracion, icon: Settings },
-  ];
+  const NAV_CONFIG: { href: string; label: string; icon: any }[] = [];
 
   const NAV_ADMIN = [
-    { href: "/trabajadores", label: a.trabajadores, icon: Users },
+    { href: "/configuracion", label: a.configuracion, icon: Settings },
   ];
 
   const handleLogout = async () => {
@@ -113,11 +117,14 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
   };
 
   return (
-    <aside style={{ width: 280, minWidth: 280, height: "100%", background: SIDE, borderRight: "1px solid rgba(201,168,76,0.08)", display: "flex", flexDirection: "column" }}>
-      <div style={{ padding: "1.25rem 1.25rem 1rem", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <div>
-          <img src="/admin/images/COYO-logo-2026-White.png" alt="Coyo" width={60} height={37} style={{ opacity: 0.7 }} />
-          <p style={{ marginTop: "0.4rem", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.3em", color: "rgba(201,168,76,0.4)" }}>Admin</p>
+    <aside style={{ width: 280, minWidth: 280, height: "100%", background: SIDE, borderRight: "1px solid rgba(200,30,34,0.15)", display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "1.25rem 1.25rem 1rem", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <img src="/images/logo-obento.png" alt="Obento" style={{ height: 40, width: "auto", objectFit: "contain" }} />
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: "0.12em", color: "#f3ede0", lineHeight: 1.1 }}>OBENTO</div>
+            <p style={{ marginTop: "0.25rem", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.22em", color: CRIMSON, fontWeight: 700 }}>Admin Panel</p>
+          </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.5rem" }}>
           {onClose && <LanguageSelector variant="admin" lang={lang} setLang={setLang} />}
@@ -135,19 +142,19 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         {role === "admin" && (
           <>
             <NavSeparator />
-            <ExternalNavLink href="https://coyoreservas.underai.site/" label={a.monitorReservas} icon={Monitor} />
-            <ExternalNavLink href="https://coyotakeaway.underai.site/" label={a.monitorTakeaway} icon={Monitor} />
+            <ExternalNavLink href={process.env.NEXT_PUBLIC_TAKEAWAY_URL || "http://localhost:3630"} label="Take Away" icon={Monitor} />
+            <ExternalNavLink href={process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000"} label="Web" icon={Globe} />
             <NavSeparator />
           </>
         )}
-        {role === "admin" && NAV_ADMIN.map(item => <NavLink key={item.href} {...item} onClick={onClose} />)}
+        {NAV_ADMIN.map(item => <NavLink key={item.href} {...item} onClick={onClose} />)}
         {role === "admin" && NAV_CONFIG.map(item => <NavLink key={item.href} {...item} onClick={onClose} />)}
       </div>
-      <div style={{ padding: "0.5rem 0.75rem 1rem", borderTop: "1px solid rgba(255,255,255,0.04)", marginTop: "0.5rem", flexShrink: 0 }}>
-        <button onClick={handleLogout} style={{ display: "flex", alignItems: "center", gap: "0.75rem", width: "100%", padding: "1rem 1.125rem", borderRadius: 6, border: "none", background: "transparent", color: "rgba(255,255,255,0.25)", fontSize: 18, cursor: "pointer" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "rgba(252,165,165,0.7)")}
-          onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}>
-          <LogOut size={16} />{a.cerrarSesion}
+      <div style={{ padding: "0.5rem 0.75rem 1rem", borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: "0.5rem", flexShrink: 0 }}>
+        <button onClick={handleLogout} style={{ display: "flex", alignItems: "center", gap: "0.75rem", width: "100%", padding: "0.85rem 1.125rem", borderRadius: 8, border: "none", background: "transparent", color: "rgba(255,255,255,0.3)", fontSize: 15, cursor: "pointer" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "rgba(252,165,165,0.8)")}
+          onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
+          <LogOut size={18} />{a.cerrarSesion}
         </button>
       </div>
     </aside>
@@ -158,10 +165,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState<boolean | null>(null);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
   const { tr, lang, setLang } = useAdminLanguage();
   const a = tr.admin;
-  const [monitorStatus, setMonitorStatus] = useState<{ reservas: "online"|"offline"; takeaway: "online"|"offline"; postgres: "online"|"offline" }>({ reservas: "offline", takeaway: "offline", postgres: "offline" });
+  const [monitorStatus, setMonitorStatus] = useState<{ takeaway: "online"|"offline"; postgres: "online"|"offline" }>({ takeaway: "offline", postgres: "offline" });
 
   const handleLogout = async () => {
     await fetch("/api/admin/auth/logout", { method: "POST" });
@@ -185,7 +192,6 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
   if (pathname === "/login") return <>{children}</>;
-  if (isMobile === null) return null;
 
   return (
     <div style={{ display: "flex", height: "100dvh", width: "100%", background: BG, color: "#fff", overflow: "hidden" }}>
@@ -194,7 +200,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
       {isMobile && drawerOpen && (
         <>
-          <div onClick={() => setDrawerOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 40, backdropFilter: "blur(2px)" }} />
+          <div onClick={() => setDrawerOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 40, backdropFilter: "blur(4px)" }} />
           <div style={{ position: "fixed", top: 0, left: 0, height: "100dvh", zIndex: 50, display: "flex" }}>
             <Sidebar onClose={() => setDrawerOpen(false)} />
           </div>
@@ -205,62 +211,57 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
         {/* Header desktop */}
         {!isMobile && (
-          <header style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 2.5rem", height: 94, flexShrink: 0, background: SIDE, gap: "1.25rem" }}>
-            {(["reservas", "takeaway"] as const).map(key => {
-              const online = monitorStatus[key] === "online";
-              return (
-                <div key={key} style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.45rem 0.85rem", borderRadius: 6, background: "rgba(255,255,255,0.04)", border: `1px solid ${online ? "rgba(74,222,128,0.25)" : "rgba(239,68,68,0.25)"}` }}>
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: online ? "#4ade80" : "#ef4444", boxShadow: `0 0 6px ${online ? "#4ade80" : "#ef4444"}`, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: online ? "rgba(74,222,128,0.7)" : "rgba(239,68,68,0.6)", textTransform: "capitalize", letterSpacing: "0.08em" }}>{key}</span>
-                </div>
-              );
-            })}
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.45rem 0.85rem", borderRadius: 6, background: "rgba(255,255,255,0.04)", border: `1px solid ${monitorStatus.postgres === "online" ? "rgba(74,222,128,0.25)" : "rgba(239,68,68,0.25)"}` }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: monitorStatus.postgres === "online" ? "#4ade80" : "#ef4444", boxShadow: `0 0 6px ${monitorStatus.postgres === "online" ? "#4ade80" : "#ef4444"}`, flexShrink: 0 }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: monitorStatus.postgres === "online" ? "rgba(74,222,128,0.7)" : "rgba(239,68,68,0.6)", letterSpacing: "0.12em" }}>PostgreSQL</span>
+          <header style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 2.5rem", height: 74, flexShrink: 0, background: SIDE, gap: "1.25rem" }}>
+            {/* Monitor Takeaway badge */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", padding: "0.4rem 0.85rem", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: `1px solid ${monitorStatus.takeaway === "online" ? "rgba(74,222,128,0.3)" : "rgba(239,68,68,0.3)"}` }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: monitorStatus.takeaway === "online" ? "#4ade80" : "#ef4444", boxShadow: `0 0 8px ${monitorStatus.takeaway === "online" ? "#4ade80" : "#ef4444"}`, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: monitorStatus.takeaway === "online" ? "#4ade80" : "rgba(239,68,68,0.8)", letterSpacing: "0.05em" }}>Takeaway KDS</span>
             </div>
-            <span style={{ fontSize: 18, color: "rgba(255,255,255,0.5)", textTransform: "capitalize" }}><LiveDate lang={lang} /></span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: "rgba(255,255,255,0.7)", fontFamily: "monospace" }}><LiveClock /></span>
+
+            {/* PostgreSQL badge */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", padding: "0.4rem 0.85rem", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: `1px solid ${monitorStatus.postgres === "online" ? "rgba(74,222,128,0.3)" : "rgba(239,68,68,0.3)"}` }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: monitorStatus.postgres === "online" ? "#4ade80" : "#ef4444", boxShadow: `0 0 8px ${monitorStatus.postgres === "online" ? "#4ade80" : "#ef4444"}`, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: monitorStatus.postgres === "online" ? "#4ade80" : "rgba(239,68,68,0.8)", letterSpacing: "0.08em" }}>obento_db</span>
+            </div>
+
+            <span style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", textTransform: "capitalize" }}><LiveDate lang={lang} /></span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: GOLD, fontFamily: "monospace" }}><LiveClock /></span>
             <LanguageSelector variant="admin" lang={lang} setLang={setLang} />
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.45rem 0.85rem", borderRadius: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 6px #4ade80" }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.12em" }}>{a.sistemaActivo}</span>
-            </div>
             <button onClick={handleLogout}
               title={a.cerrarSesion}
-              style={{ display: "flex", alignItems: "center", padding: "6px 9px", borderRadius: 7, border: "none", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)", cursor: "pointer", transition: "all 150ms" }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(252,165,165,0.1)"; e.currentTarget.style.color = "rgba(252,165,165,0.7)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.3)"; }}>
-              <LogOut size={14} />
+              style={{ display: "flex", alignItems: "center", padding: "8px 10px", borderRadius: 8, border: "none", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", cursor: "pointer", transition: "all 150ms" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(200,30,34,0.15)"; e.currentTarget.style.color = "#f87171"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}>
+              <LogOut size={16} />
             </button>
           </header>
         )}
 
         {isMobile && (
-          <header style={{ height: 56, borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 1.25rem", flexShrink: 0, background: SIDE }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <header style={{ height: 56, borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 1.25rem", flexShrink: 0, background: SIDE }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
               <button onClick={() => setDrawerOpen(true)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", display: "flex", alignItems: "center", padding: 4 }}>
                 <Menu size={22} />
               </button>
-              <img src="/admin/images/COYO-logo-2026-White.png" alt="Coyo" width={48} height={30} style={{ opacity: 0.7 }} />
+              <img src="/images/logo-obento.png" alt="Obento" style={{ height: 28, width: "auto", objectFit: "contain" }} />
               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", textTransform: "capitalize", lineHeight: 1 }}><LiveDate lang={lang} /></span>
-                <span style={{ fontSize: 16, fontWeight: 700, color: "rgba(255,255,255,0.7)", fontFamily: "monospace", lineHeight: 1 }}><LiveClock /></span>
+                <span style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", textTransform: "capitalize", lineHeight: 1 }}><LiveDate lang={lang} /></span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: GOLD, fontFamily: "monospace", lineHeight: 1.1 }}><LiveClock /></span>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
               <button onClick={handleLogout}
-                style={{ display: "flex", alignItems: "center", padding: "6px 8px", borderRadius: 7, border: "none", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)", cursor: "pointer" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(252,165,165,0.1)"; e.currentTarget.style.color = "rgba(252,165,165,0.7)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.3)"; }}>
-                <LogOut size={15} />
+                style={{ display: "flex", alignItems: "center", padding: "6px 8px", borderRadius: 7, border: "none", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(200,30,34,0.15)"; e.currentTarget.style.color = "#f87171"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}>
+                <LogOut size={16} />
               </button>
             </div>
           </header>
         )}
 
-        <main style={{ flex: 1, overflowY: "auto", padding: isMobile ? "1.25rem 1rem" : "2rem 2rem", fontSize: 18, zoom: 1.2 } as React.CSSProperties}>
+        <main style={{ flex: 1, overflowY: "auto", padding: isMobile ? "1.25rem 1rem" : "2rem 2.5rem" }}>
           {children}
         </main>
       </div>
@@ -272,13 +273,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <html lang="es">
       <head>
-        <title>Coyo Admin</title>
-        <link rel="manifest" href="/manifest.webmanifest" />
-        <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
+        <title>OBENTO · Panel de Administración</title>
+        <link rel="icon" href="/images/logo-obento.png" />
+        <link rel="apple-touch-icon" href="/images/logo-obento.png" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Zen+Kaku+Gothic+New:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Coyo Admin" />
-        <meta name="theme-color" content="#0a0a0f" />
+        <meta name="apple-mobile-web-app-title" content="Obento Admin" />
+        <meta name="theme-color" content="#080808" />
       </head>
       <body style={{ margin: 0, padding: 0 }}>
         <SessionProvider>

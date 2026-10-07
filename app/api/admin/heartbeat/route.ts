@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const TIMEOUT_MS = 15000;
+const TIMEOUT_MS = 30000;
 
 async function getStatus(clave: string): Promise<"online" | "offline"> {
   try {
@@ -14,6 +14,15 @@ async function getStatus(clave: string): Promise<"online" | "offline"> {
   }
 }
 
+async function checkTakeawayOnline(): Promise<"online" | "offline"> {
+  try {
+    const takeawayUrl = process.env.NEXT_PUBLIC_TAKEAWAY_URL || "http://localhost:3630";
+    const res = await fetch(`${takeawayUrl}/api/heartbeat`, { signal: AbortSignal.timeout(1200) });
+    if (res.ok) return "online";
+  } catch {}
+  return getStatus("monitor_takeaway_last_seen");
+}
+
 async function getPostgresStatus(): Promise<"online" | "offline"> {
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -24,10 +33,9 @@ async function getPostgresStatus(): Promise<"online" | "offline"> {
 }
 
 export async function GET() {
-  const [reservas, takeaway, postgres] = await Promise.all([
-    getStatus("monitor_reservas_last_seen"),
-    getStatus("monitor_takeaway_last_seen"),
+  const [takeaway, postgres] = await Promise.all([
+    checkTakeawayOnline(),
     getPostgresStatus(),
   ]);
-  return NextResponse.json({ reservas, takeaway, postgres });
+  return NextResponse.json({ takeaway, postgres });
 }

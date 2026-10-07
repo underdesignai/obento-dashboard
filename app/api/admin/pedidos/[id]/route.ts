@@ -8,7 +8,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const body = await req.json();
     const { estado } = body;
     if (!estado) return Response.json({ error: "estado requerido" }, { status: 400 });
-    const pedido = await prisma.pedido.update({ where: { id: Number(id) }, data: { estado } });
+
+    const estado_pedido = estado === "nuevo" ? "recibido" : estado;
+    const pedido = await prisma.pedidos.update({
+      where: { id: Number(id) },
+      data: {
+        estado_pedido,
+        ...(estado === "nuevo" || estado === "preparando" || estado === "listo" || estado === "entregado"
+          ? { estado_pago: "pagado" }
+          : {}),
+      },
+    });
     return Response.json(pedido);
   } catch (e) {
     console.error("[pedidos/id PATCH]", e);
@@ -20,7 +30,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   if (!(await getSessionRole())) return deny403();
   const { id } = await params;
   try {
-    await prisma.pedido.delete({ where: { id: Number(id) } });
+    await prisma.pedidos.delete({ where: { id: Number(id) } });
     return Response.json({ ok: true });
   } catch (e) {
     console.error("[pedidos/id DELETE]", e);

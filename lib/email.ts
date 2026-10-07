@@ -40,14 +40,14 @@ function baseLayout(content: string) {
   <body style="margin:0;padding:0;background:#f5f5f0;font-family:Georgia,serif;">
     <div style="max-width:560px;margin:40px auto;background:#fff;border-top:4px solid #c9a84c;">
       <div style="background:#0a0a0f;padding:24px 32px;display:flex;align-items:center;">
-        <span style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#c9a84c;letter-spacing:0.1em;">COYO</span>
-        <span style="margin-left:8px;font-size:11px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.2em;">Restaurant · Oslo</span>
+        <span style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#c9a84c;letter-spacing:0.1em;">OBENTO</span>
+        <span style="margin-left:8px;font-size:11px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.2em;">Restaurant · Murcia</span>
       </div>
       <div style="padding:32px;">
         ${content}
       </div>
       <div style="background:#f5f5f0;padding:16px 32px;text-align:center;">
-        <p style="font-size:11px;color:#999;margin:0;text-transform:uppercase;letter-spacing:0.15em;">Sorengkaia 165 · 0579 Oslo · coyo.no</p>
+        <p style="font-size:11px;color:#999;margin:0;text-transform:uppercase;letter-spacing:0.15em;">Sorengkaia 165 · 0579 Murcia · obento.no</p>
       </div>
     </div>
   </body>
@@ -82,7 +82,7 @@ export async function sendOrderConfirmation(to: string, data: {
         <td style="padding:12px 0;font-weight:700;font-size:18px;color:#c9a84c;text-align:right;">${data.total.toLocaleString("es-ES")},-</td>
       </tr>
     </table>
-    ${data.horaRecogida ? `<p style="font-size:14px;color:#555;">🕐 Pick-up at <strong>${data.horaRecogida}</strong> — Sorengkaia 165, Oslo.</p>` : ""}
+    ${data.horaRecogida ? `<p style="font-size:14px;color:#555;">🕐 Pick-up at <strong>${data.horaRecogida}</strong> — Sorengkaia 165, Murcia.</p>` : ""}
     <p style="font-size:13px;color:#999;margin-top:24px;">We'll let you know when your order is being prepared.</p>
   ` : `
     <h1 style="font-size:24px;color:#0a0a0f;margin:0 0 8px;">¡Pedido confirmado!</h1>
@@ -102,12 +102,12 @@ export async function sendOrderConfirmation(to: string, data: {
         <td style="padding:12px 0;font-weight:700;font-size:18px;color:#c9a84c;text-align:right;">${data.total.toLocaleString("es-ES")},-</td>
       </tr>
     </table>
-    ${data.horaRecogida ? `<p style="font-size:14px;color:#555;">🕐 Recogida a las <strong>${data.horaRecogida}</strong> en Sorengkaia 165, Oslo.</p>` : ""}
+    ${data.horaRecogida ? `<p style="font-size:14px;color:#555;">🕐 Recogida a las <strong>${data.horaRecogida}</strong> en Sorengkaia 165, Murcia.</p>` : ""}
     <p style="font-size:13px;color:#999;margin-top:24px;">Te avisaremos cuando tu pedido esté en preparación.</p>
   `);
 
   await transporter.sendMail({
-    from: `"Coyo Restaurant" <${emailFrom}>`,
+    from: `"Obento Restaurant" <${emailFrom}>`,
     to,
     subject: en ? `Order confirmed · ${data.orderNumber}` : `Pedido confirmado · ${data.orderNumber}`,
     html,
@@ -129,7 +129,7 @@ export async function sendOrderPreparing(to: string, data: {
       <p style="margin:0;font-size:13px;color:#999;text-transform:uppercase;letter-spacing:0.1em;">Order</p>
       <p style="margin:4px 0 0;font-size:20px;font-weight:700;color:#c9a84c;">${data.orderNumber}</p>
     </div>
-    ${data.horaRecogida ? `<p style="font-size:14px;color:#555;">🕐 Pick-up at <strong>${data.horaRecogida}</strong> — Sorengkaia 165, Oslo.</p>` : ""}
+    ${data.horaRecogida ? `<p style="font-size:14px;color:#555;">🕐 Pick-up at <strong>${data.horaRecogida}</strong> — Sorengkaia 165, Murcia.</p>` : ""}
     <p style="font-size:13px;color:#999;margin-top:24px;">We'll let you know when it's ready to pick up.</p>
   ` : `
     <h1 style="font-size:24px;color:#0a0a0f;margin:0 0 8px;">¡Tu pedido está en preparación! 👨‍🍳</h1>
@@ -138,12 +138,12 @@ export async function sendOrderPreparing(to: string, data: {
       <p style="margin:0;font-size:13px;color:#999;text-transform:uppercase;letter-spacing:0.1em;">Pedido</p>
       <p style="margin:4px 0 0;font-size:20px;font-weight:700;color:#c9a84c;">${data.orderNumber}</p>
     </div>
-    ${data.horaRecogida ? `<p style="font-size:14px;color:#555;">🕐 Recogida a las <strong>${data.horaRecogida}</strong> en Sorengkaia 165, Oslo.</p>` : ""}
+    ${data.horaRecogida ? `<p style="font-size:14px;color:#555;">🕐 Recogida a las <strong>${data.horaRecogida}</strong> en Sorengkaia 165, Murcia.</p>` : ""}
     <p style="font-size:13px;color:#999;margin-top:24px;">Te avisaremos cuando esté listo para recoger.</p>
   `);
 
   await transporter.sendMail({
-    from: `"Coyo Restaurant" <${emailFrom}>`,
+    from: `"Obento Restaurant" <${emailFrom}>`,
     to,
     subject: en ? `Your order is being prepared · ${data.orderNumber}` : `Tu pedido está en preparación · ${data.orderNumber}`,
     html,
@@ -165,8 +165,8 @@ export async function sendOrderReady(to: string, data: {
       <p style="margin:0;font-size:13px;color:#999;text-transform:uppercase;letter-spacing:0.1em;">Order</p>
       <p style="margin:4px 0 0;font-size:20px;font-weight:700;color:#c9a84c;">${data.orderNumber}</p>
     </div>
-    <p style="font-size:14px;color:#555;">📍 Pick up at <strong>Sorengkaia 165, Oslo</strong>${data.horaRecogida ? ` — agreed time: <strong>${data.horaRecogida}</strong>` : ""}.</p>
-    <p style="font-size:13px;color:#999;margin-top:24px;">Thank you for choosing Coyo! We hope to see you again soon.</p>
+    <p style="font-size:14px;color:#555;">📍 Pick up at <strong>Sorengkaia 165, Murcia</strong>${data.horaRecogida ? ` — agreed time: <strong>${data.horaRecogida}</strong>` : ""}.</p>
+    <p style="font-size:13px;color:#999;margin-top:24px;">Thank you for choosing Obento! We hope to see you again soon.</p>
   ` : `
     <h1 style="font-size:24px;color:#0a0a0f;margin:0 0 8px;">¡Tu pedido está listo! 🎉</h1>
     <p style="color:#666;font-size:14px;margin:0 0 24px;">Hola ${data.nombre}, tu pedido ya está listo para recoger.</p>
@@ -174,12 +174,12 @@ export async function sendOrderReady(to: string, data: {
       <p style="margin:0;font-size:13px;color:#999;text-transform:uppercase;letter-spacing:0.1em;">Pedido</p>
       <p style="margin:4px 0 0;font-size:20px;font-weight:700;color:#c9a84c;">${data.orderNumber}</p>
     </div>
-    <p style="font-size:14px;color:#555;">📍 Recoge en <strong>Sorengkaia 165, Oslo</strong>${data.horaRecogida ? ` — hora acordada: <strong>${data.horaRecogida}</strong>` : ""}.</p>
-    <p style="font-size:13px;color:#999;margin-top:24px;">¡Gracias por elegir Coyo! Esperamos verte pronto.</p>
+    <p style="font-size:14px;color:#555;">📍 Recoge en <strong>Sorengkaia 165, Murcia</strong>${data.horaRecogida ? ` — hora acordada: <strong>${data.horaRecogida}</strong>` : ""}.</p>
+    <p style="font-size:13px;color:#999;margin-top:24px;">¡Gracias por elegir Obento! Esperamos verte pronto.</p>
   `);
 
   await transporter.sendMail({
-    from: `"Coyo Restaurant" <${emailFrom}>`,
+    from: `"Obento Restaurant" <${emailFrom}>`,
     to,
     subject: en ? `Your order is ready to pick up! · ${data.orderNumber}` : `¡Tu pedido está listo para recoger! · ${data.orderNumber}`,
     html,
@@ -197,20 +197,20 @@ export async function sendOrderDelivered(to: string, data: {
     <h1 style="font-size:24px;color:#0a0a0f;margin:0 0 8px;">Order delivered! 🙌</h1>
     <p style="color:#666;font-size:14px;margin:0 0 24px;">Hi ${data.nombre}, your order <strong style="color:#c9a84c;">${data.orderNumber}</strong> has been delivered. Enjoy!</p>
     <div style="background:#f0fdf4;border-left:3px solid #4ade80;padding:12px 16px;margin-bottom:24px;">
-      <p style="margin:0;font-size:14px;color:#555;">Thank you for choosing <strong>Coyo Restaurant</strong>. We'd love to see you again.</p>
+      <p style="margin:0;font-size:14px;color:#555;">Thank you for choosing <strong>Obento Restaurant</strong>. We'd love to see you again.</p>
     </div>
-    <p style="font-size:13px;color:#999;margin-top:24px;">📍 Sorengkaia 165, Oslo · coyo.no</p>
+    <p style="font-size:13px;color:#999;margin-top:24px;">📍 Sorengkaia 165, Murcia · obento.no</p>
   ` : `
     <h1 style="font-size:24px;color:#0a0a0f;margin:0 0 8px;">¡Pedido entregado! 🙌</h1>
     <p style="color:#666;font-size:14px;margin:0 0 24px;">Hola ${data.nombre}, tu pedido <strong style="color:#c9a84c;">${data.orderNumber}</strong> ha sido entregado. ¡Esperamos que lo disfrutes!</p>
     <div style="background:#f0fdf4;border-left:3px solid #4ade80;padding:12px 16px;margin-bottom:24px;">
-      <p style="margin:0;font-size:14px;color:#555;">Gracias por elegir <strong>Coyo Restaurant</strong>. Estaremos encantados de verte de nuevo.</p>
+      <p style="margin:0;font-size:14px;color:#555;">Gracias por elegir <strong>Obento Restaurant</strong>. Estaremos encantados de verte de nuevo.</p>
     </div>
-    <p style="font-size:13px;color:#999;margin-top:24px;">📍 Sorengkaia 165, Oslo · coyo.no</p>
+    <p style="font-size:13px;color:#999;margin-top:24px;">📍 Sorengkaia 165, Murcia · obento.no</p>
   `);
 
   await transporter.sendMail({
-    from: `"Coyo Restaurant" <${emailFrom}>`,
+    from: `"Obento Restaurant" <${emailFrom}>`,
     to,
     subject: en ? `Thank you for your order! · ${data.orderNumber}` : `¡Gracias por tu pedido! · ${data.orderNumber}`,
     html,
@@ -236,7 +236,7 @@ export async function sendOrderIncident(to: string, data: {
         We'll have it ready in just a moment. Thank you for your patience. 🙏
       </p>
     </div>
-    <p style="font-size:13px;color:#999;margin-top:8px;">The Coyo team</p>
+    <p style="font-size:13px;color:#999;margin-top:8px;">The Obento team</p>
   ` : `
     <h1 style="font-size:24px;color:#0a0a0f;margin:0 0 8px;">Un pequeño contratiempo ☕</h1>
     <p style="color:#666;font-size:14px;margin:0 0 24px;">Hola ${data.nombre}, te escribimos sobre tu pedido.</p>
@@ -249,13 +249,13 @@ export async function sendOrderIncident(to: string, data: {
         Lo tendremos listo en un momento. Gracias por tu paciencia. 🙏
       </p>
     </div>
-    <p style="font-size:13px;color:#999;margin-top:8px;">El equipo de Coyo</p>
+    <p style="font-size:13px;color:#999;margin-top:8px;">El equipo de Obento</p>
   `);
 
   await transporter.sendMail({
-    from: `"Coyo Restaurant" <${emailFrom}>`,
+    from: `"Obento Restaurant" <${emailFrom}>`,
     to,
-    subject: en ? `Update on your order ${data.orderNumber} · Coyo` : `Actualización de tu pedido ${data.orderNumber} · Coyo`,
+    subject: en ? `Update on your order ${data.orderNumber} · Obento` : `Actualización de tu pedido ${data.orderNumber} · Obento`,
     html,
   });
 }
@@ -286,7 +286,7 @@ export async function sendReservationConfirmation(to: string, data: {
         <tr><td style="font-size:12px;color:#999;text-transform:uppercase;letter-spacing:0.1em;padding:4px 0;">Guests</td><td style="font-size:14px;color:#333;text-align:right;">${data.personas}</td></tr>
       </table>
     </div>
-    <p style="font-size:14px;color:#555;margin-bottom:24px;">📍 Sorengkaia 165, Oslo. We look forward to seeing you!</p>
+    <p style="font-size:14px;color:#555;margin-bottom:24px;">📍 Sorengkaia 165, Murcia. We look forward to seeing you!</p>
     <div style="border-top:1px solid #eee;padding-top:20px;margin-top:8px;text-align:center;">
       <p style="font-size:12px;color:#999;margin-bottom:12px;">Can't make it? Cancel here:</p>
       <a href="${cancelUrl}" style="display:inline-block;padding:10px 24px;background:#0a0a0f;color:#fff;text-decoration:none;border-radius:4px;font-size:13px;font-weight:600;letter-spacing:0.05em;">CANCEL RESERVATION</a>
@@ -303,7 +303,7 @@ export async function sendReservationConfirmation(to: string, data: {
         <tr><td style="font-size:12px;color:#999;text-transform:uppercase;letter-spacing:0.1em;padding:4px 0;">Personas</td><td style="font-size:14px;color:#333;text-align:right;">${data.personas}</td></tr>
       </table>
     </div>
-    <p style="font-size:14px;color:#555;margin-bottom:24px;">📍 Sorengkaia 165, Oslo. Te esperamos.</p>
+    <p style="font-size:14px;color:#555;margin-bottom:24px;">📍 Sorengkaia 165, Murcia. Te esperamos.</p>
     <div style="border-top:1px solid #eee;padding-top:20px;margin-top:8px;text-align:center;">
       <p style="font-size:12px;color:#999;margin-bottom:12px;">¿No puedes venir? Cancela aquí:</p>
       <a href="${cancelUrl}" style="display:inline-block;padding:10px 24px;background:#0a0a0f;color:#fff;text-decoration:none;border-radius:4px;font-size:13px;font-weight:600;letter-spacing:0.05em;">CANCELAR RESERVA</a>
@@ -312,7 +312,7 @@ export async function sendReservationConfirmation(to: string, data: {
   `);
 
   await transporter.sendMail({
-    from: `"Coyo Restaurant" <${emailFrom}>`,
+    from: `"Obento Restaurant" <${emailFrom}>`,
     to,
     subject: en ? `Reservation confirmed · ${data.fecha} at ${data.hora}` : `Reserva confirmada · ${data.fecha} a las ${data.hora}`,
     html,

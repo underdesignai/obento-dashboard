@@ -12,6 +12,7 @@ import { useAdminLanguage } from "@/lib/LanguageContext";
 
 type Pedido = {
   id: number;
+  numeroPedido?: string;
   nombre: string;
   email?: string;
   telefono?: string;
@@ -218,14 +219,14 @@ export default function PedidosPage() {
     const res = await fetch("/api/admin/pedidos");
     if (res.ok) {
       const data = await res.json();
-      sessionStorage.setItem("coyo_pedidos", JSON.stringify(data));
+      sessionStorage.setItem("obento_pedidos", JSON.stringify(data));
       setPedidos(data);
     }
     if (!silent) setLoading(false);
   }, []);
 
   useEffect(() => {
-    const cached = sessionStorage.getItem("coyo_pedidos");
+    const cached = sessionStorage.getItem("obento_pedidos");
     if (cached) { setPedidos(JSON.parse(cached)); setLoading(false); }
     load();
     const interval = setInterval(() => load(true), 5000);
@@ -311,7 +312,7 @@ export default function PedidosPage() {
   function exportCSV() {
     const cols = ["ID","Name","Email","Phone","Pick-up time","Items","Total","Status","Date"];
     const rows = filtered.map(p => [
-      `CY-${String(p.id).padStart(4,"0")}`,
+      p.numeroPedido || `OB-${String(p.id).padStart(4,"0")}`,
       `"${p.nombre}"`, p.email ?? "", p.telefono ?? "", p.horaRecogida ?? "",
       `"${p.items?.map(i => `${i.qty}x ${i.name}`).join(", ") ?? ""}"`,
       p.total.toFixed(2), p.estado,
@@ -495,10 +496,10 @@ export default function PedidosPage() {
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "0.5rem", marginBottom: "0.5rem" }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</p>
-                        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", margin: "2px 0 0", fontFamily: "monospace" }}>CY-{String(p.id).padStart(4,"0")}</p>
+                        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", margin: "2px 0 0", fontFamily: "monospace", fontWeight: 700 }}>{p.numeroPedido || `OB-${String(p.id).padStart(4,"0")}`}</p>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.25rem", flexShrink: 0 }}>
-                        <span style={{ fontSize: 17, fontWeight: 700, color: "#c9a84c" }}>{p.total.toFixed(0)},-</span>
+                        <span style={{ fontSize: 17, fontWeight: 700, color: "#c9a84c", fontFamily: "monospace" }}>{p.total.toFixed(2)} €</span>
                         {p.metodoPago === "local"
                           ? <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: "2px 7px", borderRadius: 20, background: "rgba(251,191,36,0.15)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.3)" }}>💵 Al recoger</span>
                           : <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: "2px 7px", borderRadius: 20, background: "rgba(74,222,128,0.12)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.25)" }}>✓ Pagado</span>
@@ -569,12 +570,12 @@ export default function PedidosPage() {
                       </p>
                     )}
                   </div>
-                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", fontFamily: "monospace" }}>CY-{String(p.id).padStart(4,"0")}</span>
+                  <span style={{ fontSize: 12, color: "#c9a84c", fontFamily: "monospace", fontWeight: 700 }}>{p.numeroPedido || `OB-${String(p.id).padStart(4,"0")}`}</span>
                   <span style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email || "—"}</span>
                   <span style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", fontVariantNumeric: "tabular-nums" }}>{p.telefono || "—"}</span>
                   <span style={{ fontSize: 13, color: "#c9a84c", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{p.horaRecogida ?? "—"}</span>
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "#c9a84c", fontVariantNumeric: "tabular-nums" }}>{p.total.toFixed(0)},-</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#c9a84c", fontVariantNumeric: "tabular-nums", fontFamily: "monospace" }}>{p.total.toFixed(2)} €</span>
                     {p.metodoPago === "local"
                       ? <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", padding: "2px 6px", borderRadius: 20, background: "rgba(251,191,36,0.15)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.3)", whiteSpace: "nowrap" }}>💵 Al recoger</span>
                       : <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", padding: "2px 6px", borderRadius: 20, background: "rgba(74,222,128,0.12)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.25)", whiteSpace: "nowrap" }}>✓ Pagado</span>
@@ -639,7 +640,7 @@ export default function PedidosPage() {
                     <div key={p.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: "0.75rem", borderLeft: `3px solid ${cfg.color}` }}>
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "0.5rem", marginBottom: "0.4rem" }}>
                         <p style={{ fontWeight: 600, fontSize: 13, color: "#fff", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</p>
-                        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", fontFamily: "monospace", flexShrink: 0 }}>#{p.id}</span>
+                        <span style={{ fontSize: 10, color: "#c9a84c", fontFamily: "monospace", flexShrink: 0, fontWeight: 700 }}>#{p.numeroPedido || p.id}</span>
                       </div>
                       {p.telefono && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", margin: "0 0 4px" }}>{p.telefono}</p>}
                       {p.horaRecogida && (
@@ -654,7 +655,7 @@ export default function PedidosPage() {
                         </p>
                       )}
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: "#c9a84c" }}>{p.total.toFixed(0)},-</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "#c9a84c", fontFamily: "monospace" }}>{p.total.toFixed(2)} €</span>
                         {canEdit && <BtnAvanzar pedido={p} onUpdate={updateEstado} nextLabel={nextLabel} />}
                       </div>
                     </div>

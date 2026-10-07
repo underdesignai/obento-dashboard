@@ -14,7 +14,11 @@ async function isAdmin(): Promise<boolean> {
 }
 
 const DEFAULTS: Record<string, string> = {
-  sitio_zona_horaria: "Europe/Oslo",
+  sitio_zona_horaria: "Europe/Madrid",
+  sitio_nombre: "Obento Japanese Food",
+  sitio_telefono: "968 00 00 00",
+  sitio_direccion: "Calle Mayor 45, 30830 La Ñora (Murcia)",
+  sitio_email: "pedidos@obentojapanesefood.es",
 };
 
 export async function GET() {
