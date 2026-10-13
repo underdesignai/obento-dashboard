@@ -153,6 +153,65 @@ function parseInvoiceText(text: string, existingStockItems: { id: number; nombre
   };
 }
 
+async function callOpenAIInvoice({
+  prompt,
+  imageBase64,
+  mimeType,
+  apiKey,
+}: {
+  prompt: string;
+  imageBase64?: string;
+  mimeType?: string;
+  apiKey: string;
+}) {
+  const content: any[] = [{ type: "text", text: prompt }];
+  if (imageBase64) {
+    content.push({
+      type: "image_url",
+      image_url: {
+        url: `data:${mimeType || "image/jpeg"};base64,${imageBase64}`,
+        detail: "high",
+      },
+    });
+  }
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content }],
+      temperature: 0.1,
+      max_tokens: 1500,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("[OpenAI Error]", res.status, errText);
+    let errMsg = `Error de OpenAI (${res.status})`;
+    try {
+      const errJson = JSON.parse(errText);
+      if (errJson?.error?.message) errMsg = errJson.error.message;
+    } catch {}
+    throw new Error(errMsg);
+  }
+
+  const data = await res.json();
+  const rawText = data.choices?.[0]?.message?.content || "";
+  const firstBrace = rawText.indexOf("{");
+  const lastBrace = rawText.lastIndexOf("}");
+
+  if (firstBrace === -1 || lastBrace === -1) {
+    throw new Error("La IA no devolvió un JSON estructurado de la factura.");
+  }
+
+  return JSON.parse(rawText.substring(firstBrace, lastBrace + 1));
+}
+
 export async function POST(req: Request) {
   const role = await getSessionRole();
   if (!role) return deny403();
@@ -165,34 +224,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No se ha subido ningún archivo" }, { status: 400 });
     }
 
-    // Comprobar si es un archivo no imagen (ej. PDF)
     const rawType = (file.type || "").toLowerCase().trim();
     const fileName = (file.name || "").toLowerCase().trim();
-
-    if (rawType.includes("pdf") || fileName.endsWith(".pdf")) {
-      return NextResponse.json(
-        { error: "El escaneo por visión de IA requiere una foto o imagen (JPG, PNG o WEBP). Por favor haz una foto del documento." },
-        { status: 400 }
-      );
-    }
-
-    // Normalizar mimeType para OpenAI Vision
-    let mimeType = "image/jpeg";
-    if (rawType.includes("png") || fileName.endsWith(".png")) {
-      mimeType = "image/png";
-    } else if (rawType.includes("webp") || fileName.endsWith(".webp")) {
-      mimeType = "image/webp";
-    } else if (rawType.includes("gif") || fileName.endsWith(".gif")) {
-      mimeType = "image/gif";
-    }
+    const isPdf = rawType.includes("pdf") || fileName.endsWith(".pdf");
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Obtener ingredientes actuales de la base de datos para auto-relacionar
+    // Obtener catálogo de stock para cotejar
     const stockItems = await prisma.stockItem.findMany({
       where: { activo: true },
       select: { id: true, nombre: true, unidad: true, costeUnitario: true },
     });
+    const stockCatalog = stockItems.map(s => `ID: ${s.id} | Nombre: ${s.nombre} | Unidad: ${s.unidad}`).join("\n");
 
     // Revisar API key configurada en el sistema
     const configRow = await prisma.configuracion.findUnique({ where: { clave: "agent_config" } });
@@ -209,9 +252,125 @@ export async function POST(req: Request) {
       );
     }
 
-    const base64Img = buffer.toString("base64");
-    const stockCatalog = stockItems.map(s => `ID: ${s.id} | Nombre: ${s.nombre} | Unidad: ${s.unidad}`).join("\n");
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 1. PROCESAMIENTO DE ARCHIVOS PDF (Digitales y Escaneados)
+    // ─────────────────────────────────────────────────────────────────────────────
+    if (isPdf) {
+      let pdfText = "";
+      try {
+        const { PDFParse } = await import("pdf-parse");
+        const parser = new PDFParse({ data: buffer });
+        const textResult = await parser.getText();
+        await parser.destroy();
+        pdfText = (textResult?.text || "").trim();
+      } catch (pdfErr) {
+        console.warn("[PDFParse text extraction error]", pdfErr);
+      }
 
+      // Si el PDF contiene texto seleccionable (la gran mayoría de facturas digitales)
+      if (pdfText.length > 30) {
+        const prompt = `Analiza el texto de esta factura de compra o ticket de proveedor para un restaurante japonés (Obento Japanese Food).
+Extrae los datos en formato JSON EXACTO con las siguientes propiedades:
+{
+  "numeroFactura": "string con el número o albarán",
+  "proveedor": "nombre comercial de la empresa proveedora",
+  "cifProveedor": "CIF o NIF del proveedor si aparece",
+  "fechaEmision": "YYYY-MM-DD",
+  "estadoPago": "pagado",
+  "items": [
+    {
+      "descripcion": "nombre del producto en la factura",
+      "stockItemId": "ID numérico del ingrediente correspondiente de nuestro catálogo si coincide o se parece, o cadena vacía '' si no corresponde a stock",
+      "cantidad": numero de unidades o kg,
+      "unidad": "kg", "unidades", "litros", etc,
+      "precioUnitario": numero (precio sin IVA por unidad/kg),
+      "ivaPct": 10
+    }
+  ]
+}
+
+Catálogo de ingredientes de nuestro almacén para asociar:
+${stockCatalog}
+
+Texto extraído de la factura PDF:
+${pdfText.slice(0, 15000)}
+
+Responde ÚNICAMENTE con el bloque JSON, sin texto antes ni después.`;
+
+        try {
+          const factura = await callOpenAIInvoice({ prompt, apiKey });
+          return NextResponse.json({ success: true, method: "pdf_text_ai", factura });
+        } catch (aiErr: any) {
+          return NextResponse.json({ error: aiErr.message || "Error procesando texto del PDF con IA" }, { status: 400 });
+        }
+      }
+
+      // Si el PDF es un documento escaneado (sin capa de texto), renderizamos a imagen PNG
+      try {
+        const { PDFParse } = await import("pdf-parse");
+        const parser = new PDFParse({ data: buffer });
+        const screenshotResult = await parser.getScreenshot({ first: 1, scale: 1.5 });
+        await parser.destroy();
+
+        if (screenshotResult?.pages?.[0]?.data) {
+          const pageImgBuffer = Buffer.from(screenshotResult.pages[0].data);
+          const base64Img = pageImgBuffer.toString("base64");
+          const prompt = `Analiza esta imagen de factura de compra o ticket de proveedor para un restaurante japonés (Obento Japanese Food).
+Extrae los datos en formato JSON EXACTO con las siguientes propiedades:
+{
+  "numeroFactura": "string con el número o albarán",
+  "proveedor": "nombre comercial de la empresa proveedora",
+  "cifProveedor": "CIF o NIF del proveedor si aparece",
+  "fechaEmision": "YYYY-MM-DD",
+  "estadoPago": "pagado",
+  "items": [
+    {
+      "descripcion": "nombre del producto en la factura",
+      "stockItemId": "ID numérico del ingrediente correspondiente de nuestro catálogo si coincide o se parece, o cadena vacía '' si no corresponde a stock",
+      "cantidad": numero de unidades o kg,
+      "unidad": "kg", "unidades", "litros", etc,
+      "precioUnitario": numero (precio sin IVA por unidad/kg),
+      "ivaPct": 10
+    }
+  ]
+}
+
+Catálogo de ingredientes de nuestro almacén para asociar:
+${stockCatalog}
+
+Responde ÚNICAMENTE con el bloque JSON, sin texto antes ni después.`;
+
+          const factura = await callOpenAIInvoice({
+            prompt,
+            imageBase64: base64Img,
+            mimeType: "image/png",
+            apiKey,
+          });
+          return NextResponse.json({ success: true, method: "pdf_vision_ai", factura });
+        }
+      } catch (renderErr: any) {
+        console.error("[PDF render error]", renderErr);
+      }
+
+      return NextResponse.json(
+        { error: "No se pudo extraer texto del PDF. Si es un escaneo antiguo, prueba a subir una foto directa (JPG/PNG)." },
+        { status: 422 }
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 2. PROCESAMIENTO DE IMÁGENES (JPG, PNG, WEBP, FOTOS DIRECTAS)
+    // ─────────────────────────────────────────────────────────────────────────────
+    let mimeType = "image/jpeg";
+    if (rawType.includes("png") || fileName.endsWith(".png")) {
+      mimeType = "image/png";
+    } else if (rawType.includes("webp") || fileName.endsWith(".webp")) {
+      mimeType = "image/webp";
+    } else if (rawType.includes("gif") || fileName.endsWith(".gif")) {
+      mimeType = "image/gif";
+    }
+
+    const base64Img = buffer.toString("base64");
     const prompt = `Analiza esta imagen de factura de compra o ticket de proveedor para un restaurante japonés (Obento Japanese Food).
 Extrae los datos en formato JSON EXACTO con las siguientes propiedades:
 {
@@ -237,71 +396,22 @@ ${stockCatalog}
 
 Responde ÚNICAMENTE con el bloque JSON, sin texto antes ni después.`;
 
-    const resOpenAI = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${base64Img}`,
-                  detail: "high",
-                },
-              },
-            ],
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 1500,
-      }),
+    const factura = await callOpenAIInvoice({
+      prompt,
+      imageBase64: base64Img,
+      mimeType,
+      apiKey,
     });
-
-    if (!resOpenAI.ok) {
-      const errText = await resOpenAI.text();
-      console.error("[OpenAI Vision Error]", resOpenAI.status, errText);
-      let errMsg = `Error de OpenAI (${resOpenAI.status})`;
-      try {
-        const errJson = JSON.parse(errText);
-        if (errJson?.error?.message) {
-          errMsg = errJson.error.message;
-        }
-      } catch {}
-      return NextResponse.json({ error: errMsg }, { status: 400 });
-    }
-
-    const data = await resOpenAI.json();
-    const rawText = data.choices?.[0]?.message?.content || "";
-    const firstBrace = rawText.indexOf("{");
-    const lastBrace = rawText.lastIndexOf("}");
-
-    if (firstBrace === -1 || lastBrace === -1) {
-      return NextResponse.json(
-        { error: "La IA no pudo estructurar los datos del ticket/factura. Intenta con una foto más nítida o centrada." },
-        { status: 422 }
-      );
-    }
-
-    const cleanedJson = rawText.substring(firstBrace, lastBrace + 1);
-    const parsed = JSON.parse(cleanedJson);
 
     return NextResponse.json({
       success: true,
       method: "ai_vision",
-      factura: parsed,
+      factura,
     });
   } catch (error: any) {
     console.error("[api/admin/facturas/scan error]", error);
     return NextResponse.json(
-      { error: "Error procesando imagen: " + (error?.message || String(error)) },
+      { error: "Error procesando documento: " + (error?.message || String(error)) },
       { status: 500 }
     );
   }
