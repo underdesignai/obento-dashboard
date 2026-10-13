@@ -32,6 +32,15 @@ const MOTIVOS_MERMA = [
   { id: "otro", label: "Otro motivo" }
 ];
 
+const SCAN_STEPS = [
+  { step: 1, title: "Subiendo documento y optimizando imagen...", detail: "Preparando resolución óptima para el motor de visión" },
+  { step: 2, title: "Analizando factura con Inteligencia Artificial...", detail: "Detectando tablas, cabecera fiscal y tipos de letra" },
+  { step: 3, title: "Extrayendo proveedor, CIF y fecha de emisión...", detail: "Leyendo número de factura y datos de contacto" },
+  { step: 4, title: "Identificando líneas de compra y precios...", detail: "Desglosando cantidades, unidades, precios base e IVA" },
+  { step: 5, title: "Cotejando productos con el inventario...", detail: "Buscando coincidencias con los ingredientes del almacén" },
+  { step: 6, title: "Finalizando y preparando formulario...", detail: "Casi listo para tu revisión y confirmación" }
+];
+
 export default function StockPage() {
   const [activeTab, setActiveTab] = useState<"almacen" | "facturas" | "mermas" | "escandallo" | "rentabilidad">("almacen");
   const [loading, setLoading] = useState(true);
@@ -64,6 +73,7 @@ export default function StockPage() {
 
   const [modalFacturaOpen, setModalFacturaOpen] = useState(false);
   const [scanningFactura, setScanningFactura] = useState(false);
+  const [scanStepIndex, setScanStepIndex] = useState(0);
   const [scanMessage, setScanMessage] = useState("");
   const [facturaForm, setFacturaForm] = useState<any>({
     numeroFactura: "",
@@ -82,7 +92,14 @@ export default function StockPage() {
   const handleScanInvoiceFile = async (file: File) => {
     if (!file) return;
     setScanningFactura(true);
-    setScanMessage("Analizando factura con IA y OCR...");
+    setScanStepIndex(0);
+    setScanMessage("");
+
+    // Intervalo que avanza los pasos informativos cada 1.8 segundos
+    const stepInterval = setInterval(() => {
+      setScanStepIndex((prev) => (prev < SCAN_STEPS.length - 1 ? prev + 1 : prev));
+    }, 1800);
+
     try {
       const fd = new FormData();
       fd.append("file", file);
@@ -108,16 +125,17 @@ export default function StockPage() {
             ? "¡Factura leída con IA y todos los campos rellenados!"
             : "¡Datos extraídos con éxito mediante OCR!"
         );
-        setTimeout(() => setScanMessage(""), 4500);
+        setTimeout(() => setScanMessage(""), 5000);
       } else {
         setScanMessage("No se pudieron extraer datos automáticos: " + (data.error || "Intente con otra foto"));
-        setTimeout(() => setScanMessage(""), 4000);
+        setTimeout(() => setScanMessage(""), 5000);
       }
     } catch (err: any) {
       console.error(err);
       setScanMessage("Error procesando imagen: " + (err?.message || ""));
-      setTimeout(() => setScanMessage(""), 4000);
+      setTimeout(() => setScanMessage(""), 5000);
     } finally {
+      clearInterval(stepInterval);
       setScanningFactura(false);
     }
   };
@@ -1112,21 +1130,89 @@ export default function StockPage() {
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 8,
+                  gap: 10,
                   cursor: scanningFactura ? "not-allowed" : "pointer",
-                  padding: "0.5rem"
+                  padding: "0.85rem 0.5rem",
+                  width: "100%",
                 }}
               >
                 {scanningFactura ? (
-                  <>
-                    <Loader2 size={32} className="animate-spin" style={{ color: "#ef4444" }} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#f3ede0" }}>
-                      Analizando factura con Inteligencia Artificial...
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: 460, margin: "0.5rem auto" }}>
+                    {/* Círculo animado girando continuamente */}
+                    <div
+                      style={{
+                        position: "relative",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 60,
+                        height: 60,
+                        borderRadius: "50%",
+                        background: "rgba(239,68,68,0.12)",
+                        border: "2px solid rgba(239,68,68,0.25)",
+                        marginBottom: 12,
+                      }}
+                    >
+                      <Loader2
+                        size={32}
+                        className="animate-spin"
+                        style={{
+                          color: "#ef4444",
+                          animation: "spin 1s linear infinite",
+                        }}
+                      />
+                    </div>
+
+                    {/* Badge del paso actual */}
+                    <span
+                      style={{
+                        fontSize: 10.5,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.12em",
+                        fontWeight: 700,
+                        color: "#c9a84c",
+                        background: "rgba(201,168,76,0.15)",
+                        padding: "3px 10px",
+                        borderRadius: 12,
+                        marginBottom: 8,
+                        display: "inline-block",
+                      }}
+                    >
+                      Paso {SCAN_STEPS[scanStepIndex].step} de {SCAN_STEPS.length}
                     </span>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
-                      Detectando proveedor, importes, cantidades y asociando al stock
+
+                    {/* Título de la acción actual */}
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", textAlign: "center", marginBottom: 3 }}>
+                      {SCAN_STEPS[scanStepIndex].title}
                     </span>
-                  </>
+
+                    {/* Detalle explicativo de lo que está haciendo */}
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", textAlign: "center", lineHeight: 1.4, marginBottom: 12 }}>
+                      {SCAN_STEPS[scanStepIndex].detail}
+                    </span>
+
+                    {/* Barra de progreso interactiva */}
+                    <div
+                      style={{
+                        width: "100%",
+                        maxWidth: 360,
+                        height: 4,
+                        background: "rgba(255,255,255,0.08)",
+                        borderRadius: 3,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${((scanStepIndex + 1) / SCAN_STEPS.length) * 100}%`,
+                          height: "100%",
+                          background: "linear-gradient(90deg, #c81e22, #c9a84c)",
+                          borderRadius: 3,
+                          transition: "width 0.6s ease-in-out",
+                        }}
+                      />
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1163,12 +1249,22 @@ export default function StockPage() {
                 )}
               </label>
 
-              {scanMessage && (
+              {scanMessage && !scanningFactura && (
                 <div style={{
-                  marginTop: 8,
+                  marginTop: 10,
+                  padding: "0.6rem 0.85rem",
+                  borderRadius: 8,
                   fontSize: 12,
                   fontWeight: 600,
-                  color: scanMessage.includes("éxito") || scanMessage.includes("leída") ? "#4ade80" : "#facc15"
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  background: scanMessage.includes("éxito") || scanMessage.includes("leída")
+                    ? "rgba(74,222,128,0.12)"
+                    : "rgba(234,179,8,0.12)",
+                  color: scanMessage.includes("éxito") || scanMessage.includes("leída") ? "#4ade80" : "#facc15",
+                  border: `1px solid ${scanMessage.includes("éxito") || scanMessage.includes("leída") ? "rgba(74,222,128,0.3)" : "rgba(234,179,8,0.3)"}`,
                 }}>
                   {scanMessage}
                 </div>
