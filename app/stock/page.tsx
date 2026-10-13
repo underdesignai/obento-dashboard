@@ -1123,12 +1123,14 @@ export default function StockPage() {
               <input
                 type="file"
                 id="invoice-photo-input"
-                accept="image/*,application/pdf"
-                capture="environment"
+                accept="image/*,application/pdf,.pdf"
                 disabled={scanningFactura}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleScanInvoiceFile(file);
+                  if (file) {
+                    handleScanInvoiceFile(file);
+                    e.target.value = "";
+                  }
                 }}
                 style={{ display: "none" }}
               />
@@ -1235,10 +1237,10 @@ export default function StockPage() {
                     </div>
                     <div>
                       <span style={{ fontSize: 14, fontWeight: 800, color: "#fff", display: "block" }}>
-                        📷 Haz una foto o sube el ticket/factura
+                        📄 Sube tu Factura o Ticket (PDF o Foto)
                       </span>
                       <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
-                        La IA extraerá proveedor, fecha, base, IVA y todas las líneas automáticamente
+                        Admite archivos PDF digitales, escaneados, JPG y PNG. La IA rellenará los datos.
                       </span>
                     </div>
                     <span style={{
@@ -1253,7 +1255,7 @@ export default function StockPage() {
                       alignItems: "center",
                       gap: 5
                     }}>
-                      <Upload size={14} /> Seleccionar Foto o Archivo
+                      <Upload size={14} /> Seleccionar Factura (PDF o Imagen)
                     </span>
                   </>
                 )}

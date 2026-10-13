@@ -153,6 +153,35 @@ function parseInvoiceText(text: string, existingStockItems: { id: number; nombre
   };
 }
 
+function sanitizeFacturaResponse(factura: any) {
+  if (!factura || typeof factura !== "object") return null;
+
+  let fecha = factura.fechaEmision;
+  if (!fecha || fecha === "YYYY-MM-DD" || !/^\d{4}-\d{2}-\d{2}$/.test(String(fecha))) {
+    fecha = new Date().toISOString().split("T")[0];
+  }
+
+  const items = Array.isArray(factura.items)
+    ? factura.items.map((it: any) => ({
+        descripcion: String(it.descripcion || "Artículo").trim(),
+        stockItemId: String(it.stockItemId || "").trim(),
+        cantidad: Number(it.cantidad) > 0 ? Number(it.cantidad) : 1,
+        unidad: String(it.unidad || "unidades").trim(),
+        precioUnitario: Number(it.precioUnitario) >= 0 ? Number(it.precioUnitario) : 0,
+        ivaPct: Number(it.ivaPct) >= 0 ? Number(it.ivaPct) : 10,
+      }))
+    : [];
+
+  return {
+    numeroFactura: String(factura.numeroFactura || "").trim(),
+    proveedor: String(factura.proveedor || "").trim(),
+    cifProveedor: String(factura.cifProveedor || "").trim(),
+    fechaEmision: fecha,
+    estadoPago: factura.estadoPago || "pagado",
+    items,
+  };
+}
+
 async function callOpenAIInvoice({
   prompt,
   imageBase64,
@@ -184,8 +213,9 @@ async function callOpenAIInvoice({
     body: JSON.stringify({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content }],
+      response_format: { type: "json_object" },
       temperature: 0.1,
-      max_tokens: 1500,
+      max_tokens: 1800,
     }),
   });
 
@@ -209,7 +239,8 @@ async function callOpenAIInvoice({
     throw new Error("La IA no devolvió un JSON estructurado de la factura.");
   }
 
-  return JSON.parse(rawText.substring(firstBrace, lastBrace + 1));
+  const parsed = JSON.parse(rawText.substring(firstBrace, lastBrace + 1));
+  return sanitizeFacturaResponse(parsed);
 }
 
 export async function POST(req: Request) {
@@ -253,22 +284,20 @@ export async function POST(req: Request) {
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // 1. PROCESAMIENTO DE ARCHIVOS PDF (Digitales y Escaneados)
+    // 1. PROCESAMIENTO DE ARCHIVOS PDF (Digitales y Escaneados con unpdf)
     // ─────────────────────────────────────────────────────────────────────────────
     if (isPdf) {
       let pdfText = "";
       try {
-        const { PDFParse } = await import("pdf-parse");
-        const parser = new PDFParse({ data: buffer });
-        const textResult = await parser.getText();
-        await parser.destroy();
-        pdfText = (textResult?.text || "").trim();
+        const { extractText } = await import("unpdf");
+        const { text } = await extractText(new Uint8Array(buffer));
+        pdfText = (Array.isArray(text) ? text.join("\n") : String(text || "")).trim();
       } catch (pdfErr) {
-        console.warn("[PDFParse text extraction error]", pdfErr);
+        console.warn("[unpdf text extraction error]", pdfErr);
       }
 
       // Si el PDF contiene texto seleccionable (la gran mayoría de facturas digitales)
-      if (pdfText.length > 30) {
+      if (pdfText.length > 25) {
         const prompt = `Analiza el texto de esta factura de compra o ticket de proveedor para un restaurante japonés (Obento Japanese Food).
 Extrae los datos en formato JSON EXACTO con las siguientes propiedades:
 {
@@ -305,17 +334,25 @@ Responde ÚNICAMENTE con el bloque JSON, sin texto antes ni después.`;
         }
       }
 
-      // Si el PDF es un documento escaneado (sin capa de texto), renderizamos a imagen PNG
+      // Si el PDF no contenía texto digital (escaneo de imagen dentro del PDF)
       try {
-        const { PDFParse } = await import("pdf-parse");
-        const parser = new PDFParse({ data: buffer });
-        const screenshotResult = await parser.getScreenshot({ first: 1, scale: 1.5 });
-        await parser.destroy();
+        const { extractImages } = await import("unpdf");
+        const images = await extractImages(new Uint8Array(buffer), 1);
 
-        if (screenshotResult?.pages?.[0]?.data) {
-          const pageImgBuffer = Buffer.from(screenshotResult.pages[0].data);
+        if (images && images.length > 0 && images[0]?.data) {
+          const imgObj = images[0];
+          const sharpModule = await import("sharp");
+          const sharp = sharpModule.default;
+          const pageImgBuffer = await sharp(Buffer.from(imgObj.data.buffer, imgObj.data.byteOffset, imgObj.data.byteLength), {
+            raw: {
+              width: imgObj.width,
+              height: imgObj.height,
+              channels: imgObj.channels,
+            },
+          }).jpeg({ quality: 85 }).toBuffer();
+
           const base64Img = pageImgBuffer.toString("base64");
-          const prompt = `Analiza esta imagen de factura de compra o ticket de proveedor para un restaurante japonés (Obento Japanese Food).
+          const prompt = `Analiza esta imagen escaneada de factura de compra o ticket de proveedor para un restaurante japonés (Obento Japanese Food).
 Extrae los datos en formato JSON EXACTO con las siguientes propiedades:
 {
   "numeroFactura": "string con el número o albarán",
@@ -343,17 +380,17 @@ Responde ÚNICAMENTE con el bloque JSON, sin texto antes ni después.`;
           const factura = await callOpenAIInvoice({
             prompt,
             imageBase64: base64Img,
-            mimeType: "image/png",
+            mimeType: "image/jpeg",
             apiKey,
           });
           return NextResponse.json({ success: true, method: "pdf_vision_ai", factura });
         }
       } catch (renderErr: any) {
-        console.error("[PDF render error]", renderErr);
+        console.error("[unpdf images extraction error]", renderErr);
       }
 
       return NextResponse.json(
-        { error: "No se pudo extraer texto del PDF. Si es un escaneo antiguo, prueba a subir una foto directa (JPG/PNG)." },
+        { error: "No se pudo extraer texto ni imagen de este PDF. Si es un escaneo antiguo o protegido, prueba a subir una foto (JPG/PNG)." },
         { status: 422 }
       );
     }
