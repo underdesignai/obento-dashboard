@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionRole, deny403 } from "@/lib/auth";
-import { createWorker } from "tesseract.js";
 
 export const maxDuration = 60; // Hasta 60s para procesamiento OCR/Vision
 
@@ -166,6 +165,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No se ha subido ningún archivo" }, { status: 400 });
     }
 
+    // Comprobar si es un archivo no imagen (ej. PDF)
+    const rawType = (file.type || "").toLowerCase().trim();
+    const fileName = (file.name || "").toLowerCase().trim();
+
+    if (rawType.includes("pdf") || fileName.endsWith(".pdf")) {
+      return NextResponse.json(
+        { error: "El escaneo por visión de IA requiere una foto o imagen (JPG, PNG o WEBP). Por favor haz una foto del documento." },
+        { status: 400 }
+      );
+    }
+
+    // Normalizar mimeType para OpenAI Vision
+    let mimeType = "image/jpeg";
+    if (rawType.includes("png") || fileName.endsWith(".png")) {
+      mimeType = "image/png";
+    } else if (rawType.includes("webp") || fileName.endsWith(".webp")) {
+      mimeType = "image/webp";
+    } else if (rawType.includes("gif") || fileName.endsWith(".gif")) {
+      mimeType = "image/gif";
+    }
+
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Obtener ingredientes actuales de la base de datos para auto-relacionar
@@ -174,7 +194,7 @@ export async function POST(req: Request) {
       select: { id: true, nombre: true, unidad: true, costeUnitario: true },
     });
 
-    // Revisar si hay API key configurada en la base de datos (OpenAI GPT-4o-mini Vision)
+    // Revisar API key configurada en el sistema
     const configRow = await prisma.configuracion.findUnique({ where: { clave: "agent_config" } });
     let config: any = {};
     if (configRow?.valor) {
@@ -182,21 +202,24 @@ export async function POST(req: Request) {
     }
     const apiKey = config.apiKey || process.env.OPENAI_API_KEY;
 
-    // Si hay OpenAI Key con soporte de visión, usar GPT-4o-mini Vision para máxima precisión
-    if (apiKey) {
-      try {
-        const base64Img = buffer.toString("base64");
-        const mimeType = file.type || "image/jpeg";
-        const stockCatalog = stockItems.map(s => `ID: ${s.id} | Nombre: ${s.nombre} | Unidad: ${s.unidad}`).join("\n");
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "No hay ninguna API Key de OpenAI configurada. Introduce tu clave en Configuración > General." },
+        { status: 400 }
+      );
+    }
 
-        const prompt = `Analiza esta imagen de factura de compra o ticket de proveedor para un restaurante japonés (Obento Japanese Food).
+    const base64Img = buffer.toString("base64");
+    const stockCatalog = stockItems.map(s => `ID: ${s.id} | Nombre: ${s.nombre} | Unidad: ${s.unidad}`).join("\n");
+
+    const prompt = `Analiza esta imagen de factura de compra o ticket de proveedor para un restaurante japonés (Obento Japanese Food).
 Extrae los datos en formato JSON EXACTO con las siguientes propiedades:
 {
   "numeroFactura": "string con el número o albarán",
   "proveedor": "nombre comercial de la empresa proveedora",
   "cifProveedor": "CIF o NIF del proveedor si aparece",
   "fechaEmision": "YYYY-MM-DD",
-  "estadoPago": "pagado" o "pendiente",
+  "estadoPago": "pagado",
   "items": [
     {
       "descripcion": "nombre del producto en la factura",
@@ -204,7 +227,7 @@ Extrae los datos en formato JSON EXACTO con las siguientes propiedades:
       "cantidad": numero de unidades o kg,
       "unidad": "kg", "unidades", "litros", etc,
       "precioUnitario": numero (precio sin IVA por unidad/kg),
-      "ivaPct": 10 o 21 o 4
+      "ivaPct": 10
     }
   ]
 }
@@ -214,71 +237,71 @@ ${stockCatalog}
 
 Responde ÚNICAMENTE con el bloque JSON, sin texto antes ni después.`;
 
-        const resOpenAI = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
+    const resOpenAI = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
               {
-                role: "user",
-                content: [
-                  { type: "text", text: prompt },
-                  {
-                    type: "image_url",
-                    image_url: {
-                      url: `data:${mimeType};base64,${base64Img}`,
-                      detail: "high",
-                    },
-                  },
-                ],
+                type: "image_url",
+                image_url: {
+                  url: `data:${mimeType};base64,${base64Img}`,
+                  detail: "high",
+                },
               },
             ],
-            temperature: 0.1,
-            max_tokens: 1500,
-          }),
-        });
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 1500,
+      }),
+    });
 
-        if (resOpenAI.ok) {
-          const data = await resOpenAI.json();
-          const rawText = data.choices?.[0]?.message?.content || "";
-          const cleaned = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-          const parsed = JSON.parse(cleaned);
-
-          return NextResponse.json({
-            success: true,
-            method: "ai_vision",
-            factura: parsed,
-          });
+    if (!resOpenAI.ok) {
+      const errText = await resOpenAI.text();
+      console.error("[OpenAI Vision Error]", resOpenAI.status, errText);
+      let errMsg = `Error de OpenAI (${resOpenAI.status})`;
+      try {
+        const errJson = JSON.parse(errText);
+        if (errJson?.error?.message) {
+          errMsg = errJson.error.message;
         }
-      } catch (aiErr) {
-        console.error("[OCR OpenAI Error, cayendo a motor local Tesseract]", aiErr);
-      }
+      } catch {}
+      return NextResponse.json({ error: errMsg }, { status: 400 });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // MOTOR OCR LOCAL CON TESSERACT.JS (100% Autónomo sin necesidad de API Externa)
-    // ─────────────────────────────────────────────────────────────────────────────
-    const worker = await createWorker("spa"); // Lenguaje español
-    const ret = await worker.recognize(buffer);
-    await worker.terminate();
+    const data = await resOpenAI.json();
+    const rawText = data.choices?.[0]?.message?.content || "";
+    const firstBrace = rawText.indexOf("{");
+    const lastBrace = rawText.lastIndexOf("}");
 
-    const ocrText = ret.data.text || "";
-    const parsedData = parseInvoiceText(ocrText, stockItems);
+    if (firstBrace === -1 || lastBrace === -1) {
+      return NextResponse.json(
+        { error: "La IA no pudo estructurar los datos del ticket/factura. Intenta con una foto más nítida o centrada." },
+        { status: 422 }
+      );
+    }
+
+    const cleanedJson = rawText.substring(firstBrace, lastBrace + 1);
+    const parsed = JSON.parse(cleanedJson);
 
     return NextResponse.json({
       success: true,
-      method: "ocr_tesseract",
-      factura: parsedData,
-      rawText: ocrText.slice(0, 500),
+      method: "ai_vision",
+      factura: parsed,
     });
   } catch (error: any) {
     console.error("[api/admin/facturas/scan error]", error);
     return NextResponse.json(
-      { error: "Error procesando imagen de la factura: " + (error?.message || String(error)) },
+      { error: "Error procesando imagen: " + (error?.message || String(error)) },
       { status: 500 }
     );
   }

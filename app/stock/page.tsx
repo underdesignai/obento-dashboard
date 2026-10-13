@@ -88,17 +88,22 @@ export default function StockPage() {
     ]
   });
 
-  // Escanear Factura con Foto o PDF (IA Vision & OCR)
+  // Escanear Factura con Foto o PDF (IA Vision)
   const handleScanInvoiceFile = async (file: File) => {
     if (!file) return;
     setScanningFactura(true);
     setScanStepIndex(0);
     setScanMessage("");
 
-    // Intervalo que avanza los pasos informativos cada 1.8 segundos
+    // Intervalo con ritmo progresivo para que no llegue inmediatamente al paso final
     const stepInterval = setInterval(() => {
       setScanStepIndex((prev) => (prev < SCAN_STEPS.length - 1 ? prev + 1 : prev));
-    }, 1800);
+    }, 2400);
+
+    const controller = new AbortController();
+    const timeoutTimer = setTimeout(() => {
+      controller.abort();
+    }, 45000);
 
     try {
       const fd = new FormData();
@@ -107,9 +112,12 @@ export default function StockPage() {
       const res = await fetch("/api/admin/facturas/scan", {
         method: "POST",
         body: fd,
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutTimer);
       const data = await res.json();
+
       if (res.ok && data.factura) {
         const f = data.factura;
         setFacturaForm((prev: any) => ({
@@ -120,21 +128,23 @@ export default function StockPage() {
           fechaEmision: f.fechaEmision || prev.fechaEmision,
           items: f.items && f.items.length > 0 ? f.items : prev.items,
         }));
-        setScanMessage(
-          data.method === "ai_vision"
-            ? "¡Factura leída con IA y todos los campos rellenados!"
-            : "¡Datos extraídos con éxito mediante OCR!"
-        );
+        setScanMessage("¡Factura leída con éxito con IA y formulario rellenado!");
         setTimeout(() => setScanMessage(""), 5000);
       } else {
-        setScanMessage("No se pudieron extraer datos automáticos: " + (data.error || "Intente con otra foto"));
-        setTimeout(() => setScanMessage(""), 5000);
+        setScanMessage(data.error || "No se pudieron extraer datos de la foto. Intenta con una imagen más nítida.");
+        setTimeout(() => setScanMessage(""), 6000);
       }
     } catch (err: any) {
-      console.error(err);
-      setScanMessage("Error procesando imagen: " + (err?.message || ""));
-      setTimeout(() => setScanMessage(""), 5000);
+      clearTimeout(timeoutTimer);
+      if (err?.name === "AbortError") {
+        setScanMessage("El análisis tardó demasiado tiempo (más de 45s). Intenta con una foto más ligera.");
+      } else {
+        console.error(err);
+        setScanMessage("Error procesando imagen: " + (err?.message || ""));
+      }
+      setTimeout(() => setScanMessage(""), 6000);
     } finally {
+      clearTimeout(timeoutTimer);
       clearInterval(stepInterval);
       setScanningFactura(false);
     }
