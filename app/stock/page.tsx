@@ -95,7 +95,7 @@ export default function StockPage() {
     categoria: "Pescados y Mariscos",
     unidad: "kg",
     cantidadActual: "",
-    stockMinimo: 5,
+    stockMinimo: 0,
     costeUnitario: "",
     proveedorHabitual: "",
     notas: ""
@@ -460,7 +460,7 @@ export default function StockPage() {
             onClick={() => {
               setItemForm({
                 id: null, nombre: "", categoria: "Pescados y Mariscos", unidad: "kg",
-                cantidadActual: "", stockMinimo: 5, costeUnitario: "", proveedorHabitual: "", notas: ""
+                cantidadActual: "", stockMinimo: 0, costeUnitario: "", proveedorHabitual: "", notas: ""
               });
               setModalItemOpen(true);
             }}
@@ -651,7 +651,8 @@ export default function StockPage() {
                 </thead>
                 <tbody>
                   {filteredStock.map(item => {
-                    const isBajo = item.cantidadActual <= item.stockMinimo;
+                    const isAgotado = item.cantidadActual <= 0;
+                    const isBajo = !isAgotado && item.stockMinimo > 0 && item.cantidadActual <= item.stockMinimo;
                     const valorTotal = item.cantidadActual * item.costeUnitario;
                     return (
                       <tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
@@ -666,11 +667,16 @@ export default function StockPage() {
                         </td>
                         <td style={{ padding: "0.85rem 1rem" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ fontWeight: 800, fontSize: 14, color: isBajo ? "#ef4444" : "#f3ede0" }}>
+                            <span style={{ fontWeight: 800, fontSize: 14, color: isAgotado ? "#ef4444" : isBajo ? "#facc15" : "#f3ede0" }}>
                               {item.cantidadActual} {item.unidad}
                             </span>
-                            {isBajo && (
+                            {isAgotado && (
                               <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(239,68,68,0.2)", color: "#ef4444", padding: "2px 5px", borderRadius: 4 }}>
+                                AGOTADO
+                              </span>
+                            )}
+                            {isBajo && (
+                              <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(234,179,8,0.2)", color: "#facc15", padding: "2px 5px", borderRadius: 4 }}>
                                 BAJO
                               </span>
                             )}
