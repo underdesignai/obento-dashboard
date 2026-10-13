@@ -5,7 +5,7 @@ import {
   Boxes, Plus, Trash2, Pencil, Search, AlertTriangle,
   Receipt, TrendingUp, TrendingDown, ArrowDownRight,
   ArrowUpRight, DollarSign, Package, FileText, CheckCircle2,
-  Calendar, Layers, Filter, Eye, RefreshCw, X, Camera, Sparkles, Upload, Loader2
+  Calendar, Layers, Filter, Eye, RefreshCw, X, Camera, Sparkles, Upload, Loader2, ExternalLink
 } from "lucide-react";
 
 // Categorías estándar para cocina japonesa
@@ -88,22 +88,53 @@ export default function StockPage() {
     ]
   });
 
-  // Escanear Factura con Foto o PDF (IA Vision)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<string>("application/pdf");
+  const [previewFileName, setPreviewFileName] = useState<string>("");
+  const [currentScanPage, setCurrentScanPage] = useState<number>(0);
+  const [totalScanPages, setTotalScanPages] = useState<number>(0);
+
+  const totalFacturaCalculado = useMemo(() => {
+    return (facturaForm.items || []).reduce((acc: number, it: any) => {
+      return acc + (Number(it.cantidad || 0) * Number(it.precioUnitario || 0));
+    }, 0);
+  }, [facturaForm.items]);
+
+  const closeModalFactura = () => {
+    if (previewUrl) {
+      try { URL.revokeObjectURL(previewUrl); } catch {}
+    }
+    setPreviewUrl(null);
+    setModalFacturaOpen(false);
+    setScanningFactura(false);
+    setScanMessage("");
+    setCurrentScanPage(0);
+    setTotalScanPages(0);
+  };
+
+  // Escanear Factura Progresivo en Tiempo Real (Página por página con visor)
   const handleScanInvoiceFile = async (file: File) => {
     if (!file) return;
+
+    // 1. Crear previsualización visual inmediata en el navegador (0ms)
+    if (previewUrl) {
+      try { URL.revokeObjectURL(previewUrl); } catch {}
+    }
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+    setPreviewType(file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg"));
+    setPreviewFileName(file.name);
+
     setScanningFactura(true);
-    setScanStepIndex(0);
-    setScanMessage("");
+    setCurrentScanPage(1);
+    setTotalScanPages(1);
+    setScanMessage("Conectando con la IA y preparando documento...");
 
-    // Intervalo con ritmo progresivo para que no llegue inmediatamente al paso final
-    const stepInterval = setInterval(() => {
-      setScanStepIndex((prev) => (prev < SCAN_STEPS.length - 1 ? prev + 1 : prev));
-    }, 2400);
-
-    const controller = new AbortController();
-    const timeoutTimer = setTimeout(() => {
-      controller.abort();
-    }, 45000);
+    // Limpiar artículos para que vayan apareciendo los nuevos en vivo
+    setFacturaForm((prev: any) => ({
+      ...prev,
+      items: [],
+    }));
 
     try {
       const fd = new FormData();
@@ -112,40 +143,76 @@ export default function StockPage() {
       const res = await fetch("/api/admin/facturas/scan", {
         method: "POST",
         body: fd,
-        signal: controller.signal,
       });
 
-      clearTimeout(timeoutTimer);
-      const data = await res.json();
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        setScanMessage(errorData.error || `Error en el servidor (${res.status})`);
+        setScanningFactura(false);
+        return;
+      }
 
-      if (res.ok && data.factura) {
-        const f = data.factura;
-        setFacturaForm((prev: any) => ({
-          ...prev,
-          numeroFactura: f.numeroFactura || prev.numeroFactura,
-          proveedor: f.proveedor || prev.proveedor,
-          cifProveedor: f.cifProveedor || prev.cifProveedor,
-          fechaEmision: f.fechaEmision || prev.fechaEmision,
-          items: f.items && f.items.length > 0 ? f.items : prev.items,
-        }));
-        setScanMessage("¡Factura leída con éxito con IA y formulario rellenado!");
-        setTimeout(() => setScanMessage(""), 5000);
-      } else {
-        setScanMessage(data.error || "No se pudieron extraer datos de la foto. Intenta con una imagen más nítida.");
-        setTimeout(() => setScanMessage(""), 6000);
+      const reader = res.body?.getReader();
+      if (!reader) {
+        setScanMessage("No se pudo iniciar el flujo de lectura.");
+        setScanningFactura(false);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const ev = JSON.parse(line);
+
+            if (ev.type === "init") {
+              setTotalScanPages(ev.totalPages || 1);
+              setScanMessage(`Documento cargado: ${ev.totalPages} ${ev.totalPages === 1 ? "página" : "páginas"}.`);
+            } else if (ev.type === "page_start") {
+              setCurrentScanPage(ev.page);
+              setTotalScanPages(ev.totalPages);
+              setScanMessage(`Analizando página ${ev.page} de ${ev.totalPages}...`);
+            } else if (ev.type === "page_data") {
+              if (ev.header) {
+                setFacturaForm((prev: any) => ({
+                  ...prev,
+                  numeroFactura: ev.header.numeroFactura || prev.numeroFactura,
+                  proveedor: ev.header.proveedor || prev.proveedor,
+                  cifProveedor: ev.header.cifProveedor || prev.cifProveedor,
+                  fechaEmision: ev.header.fechaEmision || prev.fechaEmision,
+                  estadoPago: ev.header.estadoPago || prev.estadoPago,
+                }));
+              }
+              if (ev.items && ev.items.length > 0) {
+                setFacturaForm((prev: any) => ({
+                  ...prev,
+                  items: [...prev.items, ...ev.items],
+                }));
+              }
+            } else if (ev.type === "complete") {
+              setScanMessage(ev.message || "¡Lectura de todas las páginas completada con éxito!");
+            } else if (ev.type === "error") {
+              setScanMessage("Aviso: " + ev.error);
+            }
+          } catch (e) {
+            console.warn("Parse stream warning:", e);
+          }
+        }
       }
     } catch (err: any) {
-      clearTimeout(timeoutTimer);
-      if (err?.name === "AbortError") {
-        setScanMessage("El análisis tardó demasiado tiempo (más de 45s). Intenta con una foto más ligera.");
-      } else {
-        console.error(err);
-        setScanMessage("Error procesando imagen: " + (err?.message || ""));
-      }
-      setTimeout(() => setScanMessage(""), 6000);
+      console.error(err);
+      setScanMessage("Error procesando documento: " + (err?.message || ""));
     } finally {
-      clearTimeout(timeoutTimer);
-      clearInterval(stepInterval);
       setScanningFactura(false);
     }
   };
@@ -1091,384 +1158,559 @@ export default function StockPage() {
           MODAL: REGISTRAR FACTURA DE COMPRA
       ───────────────────────────────────────────────────────────────────────────── */}
       {modalFacturaOpen && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-          <div style={{ background: "#14151a", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, width: "100%", maxWidth: 680, padding: "1.75rem", maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+          <div style={{
+            background: "#13141a",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 16,
+            width: "100%",
+            maxWidth: previewUrl ? 1440 : 680,
+            height: previewUrl ? "92vh" : "auto",
+            maxHeight: "94vh",
+            display: "flex",
+            flexDirection: "column",
+            padding: "1.25rem 1.5rem",
+            overflow: "hidden",
+            boxShadow: "0 25px 60px rgba(0,0,0,0.75)"
+          }}>
+            {/* Cabecera del Modal */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "0.85rem", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
                   Registrar Factura de Proveedor
                   <span style={{ fontSize: 11, background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
-                    IA Auto-Fill
+                    IA Auto-Fill Progresivo
                   </span>
+                  {previewUrl && (
+                    <span style={{ fontSize: 11, background: "rgba(201,168,76,0.15)", color: "#c9a84c", border: "1px solid rgba(201,168,76,0.3)", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
+                      Visor Comparador Activo
+                    </span>
+                  )}
                 </h3>
                 <p style={{ margin: "3px 0 0", fontSize: 12, color: "rgba(255,255,255,0.45)" }}>
-                  Sube una foto o ticket y la IA rellenará automáticamente todos los datos y artículos.
+                  {previewUrl
+                    ? "Compara el documento original a la izquierda con los datos extraídos en vivo a la derecha."
+                    : "Sube un archivo PDF (hasta 10 páginas) o foto. La IA extraerá los datos en vivo hoja por hoja."}
                 </p>
               </div>
-              <button onClick={() => setModalFacturaOpen(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
-                <X size={20} />
-              </button>
-            </div>
 
-            {/* SECCIÓN IA / ESCANEAR FOTO DE FACTURA */}
-            <div style={{
-              background: "linear-gradient(135deg, rgba(239,68,68,0.08) 0%, rgba(201,168,76,0.08) 100%)",
-              border: "1px dashed rgba(239,68,68,0.35)",
-              borderRadius: 12,
-              padding: "1rem",
-              marginBottom: "1.25rem",
-              textAlign: "center",
-              position: "relative"
-            }}>
-              <input
-                type="file"
-                id="invoice-photo-input"
-                accept="image/*,application/pdf,.pdf"
-                disabled={scanningFactura}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    handleScanInvoiceFile(file);
-                    e.target.value = "";
-                  }
-                }}
-                style={{ display: "none" }}
-              />
-
-              <label
-                htmlFor="invoice-photo-input"
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 10,
-                  cursor: scanningFactura ? "not-allowed" : "pointer",
-                  padding: "0.85rem 0.5rem",
-                  width: "100%",
-                }}
-              >
-                {scanningFactura ? (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: 460, margin: "0.5rem auto" }}>
-                    {/* Círculo animado girando continuamente */}
-                    <div
-                      style={{
-                        position: "relative",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: 60,
-                        height: 60,
-                        borderRadius: "50%",
-                        background: "rgba(239,68,68,0.12)",
-                        border: "2px solid rgba(239,68,68,0.25)",
-                        marginBottom: 12,
-                      }}
-                    >
-                      <Loader2
-                        size={32}
-                        className="animate-spin"
-                        style={{
-                          color: "#ef4444",
-                          animation: "spin 1s linear infinite",
-                        }}
-                      />
-                    </div>
-
-                    {/* Badge del paso actual */}
-                    <span
-                      style={{
-                        fontSize: 10.5,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.12em",
-                        fontWeight: 700,
-                        color: "#c9a84c",
-                        background: "rgba(201,168,76,0.15)",
-                        padding: "3px 10px",
-                        borderRadius: 12,
-                        marginBottom: 8,
-                        display: "inline-block",
-                      }}
-                    >
-                      Paso {SCAN_STEPS[scanStepIndex].step} de {SCAN_STEPS.length}
-                    </span>
-
-                    {/* Título de la acción actual */}
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", textAlign: "center", marginBottom: 3 }}>
-                      {SCAN_STEPS[scanStepIndex].title}
-                    </span>
-
-                    {/* Detalle explicativo de lo que está haciendo */}
-                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", textAlign: "center", lineHeight: 1.4, marginBottom: 12 }}>
-                      {SCAN_STEPS[scanStepIndex].detail}
-                    </span>
-
-                    {/* Barra de progreso interactiva */}
-                    <div
-                      style={{
-                        width: "100%",
-                        maxWidth: 360,
-                        height: 4,
-                        background: "rgba(255,255,255,0.08)",
-                        borderRadius: 3,
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${((scanStepIndex + 1) / SCAN_STEPS.length) * 100}%`,
-                          height: "100%",
-                          background: "linear-gradient(90deg, #c81e22, #c9a84c)",
-                          borderRadius: 3,
-                          transition: "width 0.6s ease-in-out",
-                        }}
-                      />
-                    </div>
-                  </div>
-                ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {previewUrl && (
                   <>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ padding: 10, borderRadius: "50%", background: "rgba(239,68,68,0.15)", color: "#ef4444", display: "inline-flex" }}>
-                        <Camera size={22} />
-                      </span>
-                      <span style={{ padding: 10, borderRadius: "50%", background: "rgba(201,168,76,0.15)", color: "#c9a84c", display: "inline-flex" }}>
-                        <Sparkles size={22} />
-                      </span>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: "#fff", display: "block" }}>
-                        📄 Sube tu Factura o Ticket (PDF o Foto)
-                      </span>
-                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
-                        Admite archivos PDF digitales, escaneados, JPG y PNG. La IA rellenará los datos.
-                      </span>
-                    </div>
-                    <span style={{
-                      marginTop: 4,
-                      background: "#ef4444",
-                      color: "#fff",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      padding: "5px 14px",
-                      borderRadius: 6,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5
-                    }}>
-                      <Upload size={14} /> Seleccionar Factura (PDF o Imagen)
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById("invoice-photo-input")?.click()}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 5,
+                        background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
+                        color: "#fff", borderRadius: 8, padding: "0.45rem 0.75rem", fontSize: 12, fontWeight: 600, cursor: "pointer"
+                      }}
+                      title="Subir otro archivo"
+                    >
+                      <RefreshCw size={13} /> Cambiar Archivo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.open(previewUrl, "_blank")}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 5,
+                        background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
+                        color: "#fff", borderRadius: 8, padding: "0.45rem 0.75rem", fontSize: 12, fontWeight: 600, cursor: "pointer"
+                      }}
+                      title="Abrir documento original en pestaña nueva"
+                    >
+                      <ExternalLink size={13} /> Pantalla Completa
+                    </button>
                   </>
                 )}
-              </label>
-
-              {scanMessage && !scanningFactura && (
-                <div style={{
-                  marginTop: 10,
-                  padding: "0.6rem 0.85rem",
-                  borderRadius: 8,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  background: scanMessage.includes("éxito") || scanMessage.includes("leída")
-                    ? "rgba(74,222,128,0.12)"
-                    : "rgba(234,179,8,0.12)",
-                  color: scanMessage.includes("éxito") || scanMessage.includes("leída") ? "#4ade80" : "#facc15",
-                  border: `1px solid ${scanMessage.includes("éxito") || scanMessage.includes("leída") ? "rgba(74,222,128,0.3)" : "rgba(234,179,8,0.3)"}`,
-                }}>
-                  {scanMessage}
-                </div>
-              )}
+                <button
+                  type="button"
+                  onClick={closeModalFactura}
+                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", padding: 4 }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
-            <form onSubmit={handleSaveFactura} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Nº Factura *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="FAC-2026-001"
-                    value={facturaForm.numeroFactura}
-                    onChange={e => setFacturaForm({ ...facturaForm, numeroFactura: e.target.value })}
-                    style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
-                  />
-                </div>
+            {/* Input de archivo oculto */}
+            <input
+              type="file"
+              id="invoice-photo-input"
+              accept="image/*,application/pdf,.pdf"
+              disabled={scanningFactura}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleScanInvoiceFile(file);
+                  e.target.value = "";
+                }
+              }}
+              style={{ display: "none" }}
+            />
 
-                <div>
-                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Proveedor *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej. Pescados del Puerto S.L."
-                    value={facturaForm.proveedor}
-                    onChange={e => setFacturaForm({ ...facturaForm, proveedor: e.target.value })}
-                    style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Fecha de Emisión *</label>
-                  <input
-                    type="date"
-                    required
-                    value={facturaForm.fechaEmision}
-                    onChange={e => setFacturaForm({ ...facturaForm, fechaEmision: e.target.value })}
-                    style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Estado de Pago</label>
-                  <select
-                    value={facturaForm.estadoPago}
-                    onChange={e => setFacturaForm({ ...facturaForm, estadoPago: e.target.value })}
-                    style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
-                  >
-                    <option value="pagado">Pagado</option>
-                    <option value="pendiente">Pendiente de Pago</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Líneas de Factura */}
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: "#f3ede0", textTransform: "uppercase" }}>
-                    Líneas de la Factura (Entradas al Almacén)
-                  </label>
+            {/* VISTA 1: AÚN NO SE HA SUBIDO DOCUMENTO (Selector de Archivo destacado) */}
+            {!previewUrl ? (
+              <div style={{ padding: "1.75rem 0 0.5rem" }}>
+                <div style={{
+                  background: "linear-gradient(135deg, rgba(239,68,68,0.08) 0%, rgba(201,168,76,0.08) 100%)",
+                  border: "2px dashed rgba(239,68,68,0.4)",
+                  borderRadius: 14,
+                  padding: "2.5rem 1.5rem",
+                  textAlign: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => document.getElementById("invoice-photo-input")?.click()}
+                >
+                  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                    <span style={{ padding: 12, borderRadius: "50%", background: "rgba(239,68,68,0.15)", color: "#ef4444", display: "inline-flex" }}>
+                      <Camera size={26} />
+                    </span>
+                    <span style={{ padding: 12, borderRadius: "50%", background: "rgba(201,168,76,0.15)", color: "#c9a84c", display: "inline-flex" }}>
+                      <Sparkles size={26} />
+                    </span>
+                  </div>
+                  <h4 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 800, color: "#fff" }}>
+                    📄 Selecciona tu Factura o Ticket (PDF multipágina o Foto)
+                  </h4>
+                  <p style={{ margin: "0 auto 16px", maxWidth: 460, fontSize: 12.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.5 }}>
+                    Admite archivos PDF de hasta 10 páginas, fotos JPG y PNG. Se abrirá el <strong>comparador visual a dos columnas</strong> y la IA irá volcando los artículos en vivo en pantalla.
+                  </p>
                   <button
                     type="button"
-                    onClick={() => {
-                      setFacturaForm({
-                        ...facturaForm,
-                        items: [...facturaForm.items, { descripcion: "", stockItemId: "", cantidad: 1, unidad: "kg", precioUnitario: 0, ivaPct: 10 }]
-                      });
+                    style={{
+                      background: "#ef4444", color: "#fff", border: "none",
+                      borderRadius: 8, padding: "0.65rem 1.4rem", fontSize: 13, fontWeight: 700,
+                      cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6
                     }}
-                    style={{ background: "none", border: "none", color: "#ef4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                   >
-                    + Añadir otra línea
+                    <Upload size={16} /> Seleccionar Archivo
                   </button>
                 </div>
 
-                {facturaForm.items.map((line: any, idx: number) => (
-                  <div key={idx} style={{ background: "#1c1d24", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "0.85rem", marginBottom: "0.5rem" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                      <div>
-                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Descripción / Concepto</label>
-                        <input
-                          type="text"
-                          placeholder="Ej. Salmón Noruego Fresco"
-                          value={line.descripcion}
-                          onChange={e => {
-                            const newItems = [...facturaForm.items];
-                            newItems[idx].descripcion = e.target.value;
-                            setFacturaForm({ ...facturaForm, items: newItems });
-                          }}
-                          style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "0.5rem", color: "#fff", fontSize: 12, boxSizing: "border-box" }}
-                        />
+                <div style={{ marginTop: "1.25rem", textAlign: "center" }}>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewUrl("manual")}
+                    style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
+                  >
+                    O introducir datos manualmente sin documento adjunto
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* VISTA 2: COMPARADOR A 2 COLUMNAS (DOCUMENTO A LA IZQUIERDA + FORMULARIO A LA DERECHA) */
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: previewUrl === "manual" ? "1fr" : "1.05fr 1fr",
+                gap: "1.25rem",
+                flex: 1,
+                minHeight: 0,
+                marginTop: "1rem"
+              }}>
+                {/* ──────────────── COLUMNA 1: VISOR DEL DOCUMENTO ORIGINAL ──────────────── */}
+                {previewUrl !== "manual" && (
+                  <div style={{
+                    background: "#0c0d12",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 12,
+                    display: "flex",
+                    flexDirection: "column",
+                    minHeight: 0,
+                    overflow: "hidden"
+                  }}>
+                    {/* Barra de título del visor */}
+                    <div style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "0.55rem 0.85rem", background: "rgba(255,255,255,0.03)",
+                      borderBottom: "1px solid rgba(255,255,255,0.06)", fontSize: 12
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#f3ede0", fontWeight: 600 }}>
+                        <FileText size={14} color="#c9a84c" />
+                        <span style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {previewFileName || "Factura original"}
+                        </span>
                       </div>
-
-                      <div>
-                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Asociar a Ingrediente de Stock</label>
-                        <select
-                          value={line.stockItemId}
-                          onChange={e => {
-                            const newItems = [...facturaForm.items];
-                            newItems[idx].stockItemId = e.target.value;
-                            // Pre-llenar descripción si está vacía
-                            const found = stockItems.find(x => x.id === Number(e.target.value));
-                            if (found && !newItems[idx].descripcion) {
-                              newItems[idx].descripcion = found.nombre;
-                              newItems[idx].unidad = found.unidad;
-                            }
-                            setFacturaForm({ ...facturaForm, items: newItems });
-                          }}
-                          style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "0.5rem", color: "#fff", fontSize: 12, boxSizing: "border-box" }}
-                        >
-                          <option value="">(No sumar a stock / Gasto general)</option>
-                          {stockItems.map(s => (
-                            <option key={s.id} value={s.id}>{s.nombre} ({s.unidad})</option>
-                          ))}
-                        </select>
-                      </div>
+                      <span style={{
+                        fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+                        background: "rgba(201,168,76,0.15)", color: "#c9a84c"
+                      }}>
+                        {totalScanPages > 0 ? `${totalScanPages} ${totalScanPages === 1 ? "Pág" : "Págs"}` : "Visor"}
+                      </span>
                     </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: "0.5rem", alignItems: "flex-end" }}>
-                      <div>
-                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Cantidad</label>
-                        <input
-                          type="number"
-                          step="any"
-                          value={line.cantidad}
-                          onChange={e => {
-                            const newItems = [...facturaForm.items];
-                            newItems[idx].cantidad = e.target.value;
-                            setFacturaForm({ ...facturaForm, items: newItems });
+                    {/* Cuerpo del visor: iframe nativo para PDF o imagen para fotos */}
+                    <div style={{ flex: 1, minHeight: 0, position: "relative", background: "#181920" }}>
+                      {previewType.includes("pdf") || (previewFileName && previewFileName.toLowerCase().endsWith(".pdf")) ? (
+                        <iframe
+                          src={previewUrl}
+                          title="Visor Factura PDF"
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            border: "none",
+                            background: "#22232a",
+                            display: "block"
                           }}
-                          style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "0.5rem", color: "#fff", fontSize: 12, boxSizing: "border-box" }}
                         />
-                      </div>
-
-                      <div>
-                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Precio Unitario (€)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={line.precioUnitario}
-                          onChange={e => {
-                            const newItems = [...facturaForm.items];
-                            newItems[idx].precioUnitario = e.target.value;
-                            setFacturaForm({ ...facturaForm, items: newItems });
-                          }}
-                          style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "0.5rem", color: "#fff", fontSize: 12, boxSizing: "border-box" }}
-                        />
-                      </div>
-
-                      <div>
-                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Subtotal (€)</label>
-                        <div style={{ padding: "0.5rem", fontWeight: 700, color: "#4ade80", fontSize: 13 }}>
-                          {(Number(line.cantidad || 0) * Number(line.precioUnitario || 0)).toFixed(2)} €
+                      ) : (
+                        <div style={{
+                          width: "100%",
+                          height: "100%",
+                          overflow: "auto",
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "flex-start",
+                          padding: "1rem"
+                        }}>
+                          <img
+                            src={previewUrl}
+                            alt="Factura original"
+                            style={{ maxWidth: "100%", height: "auto", borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.6)" }}
+                          />
                         </div>
-                      </div>
-
-                      {facturaForm.items.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newItems = facturaForm.items.filter((_: any, i: number) => i !== idx);
-                            setFacturaForm({ ...facturaForm, items: newItems });
-                          }}
-                          style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", padding: "0.5rem" }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
                       )}
                     </div>
                   </div>
-                ))}
-              </div>
+                )}
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1rem" }}>
-                <button
-                  type="button"
-                  onClick={() => setModalFacturaOpen(false)}
-                  style={{ padding: "0.65rem 1rem", background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", fontSize: 13, cursor: "pointer" }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  style={{ padding: "0.65rem 1.25rem", background: "#16a34a", border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-                >
-                  Registrar Factura y Actualizar Stock
-                </button>
+                {/* ──────────────── COLUMNA 2: DATOS Y ARTÍCULOS EN VIVO ──────────────── */}
+                <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+                  {/* Banner de Estado Progresivo en Tiempo Real */}
+                  {scanningFactura ? (
+                    <div style={{
+                      background: "linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(201,168,76,0.15) 100%)",
+                      border: "1px solid rgba(239,68,68,0.35)",
+                      borderRadius: 10,
+                      padding: "0.75rem 1rem",
+                      marginBottom: "0.85rem",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <Loader2 size={16} className="animate-spin" style={{ color: "#ef4444" }} />
+                          <span style={{ fontSize: 13, fontWeight: 800, color: "#fff" }}>
+                            {scanMessage || `Leyendo Página ${currentScanPage} de ${totalScanPages}...`}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#4ade80", background: "rgba(74,222,128,0.15)", padding: "2px 8px", borderRadius: 10 }}>
+                          +{facturaForm.items.length} artículos detectados
+                        </span>
+                      </div>
+                      {/* Barra de progreso */}
+                      <div style={{ width: "100%", height: 4, background: "rgba(255,255,255,0.1)", borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{
+                          width: `${Math.max(10, (currentScanPage / (totalScanPages || 1)) * 100)}%`,
+                          height: "100%",
+                          background: "linear-gradient(90deg, #c81e22, #c9a84c)",
+                          borderRadius: 2,
+                          transition: "width 0.4s ease-out"
+                        }} />
+                      </div>
+                    </div>
+                  ) : facturaForm.items.length > 0 && (
+                    <div style={{
+                      background: "rgba(74,222,128,0.08)",
+                      border: "1px solid rgba(74,222,128,0.25)",
+                      borderRadius: 10,
+                      padding: "0.6rem 0.85rem",
+                      marginBottom: "0.85rem",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      fontSize: 12,
+                      color: "#4ade80",
+                      fontWeight: 600
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <CheckCircle2 size={15} />
+                        <span>Lectura finalizada ({totalScanPages > 1 ? `${totalScanPages} páginas` : "1 página"}). Coteja los datos con el documento de la izquierda.</span>
+                      </div>
+                      <span style={{ fontWeight: 800 }}>{facturaForm.items.length} líneas</span>
+                    </div>
+                  )}
+
+                  {/* Formulario de Factura (Desplazable verticalmente) */}
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      await handleSaveFactura(e);
+                      closeModalFactura();
+                    }}
+                    style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
+                  >
+                    <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 6 }}>
+                      {/* Datos de Cabecera */}
+                      <div style={{ background: "#1c1d24", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "0.85rem", marginBottom: "0.85rem" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr", gap: "0.65rem", marginBottom: "0.65rem" }}>
+                          <div>
+                            <label style={{ display: "block", fontSize: 10.5, color: "rgba(255,255,255,0.45)", marginBottom: 3, textTransform: "uppercase" }}>Nº Factura / Albarán *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Ej. F-2026-001"
+                              value={facturaForm.numeroFactura}
+                              onChange={e => setFacturaForm({ ...facturaForm, numeroFactura: e.target.value })}
+                              style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "0.5rem", color: "#fff", fontSize: 12.5, boxSizing: "border-box" }}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ display: "block", fontSize: 10.5, color: "rgba(255,255,255,0.45)", marginBottom: 3, textTransform: "uppercase" }}>Proveedor *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Ej. Pescados del Puerto S.L."
+                              value={facturaForm.proveedor}
+                              onChange={e => setFacturaForm({ ...facturaForm, proveedor: e.target.value })}
+                              style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "0.5rem", color: "#fff", fontSize: 12.5, boxSizing: "border-box" }}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.65rem" }}>
+                          <div>
+                            <label style={{ display: "block", fontSize: 10.5, color: "rgba(255,255,255,0.45)", marginBottom: 3, textTransform: "uppercase" }}>CIF / NIF</label>
+                            <input
+                              type="text"
+                              placeholder="B12345678"
+                              value={facturaForm.cifProveedor}
+                              onChange={e => setFacturaForm({ ...facturaForm, cifProveedor: e.target.value })}
+                              style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "0.5rem", color: "#fff", fontSize: 12.5, boxSizing: "border-box" }}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ display: "block", fontSize: 10.5, color: "rgba(255,255,255,0.45)", marginBottom: 3, textTransform: "uppercase" }}>Fecha Emisión *</label>
+                            <input
+                              type="date"
+                              required
+                              value={facturaForm.fechaEmision}
+                              onChange={e => setFacturaForm({ ...facturaForm, fechaEmision: e.target.value })}
+                              style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "0.5rem", color: "#fff", fontSize: 12.5, boxSizing: "border-box" }}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ display: "block", fontSize: 10.5, color: "rgba(255,255,255,0.45)", marginBottom: 3, textTransform: "uppercase" }}>Estado Pago</label>
+                            <select
+                              value={facturaForm.estadoPago}
+                              onChange={e => setFacturaForm({ ...facturaForm, estadoPago: e.target.value })}
+                              style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "0.5rem", color: "#fff", fontSize: 12.5, boxSizing: "border-box" }}
+                            >
+                              <option value="pagado">Pagado</option>
+                              <option value="pendiente">Pendiente</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Lista de Líneas de Factura (Artículos Extraídos en Vivo) */}
+                      <div style={{ marginBottom: "0.85rem" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                          <label style={{ fontSize: 12, fontWeight: 800, color: "#f3ede0", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}>
+                            <span>Líneas de Compra ({facturaForm.items.length})</span>
+                            {scanningFactura && <span style={{ fontSize: 11, color: "#c9a84c", fontWeight: 600 }}>• Añadiendo en vivo...</span>}
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFacturaForm({
+                                ...facturaForm,
+                                items: [...facturaForm.items, { descripcion: "", stockItemId: "", cantidad: 1, unidad: "kg", precioUnitario: 0, ivaPct: 10 }]
+                              });
+                            }}
+                            style={{ background: "none", border: "none", color: "#ef4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                          >
+                            + Añadir línea manual
+                          </button>
+                        </div>
+
+                        {facturaForm.items.length === 0 && (
+                          <div style={{ background: "#1c1d24", border: "1px dashed rgba(255,255,255,0.1)", borderRadius: 10, padding: "2rem", textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: 13 }}>
+                            {scanningFactura ? "Leyendo el documento... Los productos aparecerán aquí en vivo." : "No hay líneas añadidas. Sube una factura o añade una línea manualmente."}
+                          </div>
+                        )}
+
+                        {facturaForm.items.map((line: any, idx: number) => (
+                          <div key={idx} style={{
+                            background: "#1c1d24",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                            borderRadius: 8,
+                            padding: "0.75rem",
+                            marginBottom: "0.45rem",
+                            transition: "all 0.2s ease"
+                          }}>
+                            {/* Fila 1: Nombre en factura + Ingrediente vinculado */}
+                            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1.2fr", gap: "0.5rem", marginBottom: "0.45rem" }}>
+                              <div>
+                                <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Producto según Factura</label>
+                                <input
+                                  type="text"
+                                  placeholder="Ej. Salmón Noruego Fresco"
+                                  value={line.descripcion}
+                                  onChange={e => {
+                                    const newItems = [...facturaForm.items];
+                                    newItems[idx].descripcion = e.target.value;
+                                    setFacturaForm({ ...facturaForm, items: newItems });
+                                  }}
+                                  style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12, boxSizing: "border-box" }}
+                                />
+                              </div>
+
+                              <div>
+                                <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Asociar a Almacén</label>
+                                <select
+                                  value={line.stockItemId}
+                                  onChange={e => {
+                                    const newItems = [...facturaForm.items];
+                                    newItems[idx].stockItemId = e.target.value;
+                                    const found = stockItems.find(x => x.id === Number(e.target.value));
+                                    if (found && !newItems[idx].descripcion) {
+                                      newItems[idx].descripcion = found.nombre;
+                                      newItems[idx].unidad = found.unidad;
+                                    }
+                                    setFacturaForm({ ...facturaForm, items: newItems });
+                                  }}
+                                  style={{
+                                    width: "100%", background: "#14151a",
+                                    border: line.stockItemId ? "1px solid rgba(74,222,128,0.4)" : "1px solid rgba(255,255,255,0.1)",
+                                    borderRadius: 6, padding: "0.45rem",
+                                    color: line.stockItemId ? "#4ade80" : "#fff",
+                                    fontSize: 12, boxSizing: "border-box"
+                                  }}
+                                >
+                                  <option value="">(Gasto general / Sin stock)</option>
+                                  {stockItems.map(s => (
+                                    <option key={s.id} value={s.id}>
+                                      {s.nombre} ({s.unidad})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Fila 2: Cantidad, Unidad, Precio Unitario, Subtotal y Borrar */}
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.2fr 1fr auto", gap: "0.45rem", alignItems: "flex-end" }}>
+                              <div>
+                                <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Cantidad</label>
+                                <input
+                                  type="number"
+                                  step="any"
+                                  value={line.cantidad}
+                                  onChange={e => {
+                                    const newItems = [...facturaForm.items];
+                                    newItems[idx].cantidad = e.target.value;
+                                    setFacturaForm({ ...facturaForm, items: newItems });
+                                  }}
+                                  style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12, boxSizing: "border-box" }}
+                                />
+                              </div>
+
+                              <div>
+                                <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Unidad</label>
+                                <input
+                                  type="text"
+                                  value={line.unidad}
+                                  onChange={e => {
+                                    const newItems = [...facturaForm.items];
+                                    newItems[idx].unidad = e.target.value;
+                                    setFacturaForm({ ...facturaForm, items: newItems });
+                                  }}
+                                  style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12, boxSizing: "border-box" }}
+                                />
+                              </div>
+
+                              <div>
+                                <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>P. Unitario (€)</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={line.precioUnitario}
+                                  onChange={e => {
+                                    const newItems = [...facturaForm.items];
+                                    newItems[idx].precioUnitario = e.target.value;
+                                    setFacturaForm({ ...facturaForm, items: newItems });
+                                  }}
+                                  style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12, boxSizing: "border-box" }}
+                                />
+                              </div>
+
+                              <div>
+                                <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Subtotal</label>
+                                <div style={{ padding: "0.45rem 0", fontWeight: 700, color: "#4ade80", fontSize: 12.5 }}>
+                                  {(Number(line.cantidad || 0) * Number(line.precioUnitario || 0)).toFixed(2)} €
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newItems = facturaForm.items.filter((_: any, i: number) => i !== idx);
+                                  setFacturaForm({ ...facturaForm, items: newItems });
+                                }}
+                                style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", padding: "0.45rem 0.25rem" }}
+                                title="Eliminar línea"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Resumen de Totales y Botón de Guardado */}
+                    <div style={{
+                      paddingTop: "0.75rem",
+                      borderTop: "1px solid rgba(255,255,255,0.08)",
+                      background: "#13141a",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                        <div>
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Base Imponible</div>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>
+                            {totalFacturaCalculado.toFixed(2)} €
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Total Estimado (+10% IVA)</div>
+                          <div style={{ fontSize: 16, fontWeight: 900, color: "#c9a84c" }}>
+                            {(totalFacturaCalculado * 1.10).toFixed(2)} €
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <button
+                          type="button"
+                          onClick={closeModalFactura}
+                          style={{ padding: "0.6rem 1rem", background: "transparent", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "#fff", fontSize: 12.5, cursor: "pointer" }}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={facturaForm.items.length === 0}
+                          style={{
+                            padding: "0.6rem 1.3rem",
+                            background: facturaForm.items.length === 0 ? "rgba(255,255,255,0.1)" : "#16a34a",
+                            border: "none", borderRadius: 8, color: "#fff", fontSize: 12.5, fontWeight: 700,
+                            cursor: facturaForm.items.length === 0 ? "not-allowed" : "pointer",
+                            display: "flex", alignItems: "center", gap: 6
+                          }}
+                        >
+                          <CheckCircle2 size={15} /> Guardar Factura e Ingresar Stock
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
               </div>
-            </form>
+            )}
           </div>
         </div>
       )}
