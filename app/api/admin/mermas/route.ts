@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionRole, deny403 } from "@/lib/auth";
+import { calcularCosteIngrediente, convertirUnidad } from "@/lib/stock-unidades";
 
 export async function GET() {
   if (!(await getSessionRole())) return deny403();
@@ -44,7 +45,9 @@ export async function POST(req: Request) {
     const stockItem = await prisma.stockItem.findUnique({ where: { id: stockItemId } });
     if (!stockItem) return Response.json({ error: "Artículo de stock no encontrado" }, { status: 404 });
 
-    const costePerdido = Number((cantidad * stockItem.costeUnitario).toFixed(2));
+    const unidadEntrada = data.unidad || stockItem.unidad;
+    const costePerdido = Number(calcularCosteIngrediente(cantidad, unidadEntrada, stockItem.costeUnitario, stockItem.unidad).toFixed(2));
+    const cantidadEnUnidadStock = convertirUnidad(cantidad, unidadEntrada, stockItem.unidad) ?? cantidad;
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Crear registro de merma
@@ -52,7 +55,7 @@ export async function POST(req: Request) {
         data: {
           stockItemId,
           cantidad,
-          unidad: stockItem.unidad,
+          unidad: unidadEntrada,
           motivo,
           costePerdido,
           notas: data.notas?.trim() || null,
@@ -60,9 +63,9 @@ export async function POST(req: Request) {
         },
       });
 
-      // 2. Descontar del inventario
+      // 2. Descontar del inventario en unidad base
       const stockPrevio = stockItem.cantidadActual;
-      const stockPosterior = Math.max(0, stockPrevio - cantidad);
+      const stockPosterior = Math.max(0, stockPrevio - cantidadEnUnidadStock);
 
       await tx.stockItem.update({
         where: { id: stockItemId },
@@ -74,12 +77,12 @@ export async function POST(req: Request) {
         data: {
           stockItemId,
           tipo: "merma",
-          cantidad: -cantidad,
+          cantidad: -cantidadEnUnidadStock,
           stockPrevio,
           stockPosterior,
           costeUnitario: stockItem.costeUnitario,
           referencia: `Merma: ${motivo}`,
-          notas: data.notas?.trim() || `Desperdicio registrado (${costePerdido}€)`,
+          notas: data.notas?.trim() || `Desperdicio de ${cantidad} ${unidadEntrada} (${costePerdido}€)`,
         },
       });
 

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionRole, deny403 } from "@/lib/auth";
+import { calcularCosteIngrediente } from "@/lib/stock-unidades";
 
 export async function GET(req: Request) {
   if (!(await getSessionRole())) return deny403();
@@ -50,7 +51,9 @@ export async function GET(req: Request) {
 
       const costeMateriaPrima = ingredientes.reduce((acc, ing) => {
         const costeUnit = ing.stockItem?.costeUnitario || 0;
-        return acc + (ing.cantidad * costeUnit);
+        const unidadStock = ing.stockItem?.unidad || "kg";
+        const unidadReceta = ing.unidad || "g";
+        return acc + calcularCosteIngrediente(ing.cantidad, unidadReceta, costeUnit, unidadStock);
       }, 0);
 
       const pvp = plato.precio || 0;

@@ -5,8 +5,16 @@ import {
   Boxes, Plus, Trash2, Pencil, Search, AlertTriangle,
   Receipt, TrendingUp, TrendingDown, ArrowDownRight,
   ArrowUpRight, DollarSign, Package, FileText, CheckCircle2,
-  Calendar, Layers, Filter, Eye, RefreshCw, X, Camera, Sparkles, Upload, Loader2, ExternalLink
+  Calendar, Layers, Filter, Eye, RefreshCw, X, Camera, Sparkles, Upload, Loader2, ExternalLink,
+  Scale, Calculator
 } from "lucide-react";
+import {
+  calcularCosteIngrediente,
+  calcularConversionEnvase,
+  convertirUnidad,
+  normalizarUnidad,
+  TIPOS_ENVASE_COMPRA
+} from "@/lib/stock-unidades";
 
 // Categorías estándar para cocina japonesa
 const CATEGORIAS_STOCK = [
@@ -100,6 +108,37 @@ export default function StockPage() {
     proveedorHabitual: "",
     notas: ""
   });
+
+  // Asistente para cálculo de envases (botes, sacos, cajas...)
+  const [showEnvaseAssistant, setShowEnvaseAssistant] = useState(false);
+  const [envaseForm, setEnvaseForm] = useState({
+    tipoEnvase: "bote",
+    numEnvases: 2,
+    contenidoPorEnvase: 300,
+    unidadContenido: "g",
+    precioPorEnvase: 5.5,
+  });
+
+  const envaseConversionPreview = useMemo(() => {
+    return calcularConversionEnvase({
+      numEnvases: envaseForm.numEnvases,
+      tipoEnvase: envaseForm.tipoEnvase,
+      contenidoPorEnvase: envaseForm.contenidoPorEnvase,
+      unidadContenido: envaseForm.unidadContenido,
+      precioPorEnvase: envaseForm.precioPorEnvase,
+    });
+  }, [envaseForm]);
+
+  const handleApplyEnvaseConversion = () => {
+    const conv = envaseConversionPreview;
+    setItemForm((prev: any) => ({
+      ...prev,
+      unidad: conv.unidadBase,
+      cantidadActual: conv.cantidadTotal,
+      costeUnitario: conv.costeUnitarioBase,
+      notas: prev.notas ? `${prev.notas}\n${conv.descripcion}` : conv.descripcion,
+    }));
+  };
 
   const [modalFacturaOpen, setModalFacturaOpen] = useState(false);
   const [scanningFactura, setScanningFactura] = useState(false);
@@ -277,11 +316,27 @@ export default function StockPage() {
   const [modalEscandalloOpen, setModalEscandalloOpen] = useState(false);
   const [escandalloForm, setEscandalloForm] = useState<any>({
     platoNombre: "",
+    menuItemId: null,
     stockItemId: "",
-    cantidad: 0.100,
-    unidad: "kg",
+    cantidad: 20,
+    unidad: "g",
     notas: ""
   });
+
+  const selectedStockForEscandallo = useMemo(() => {
+    if (!escandalloForm.stockItemId) return null;
+    return stockItems.find(s => s.id === Number(escandalloForm.stockItemId)) || null;
+  }, [stockItems, escandalloForm.stockItemId]);
+
+  const costeEstimadoEscandallo = useMemo(() => {
+    if (!selectedStockForEscandallo || !escandalloForm.cantidad) return 0;
+    return calcularCosteIngrediente(
+      Number(escandalloForm.cantidad),
+      escandalloForm.unidad || "g",
+      selectedStockForEscandallo.costeUnitario || 0,
+      selectedStockForEscandallo.unidad || "kg"
+    );
+  }, [selectedStockForEscandallo, escandalloForm.cantidad, escandalloForm.unidad]);
 
   // Cargar datos
   const loadData = async () => {
@@ -728,7 +783,7 @@ export default function StockPage() {
                           {item.stockMinimo} {item.unidad}
                         </td>
                         <td style={{ padding: "0.85rem 1rem", fontWeight: 600, color: "#c9a84c" }}>
-                          {item.costeUnitario.toFixed(2)} € / {item.unidad}
+                          {(item.costeUnitario < 0.1 && item.costeUnitario > 0 ? item.costeUnitario.toFixed(4) : item.costeUnitario.toFixed(2))} € / {item.unidad}
                         </td>
                         <td style={{ padding: "0.85rem 1rem", fontWeight: 700, color: "#fff" }}>
                           {valorTotal.toFixed(2)} €
@@ -741,6 +796,14 @@ export default function StockPage() {
                             <button
                               onClick={() => {
                                 setItemForm(item);
+                                setShowEnvaseAssistant(false);
+                                setEnvaseForm({
+                                  tipoEnvase: item.unidad === "saco" ? "saco" : item.unidad === "caja" ? "caja" : item.unidad === "paquete" ? "paquete" : "bote",
+                                  numEnvases: 1,
+                                  contenidoPorEnvase: item.cantidadActual || 1,
+                                  unidadContenido: item.unidad === "bote" || item.unidad === "saco" ? "g" : item.unidad || "g",
+                                  precioPorEnvase: item.costeUnitario || 0,
+                                });
                                 setModalItemOpen(true);
                               }}
                               style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", padding: 4 }}
@@ -1179,12 +1242,20 @@ export default function StockPage() {
                   </div>
                   {plato.ingredientes.length > 0 ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
-                      {plato.ingredientes.map((ing: any) => (
-                        <div key={ing.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "rgba(255,255,255,0.75)", background: "rgba(255,255,255,0.02)", padding: "4px 8px", borderRadius: 6 }}>
-                          <span>{ing.stockItem?.nombre || "Ingrediente"}</span>
-                          <span style={{ fontWeight: 600 }}>{ing.cantidad} {ing.unidad} (~{(ing.cantidad * (ing.stockItem?.costeUnitario || 0)).toFixed(2)}€)</span>
-                        </div>
-                      ))}
+                      {plato.ingredientes.map((ing: any) => {
+                        const coste = calcularCosteIngrediente(
+                          ing.cantidad,
+                          ing.unidad || "g",
+                          ing.stockItem?.costeUnitario || 0,
+                          ing.stockItem?.unidad || "kg"
+                        );
+                        return (
+                          <div key={ing.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "rgba(255,255,255,0.75)", background: "rgba(255,255,255,0.02)", padding: "4px 8px", borderRadius: 6 }}>
+                            <span>{ing.stockItem?.nombre || "Ingrediente"}</span>
+                            <span style={{ fontWeight: 600 }}>{ing.cantidad} {ing.unidad} (~{coste.toFixed(2)} €)</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", fontStyle: "italic", marginBottom: 12 }}>
@@ -1199,8 +1270,8 @@ export default function StockPage() {
                       platoNombre: plato.nombre,
                       menuItemId: plato.id,
                       stockItemId: "",
-                      cantidad: 0.080,
-                      unidad: "kg",
+                      cantidad: 20,
+                      unidad: "g",
                       notas: ""
                     });
                     setModalEscandalloOpen(true);
@@ -1308,12 +1379,17 @@ export default function StockPage() {
           MODAL: ALTA / EDICIÓN INGREDIENTE
       ───────────────────────────────────────────────────────────────────────────── */}
       {modalItemOpen && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-          <div style={{ background: "#14151a", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, width: "100%", maxWidth: 500, padding: "1.5rem" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+          <div style={{ background: "#14151a", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto", padding: "1.5rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#fff" }}>
-                {itemForm.id ? "Editar Ingrediente de Almacén" : "Nuevo Ingrediente de Almacén"}
-              </h3>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#fff" }}>
+                  {itemForm.id ? "Editar Ingrediente de Almacén" : "Nuevo Ingrediente de Almacén"}
+                </h3>
+                <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "rgba(255,255,255,0.4)" }}>
+                  Define unidades, existencias y equivalencias de compra para escandallos precisos
+                </p>
+              </div>
               <button onClick={() => setModalItemOpen(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
                 <X size={20} />
               </button>
@@ -1347,25 +1423,168 @@ export default function StockPage() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Unidad de Medida *</label>
+                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Unidad de Medida Base *</label>
                   <select
                     value={itemForm.unidad}
                     onChange={e => setItemForm({ ...itemForm, unidad: e.target.value })}
                     style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
                   >
-                    <option value="kg">Kilogramos (kg)</option>
-                    <option value="g">Gramos (g)</option>
-                    <option value="l">Litros (l)</option>
-                    <option value="unidad">Unidades (ud)</option>
-                    <option value="caja">Cajas</option>
-                    <option value="paquete">Paquetes</option>
+                    <optgroup label="Peso (Gramos / Kilogramos)">
+                      <option value="g">Gramos (g) — Recomendado para cocina/sushi</option>
+                      <option value="kg">Kilogramos (kg)</option>
+                    </optgroup>
+                    <optgroup label="Volumen (Líquidos / Salsas)">
+                      <option value="ml">Mililitros (ml)</option>
+                      <option value="cl">Centilitros (cl)</option>
+                      <option value="l">Litros (l)</option>
+                    </optgroup>
+                    <optgroup label="Unidades / Conteo">
+                      <option value="ud">Unidades / Piezas (ud)</option>
+                      <option value="botella">Botellas</option>
+                      <option value="lata">Latas</option>
+                    </optgroup>
+                    <optgroup label="Envases de Compra">
+                      <option value="bote">Botes</option>
+                      <option value="saco">Sacos</option>
+                      <option value="caja">Cajas</option>
+                      <option value="paquete">Paquetes</option>
+                    </optgroup>
                   </select>
                 </div>
               </div>
 
+              {/* ── ASISTENTE DE CONVERSIÓN DE ENVASES (Botes, Sacos, Cajas...) ── */}
+              <div style={{ background: "rgba(201,168,76,0.05)", border: "1px dashed rgba(201,168,76,0.35)", borderRadius: 10, padding: "0.75rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#eab308", fontWeight: 700, fontSize: 12 }}>
+                    <Package size={15} />
+                    ¿Viene en Bote, Saco o Caja? (Calculadora de Formato)
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowEnvaseAssistant(!showEnvaseAssistant)}
+                    style={{ background: "rgba(201,168,76,0.15)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 6, padding: "2px 8px", color: "#eab308", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    {showEnvaseAssistant ? "Cerrar Calculadora" : "Abrir Calculadora ▼"}
+                  </button>
+                </div>
+
+                {showEnvaseAssistant && (
+                  <div style={{ marginTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.65rem", paddingTop: "0.65rem", borderTop: "1px solid rgba(201,168,76,0.2)" }}>
+                    <p style={{ margin: 0, fontSize: 11.5, color: "rgba(255,255,255,0.6)" }}>
+                      Indica el formato de compra para calcular automáticamente los gramos, kg o unidades reales y el coste unitario:
+                    </p>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0.5rem" }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 2 }}>Tipo Envase</label>
+                        <select
+                          value={envaseForm.tipoEnvase}
+                          onChange={e => setEnvaseForm({ ...envaseForm, tipoEnvase: e.target.value })}
+                          style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12 }}
+                        >
+                          <option value="bote">Bote / Tarro</option>
+                          <option value="saco">Saco</option>
+                          <option value="caja">Caja / Pack</option>
+                          <option value="paquete">Paquete</option>
+                          <option value="garrafa">Garrafa / Botella</option>
+                          <option value="unidad">Unidad / Pieza</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 2 }}>Nº Envases</label>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="2"
+                          value={envaseForm.numEnvases}
+                          onChange={e => setEnvaseForm({ ...envaseForm, numEnvases: Number(e.target.value) || 0 })}
+                          style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12 }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 2 }}>Contenido c/u</label>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="300"
+                          value={envaseForm.contenidoPorEnvase}
+                          onChange={e => setEnvaseForm({ ...envaseForm, contenidoPorEnvase: Number(e.target.value) || 0 })}
+                          style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12 }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 2 }}>Unidad</label>
+                        <select
+                          value={envaseForm.unidadContenido}
+                          onChange={e => setEnvaseForm({ ...envaseForm, unidadContenido: e.target.value })}
+                          style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12 }}
+                        >
+                          <option value="g">Gramos (g)</option>
+                          <option value="kg">Kilogramos (kg)</option>
+                          <option value="ml">Mililitros (ml)</option>
+                          <option value="l">Litros (l)</option>
+                          <option value="ud">Unidades (ud)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "0.5rem", alignItems: "flex-end" }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 2 }}>Precio por cada Envase (€)</label>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="5.50"
+                          value={envaseForm.precioPorEnvase}
+                          onChange={e => setEnvaseForm({ ...envaseForm, precioPorEnvase: Number(e.target.value) || 0 })}
+                          style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12 }}
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleApplyEnvaseConversion}
+                        style={{
+                          background: "linear-gradient(135deg, #c9a84c, #eab308)",
+                          color: "#000",
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "0.5rem 0.75rem",
+                          fontWeight: 800,
+                          fontSize: 12,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 5
+                        }}
+                      >
+                        <Sparkles size={14} /> Aplicar al Formulario
+                      </button>
+                    </div>
+
+                    {/* Tarjeta resumen de la conversión */}
+                    <div style={{ background: "rgba(0,0,0,0.35)", borderRadius: 8, padding: "0.5rem 0.75rem", borderLeft: "3px solid #eab308", fontSize: 11.5 }}>
+                      <div style={{ color: "#fff", fontWeight: 700 }}>
+                        Stock resultante: <span style={{ color: "#4ade80" }}>{envaseConversionPreview.cantidadTotal} {envaseConversionPreview.unidadBase}</span> &nbsp;|&nbsp; Coste real: <span style={{ color: "#eab308" }}>{envaseConversionPreview.costeUnitarioBase} € / {envaseConversionPreview.unidadBase}</span>
+                      </div>
+                      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginTop: 2 }}>
+                        {envaseConversionPreview.descripcion}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                 <div>
-                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Cantidad Inicial</label>
+                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>
+                    Existencias en Almacén ({itemForm.unidad || "ud"})
+                  </label>
                   <input
                     type="number"
                     step="any"
@@ -1390,15 +1609,20 @@ export default function StockPage() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                 <div>
-                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Coste Unitario (€)</label>
+                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>
+                    Coste Unitario (€ / {itemForm.unidad || "ud"})
+                  </label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="any"
                     placeholder="0.00"
                     value={itemForm.costeUnitario}
                     onChange={e => setItemForm({ ...itemForm, costeUnitario: e.target.value })}
                     style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
                   />
+                  <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.4)", marginTop: 2, display: "block" }}>
+                    {itemForm.unidad === "g" ? "Precio por gramo (ej. 0.0183)" : itemForm.unidad === "kg" ? "Precio por kilogramo" : itemForm.unidad === "ml" ? "Precio por mililitro" : "Precio por unidad"}
+                  </span>
                 </div>
 
                 <div>
@@ -2132,15 +2356,18 @@ export default function StockPage() {
                     setEscandalloForm({
                       ...escandalloForm,
                       stockItemId: e.target.value,
-                      unidad: found ? found.unidad : "kg"
+                      unidad: found ? (found.unidad === "kg" ? "g" : found.unidad) : "g"
                     });
                   }}
                   style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
                 >
                   <option value="">Selecciona ingrediente del almacén...</option>
-                  {stockItems.map(s => (
-                    <option key={s.id} value={s.id}>{s.nombre} ({s.costeUnitario.toFixed(2)} €/{s.unidad})</option>
-                  ))}
+                  {stockItems.map(s => {
+                    const pTxt = s.costeUnitario < 0.1 ? s.costeUnitario.toFixed(4) : s.costeUnitario.toFixed(2);
+                    return (
+                      <option key={s.id} value={s.id}>{s.nombre} ({pTxt} €/{s.unidad})</option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -2151,7 +2378,7 @@ export default function StockPage() {
                     type="number"
                     step="any"
                     required
-                    placeholder="0.080"
+                    placeholder="20"
                     value={escandalloForm.cantidad}
                     onChange={e => setEscandalloForm({ ...escandalloForm, cantidad: e.target.value })}
                     style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
@@ -2159,15 +2386,39 @@ export default function StockPage() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Unidad</label>
-                  <input
-                    type="text"
-                    readOnly
+                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Unidad en la Receta *</label>
+                  <select
                     value={escandalloForm.unidad}
-                    style={{ width: "100%", background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "rgba(255,255,255,0.7)", fontSize: 13, boxSizing: "border-box" }}
-                  />
+                    onChange={e => setEscandalloForm({ ...escandalloForm, unidad: e.target.value })}
+                    style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
+                  >
+                    <option value="g">Gramos (g)</option>
+                    <option value="kg">Kilogramos (kg)</option>
+                    <option value="ml">Mililitros (ml)</option>
+                    <option value="cl">Centilitros (cl)</option>
+                    <option value="l">Litros (l)</option>
+                    <option value="ud">Unidades / Piezas (ud)</option>
+                    <option value="botella">Botella</option>
+                    <option value="lata">Lata</option>
+                    <option value="bote">Bote</option>
+                  </select>
                 </div>
               </div>
+
+              {/* Vista previa en tiempo real del coste de la ración */}
+              {selectedStockForEscandallo && (
+                <div style={{ background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 10, padding: "0.75rem 1rem" }}>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", fontWeight: 700 }}>
+                    Coste Calculado de esta Ración en el Plato
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: "#eab308", marginTop: 2, display: "flex", alignItems: "baseline", gap: 6 }}>
+                    {costeEstimadoEscandallo.toFixed(3)} €
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", fontWeight: 400 }}>
+                      ({escandalloForm.cantidad || 0} {escandalloForm.unidad} de ingrediente guardado en {selectedStockForEscandallo.unidad})
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1rem" }}>
                 <button
