@@ -1,9 +1,24 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionRole, deny403 } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(req: Request) {
   if (!(await getSessionRole())) return deny403();
   try {
+    const { searchParams } = new URL(req.url);
+    const menuItemIdParam = searchParams.get("menuItemId");
+    if (menuItemIdParam) {
+      const items = await prisma.escandalloIngrediente.findMany({
+        where: { menuItemId: Number(menuItemIdParam) },
+        include: {
+          stockItem: {
+            select: { id: true, nombre: true, unidad: true, costeUnitario: true, categoria: true, cantidadActual: true },
+          },
+        },
+        orderBy: { id: "asc" },
+      });
+      return Response.json(items);
+    }
+
     // 1. Obtener todos los platos de la carta
     const platos = await prisma.menuItem.findMany({
       where: { activo: true },
@@ -67,6 +82,58 @@ export async function GET() {
   }
 }
 
+export async function PUT(req: Request) {
+  if (!(await getSessionRole())) return deny403();
+  try {
+    const data = await req.json();
+    const { menuItemId, platoNombre, ingredientes } = data;
+
+    if (!menuItemId && !platoNombre) {
+      return Response.json({ error: "menuItemId o platoNombre es requerido" }, { status: 400 });
+    }
+
+    // Limpiar ingredientes previos del plato
+    if (menuItemId) {
+      await prisma.escandalloIngrediente.deleteMany({
+        where: { menuItemId: Number(menuItemId) },
+      });
+    } else if (platoNombre) {
+      await prisma.escandalloIngrediente.deleteMany({
+        where: { platoNombre: String(platoNombre).trim() },
+      });
+    }
+
+    // Insertar la lista actualizada de ingredientes
+    if (Array.isArray(ingredientes) && ingredientes.length > 0) {
+      await prisma.escandalloIngrediente.createMany({
+        data: ingredientes.map((ing: any) => ({
+          menuItemId: menuItemId ? Number(menuItemId) : null,
+          platoNombre: platoNombre ? String(platoNombre).trim() : "",
+          stockItemId: Number(ing.stockItemId),
+          cantidad: Number(ing.cantidad),
+          unidad: ing.unidad || "g",
+          notas: ing.notas || null,
+        })),
+      });
+    }
+
+    const updated = await prisma.escandalloIngrediente.findMany({
+      where: menuItemId ? { menuItemId: Number(menuItemId) } : { platoNombre: String(platoNombre).trim() },
+      include: {
+        stockItem: {
+          select: { id: true, nombre: true, unidad: true, costeUnitario: true, categoria: true, cantidadActual: true },
+        },
+      },
+      orderBy: { id: "asc" },
+    });
+
+    return Response.json({ success: true, ingredientes: updated });
+  } catch (e) {
+    console.error("[escandallos PUT]", e);
+    return Response.json({ error: "Error al actualizar receta" }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request) {
   if (!(await getSessionRole())) return deny403();
   try {
@@ -83,7 +150,7 @@ export async function POST(req: Request) {
         platoNombre: data.platoNombre.trim(),
         stockItemId: Number(data.stockItemId),
         cantidad: Number(data.cantidad),
-        unidad: data.unidad || "kg",
+        unidad: data.unidad || "g",
         notas: data.notas?.trim() || null,
       },
       include: {

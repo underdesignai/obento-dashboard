@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import {
   UtensilsCrossed, Plus, Trash2, ChevronDown, Check,
   PackageOpen, Pencil, X, Eye, EyeOff, GripVertical, Star,
-  RefreshCw, Search, Sparkles, AlertCircle
+  RefreshCw, Search, Sparkles, AlertCircle, Scale, Layers, Package
 } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { useAdminLanguage } from "@/lib/LanguageContext";
@@ -198,10 +198,12 @@ function Modal({
   title,
   onClose,
   children,
+  maxWidth = 580,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  maxWidth?: number | string;
 }) {
   return (
     <div
@@ -226,7 +228,7 @@ function Modal({
           border: "1px solid rgba(200,30,34,0.3)",
           borderRadius: 12,
           width: "100%",
-          maxWidth: 580,
+          maxWidth,
           maxHeight: "90vh",
           overflowY: "auto",
           boxShadow: "0 24px 64px rgba(0,0,0,0.8)",
@@ -307,7 +309,108 @@ export default function CartaAdminPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState<boolean>(false);
+
+  // ─── ESTADO ESCANDALLO & INGREDIENTES DEL ALMACÉN ───
+  type RecipeItem = {
+    id?: number;
+    stockItemId: number;
+    nombre: string;
+    cantidad: number;
+    unidad: string;
+    costeUnitario: number;
+    stockUnidad: string;
+    stockDisponible: number;
+  };
+
+  const [stockItems, setStockItems] = useState<Array<{
+    id: number;
+    nombre: string;
+    categoria: string;
+    unidad: string;
+    costeUnitario: number;
+    cantidadActual: number;
+  }>>([]);
+  const [recipeItems, setRecipeItems] = useState<RecipeItem[]>([]);
+  const [loadingRecipe, setLoadingRecipe] = useState(false);
+  const [selectedStockId, setSelectedStockId] = useState<number | "">("");
+  const [ingredientQty, setIngredientQty] = useState<string>("");
+  const [ingredientUnit, setIngredientUnit] = useState<string>("g");
+
+  const cargarStockItems = async () => {
+    try {
+      const res = await fetch("/api/admin/stock");
+      if (res.ok) {
+        const d = await res.json();
+        if (Array.isArray(d?.items)) {
+          setStockItems(d.items);
+        }
+      }
+    } catch (e) {
+      console.error("Error cargando stock:", e);
+    }
+  };
+
+  const handleSelectStockItem = (id: number | "") => {
+    setSelectedStockId(id);
+    if (id !== "") {
+      const found = stockItems.find((s) => s.id === Number(id));
+      if (found) {
+        const u = (found.unidad || "").toLowerCase();
+        if (u === "kg" || u === "kilos") setIngredientUnit("g");
+        else if (u === "l" || u === "litro" || u === "litros") setIngredientUnit("ml");
+        else setIngredientUnit(found.unidad || "unidad");
+      }
+    }
+  };
+
+  const handleAddIngredient = () => {
+    if (!selectedStockId || !ingredientQty || Number(ingredientQty) <= 0) return;
+    const found = stockItems.find((s) => s.id === Number(selectedStockId));
+    if (!found) return;
+
+    const qty = Number(ingredientQty);
+    const existingIndex = recipeItems.findIndex((r) => r.stockItemId === found.id);
+
+    if (existingIndex >= 0) {
+      const updated = [...recipeItems];
+      updated[existingIndex].cantidad += qty;
+      setRecipeItems(updated);
+    } else {
+      setRecipeItems([
+        ...recipeItems,
+        {
+          stockItemId: found.id,
+          nombre: found.nombre,
+          cantidad: qty,
+          unidad: ingredientUnit || "g",
+          costeUnitario: found.costeUnitario || 0,
+          stockUnidad: found.unidad || "kg",
+          stockDisponible: found.cantidadActual || 0,
+        },
+      ]);
+    }
+
+    setIngredientQty("");
+  };
+
+  const handleRemoveIngredient = (index: number) => {
+    setRecipeItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const totalCosteIngredientes = useMemo(() => {
+    return recipeItems.reduce((acc, r) => {
+      const uPlate = (r.unidad || "").toLowerCase();
+      const uStock = (r.stockUnidad || "").toLowerCase();
+      let factor = 1;
+      if (uPlate === "g" && (uStock === "kg" || uStock === "kilos")) {
+        factor = 1 / 1000;
+      } else if (uPlate === "ml" && (uStock === "l" || uStock === "litro" || uStock === "litros")) {
+        factor = 1 / 1000;
+      }
+      return acc + r.cantidad * factor * (r.costeUnitario || 0);
+    }, 0);
+  }, [recipeItems]);
 
   // Drag & drop de categoría
   const [dragId, setDragId] = useState<number | null>(null);
@@ -407,15 +510,21 @@ export default function CartaAdminPage() {
 
   // Apertura modales
   const openAdd = () => {
+    setEditId(null);
     setForm({
       ...EMPTY_PRODUCTO,
       categoria: catFiltro === "all" ? "entrantes" : catFiltro,
       sub: catFiltro === "sushi" && sushiSubFiltro !== "todos" ? sushiSubFiltro : "",
     });
+    setRecipeItems([]);
+    setSelectedStockId("");
+    setIngredientQty("");
+    setIngredientUnit("g");
+    cargarStockItems();
     setModal("add");
   };
 
-  const openEdit = (p: Producto) => {
+  const openEdit = async (p: Producto) => {
     setEditId(p.id);
     setForm({
       nombre: p.nombre,
@@ -431,18 +540,51 @@ export default function CartaAdminPage() {
       concepto: p.concepto ?? "obento",
     });
     setModal("edit");
+    setSelectedStockId("");
+    setIngredientQty("");
+    setIngredientUnit("g");
+    cargarStockItems();
+
+    setLoadingRecipe(true);
+    try {
+      const res = await fetch(`/api/admin/escandallos?menuItemId=${p.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setRecipeItems(
+            data.map((r: any) => ({
+              id: r.id,
+              stockItemId: r.stockItemId,
+              nombre: r.stockItem?.nombre || r.platoNombre,
+              cantidad: r.cantidad,
+              unidad: r.unidad || "g",
+              costeUnitario: r.stockItem?.costeUnitario || 0,
+              stockUnidad: r.stockItem?.unidad || "kg",
+              stockDisponible: r.stockItem?.cantidadActual || 0,
+            }))
+          );
+        }
+      }
+    } catch (e) {
+      console.error("Error cargando receta del plato:", e);
+    } finally {
+      setLoadingRecipe(false);
+    }
   };
 
   // Guardar creación / edición
   const handleSave = async () => {
     setSaving(true);
     try {
+      let savedId = editId;
       if (modal === "add") {
-        await fetch("/api/admin/carta", {
+        const res = await fetch("/api/admin/carta", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form),
         });
+        const created = await res.json();
+        savedId = created?.id;
       } else if (editId !== null) {
         await fetch(`/api/admin/carta/${editId}`, {
           method: "PATCH",
@@ -450,6 +592,24 @@ export default function CartaAdminPage() {
           body: JSON.stringify(form),
         });
       }
+
+      // Guardar escandallo / ingredientes asociados al plato
+      if (savedId) {
+        await fetch("/api/admin/escandallos", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            menuItemId: savedId,
+            platoNombre: form.nombre,
+            ingredientes: recipeItems.map((r) => ({
+              stockItemId: r.stockItemId,
+              cantidad: r.cantidad,
+              unidad: r.unidad,
+            })),
+          }),
+        });
+      }
+
       await cargarPlatos();
       setModal(null);
     } catch (e) {
@@ -1204,159 +1364,502 @@ export default function CartaAdminPage() {
       {modal && (
         <Modal
           title={modal === "add" ? "Añadir Nuevo Plato" : "Editar Plato"}
+          maxWidth={1060}
           onClose={() => setModal(null)}
         >
-          <Field label="Nombre del plato *">
-            <input
-              value={form.nombre}
-              onChange={(e) => f("nombre", e.target.value)}
-              style={INPUT_STYLE}
-              placeholder="Ej: Nigiri de atún con foie"
-            />
-          </Field>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <Field label="Categoría *">
-              <Dropdown
-                value={form.categoria}
-                onChange={(v) => f("categoria", v)}
-                options={catOptions}
-              />
-            </Field>
-
-            <Field label="Subcategoría (Sushi)">
-              <Dropdown
-                value={form.sub ?? ""}
-                onChange={(v) => f("sub", v)}
-                options={sushiSubOptions}
-              />
-            </Field>
-          </div>
-
-          <Field label="Precio (€) *">
-            <input
-              type="number"
-              step="0.10"
-              value={form.precio}
-              onChange={(e) => f("precio", Number(e.target.value))}
-              style={INPUT_STYLE}
-              placeholder="0.00"
-            />
-          </Field>
-
-          <Field label="Descripción">
-            <textarea
-              value={form.descripcion ?? ""}
-              onChange={(e) => f("descripcion", e.target.value)}
-              style={{ ...INPUT_STYLE, minHeight: 70, resize: "vertical" }}
-              placeholder="Ingredientes, técnica de preparación, etc."
-            />
-          </Field>
-
-          {/* Alérgenos */}
-          <Field label="Alérgenos">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
-              {LISTA_ALERGENOS.map((alg) => {
-                const isSelected = currentAllergens.includes(alg.slug);
-                return (
-                  <button
-                    key={alg.slug}
-                    type="button"
-                    onClick={() => toggleAllergen(alg.slug)}
-                    style={{
-                      padding: "4px 9px",
-                      borderRadius: 4,
-                      fontSize: 11,
-                      cursor: "pointer",
-                      border: "1px solid",
-                      borderColor: isSelected ? "rgba(200,30,34,0.5)" : "rgba(255,255,255,0.08)",
-                      background: isSelected ? "rgba(200,30,34,0.2)" : "rgba(255,255,255,0.02)",
-                      color: isSelected ? "#ff6b6e" : "rgba(255,255,255,0.5)",
-                    }}
-                  >
-                    {alg.label} ({alg.short})
-                  </button>
-                );
-              })}
-            </div>
-          </Field>
-
-          {/* Imagen */}
-          <Field label="Imagen">
-            {form.imagen && (
-              <div style={{ marginBottom: 10, borderRadius: 8, overflow: "hidden", height: 130 }}>
-                <img
-                  src={form.imagen}
-                  alt=""
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
-              </div>
-            )}
-            <div style={{ display: "flex", gap: "0.5rem", marginBottom: 6 }}>
-              <label
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+              gap: "2rem",
+              alignItems: "start",
+            }}
+          >
+            {/* ─── COLUMNA IZQUIERDA: INFORMACIÓN DEL PLATO ─── */}
+            <div>
+              <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 6,
-                  padding: "6px 12px",
-                  background: "rgba(200,30,34,0.12)",
-                  border: "1px dashed rgba(200,30,34,0.35)",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  fontSize: 12,
-                  color: "#ff6b6e",
+                  gap: "0.5rem",
+                  marginBottom: "1.25rem",
+                  paddingBottom: "0.6rem",
+                  borderBottom: "1px solid rgba(255,255,255,0.08)",
                 }}
               >
-                <span>{uploading ? "Subiendo..." : "Subir archivo"}</span>
+                <UtensilsCrossed size={16} color="#c81e22" />
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  Datos del Plato
+                </span>
+              </div>
+
+              <Field label="Nombre del plato *">
                 <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  style={{ display: "none" }}
-                  disabled={uploading}
+                  value={form.nombre}
+                  onChange={(e) => f("nombre", e.target.value)}
+                  style={INPUT_STYLE}
+                  placeholder="Ej: Nigiri de atún con foie"
                 />
-              </label>
-              <input
-                value={form.imagen ?? ""}
-                onChange={(e) => f("imagen", e.target.value)}
-                style={{ ...INPUT_STYLE, flex: 1 }}
-                placeholder="/images/plato.jpg"
-              />
+              </Field>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <Field label="Categoría *">
+                  <Dropdown
+                    value={form.categoria}
+                    onChange={(v) => f("categoria", v)}
+                    options={catOptions}
+                  />
+                </Field>
+
+                <Field label="Subcategoría (Sushi)">
+                  <Dropdown
+                    value={form.sub ?? ""}
+                    onChange={(v) => f("sub", v)}
+                    options={sushiSubOptions}
+                  />
+                </Field>
+              </div>
+
+              <Field label="Precio (€) *">
+                <input
+                  type="number"
+                  step="0.10"
+                  value={form.precio}
+                  onChange={(e) => f("precio", Number(e.target.value))}
+                  style={INPUT_STYLE}
+                  placeholder="0.00"
+                />
+              </Field>
+
+              <Field label="Descripción">
+                <textarea
+                  value={form.descripcion ?? ""}
+                  onChange={(e) => f("descripcion", e.target.value)}
+                  style={{ ...INPUT_STYLE, minHeight: 65, resize: "vertical" }}
+                  placeholder="Ingredientes, técnica de preparación, etc."
+                />
+              </Field>
+
+              {/* Alérgenos */}
+              <Field label="Alérgenos">
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+                  {LISTA_ALERGENOS.map((alg) => {
+                    const isSelected = currentAllergens.includes(alg.slug);
+                    return (
+                      <button
+                        key={alg.slug}
+                        type="button"
+                        onClick={() => toggleAllergen(alg.slug)}
+                        style={{
+                          padding: "4px 9px",
+                          borderRadius: 4,
+                          fontSize: 11,
+                          cursor: "pointer",
+                          border: "1px solid",
+                          borderColor: isSelected ? "rgba(200,30,34,0.5)" : "rgba(255,255,255,0.08)",
+                          background: isSelected ? "rgba(200,30,34,0.2)" : "rgba(255,255,255,0.02)",
+                          color: isSelected ? "#ff6b6e" : "rgba(255,255,255,0.5)",
+                        }}
+                      >
+                        {alg.label} ({alg.short})
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
+
+              {/* Imagen */}
+              <Field label="Imagen">
+                {form.imagen && (
+                  <div style={{ marginBottom: 10, borderRadius: 8, overflow: "hidden", height: 110 }}>
+                    <img
+                      src={form.imagen}
+                      alt=""
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: "0.5rem", marginBottom: 6 }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 12px",
+                      background: "rgba(200,30,34,0.12)",
+                      border: "1px dashed rgba(200,30,34,0.35)",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      fontSize: 12,
+                      color: "#ff6b6e",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <span>{uploading ? "Subiendo..." : "Subir archivo"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      style={{ display: "none" }}
+                      disabled={uploading}
+                    />
+                  </label>
+                  <input
+                    value={form.imagen ?? ""}
+                    onChange={(e) => f("imagen", e.target.value)}
+                    style={{ ...INPUT_STYLE, flex: 1 }}
+                    placeholder="/images/plato.jpg"
+                  />
+                </div>
+              </Field>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <Field label="Visibilidad en Web">
+                  <Dropdown
+                    value={form.activo ? "activo" : "oculto"}
+                    onChange={(v) => f("activo", v === "activo")}
+                    options={[
+                      { value: "activo", label: "Activo (Visible)" },
+                      { value: "oculto", label: "Oculto" },
+                    ]}
+                  />
+                </Field>
+
+                <Field label="Destacado">
+                  <Dropdown
+                    value={form.destacado ? "si" : "no"}
+                    onChange={(v) => f("destacado", v === "si")}
+                    options={[
+                      { value: "si", label: "Sí (Destacado)" },
+                      { value: "no", label: "No" },
+                    ]}
+                  />
+                </Field>
+              </div>
             </div>
-          </Field>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <Field label="Visibilidad en Web">
-              <Dropdown
-                value={form.activo ? "activo" : "oculto"}
-                onChange={(v) => f("activo", v === "activo")}
-                options={[
-                  { value: "activo", label: "Activo (Visible en pedidos)" },
-                  { value: "oculto", label: "Oculto (No visible)" },
-                ]}
-              />
-            </Field>
+            {/* ─── COLUMNA DERECHA: INGREDIENTES DEL ALMACÉN (ESCANDALLO) ─── */}
+            <div
+              style={{
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 10,
+                padding: "1.25rem",
+                display: "flex",
+                flexDirection: "column",
+                gap: "1.25rem",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingBottom: "0.6rem",
+                    borderBottom: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <Package size={16} color="#c9a84c" />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                      Ingredientes del Almacén
+                    </span>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "#c9a84c",
+                      background: "rgba(201,168,76,0.12)",
+                      padding: "2px 8px",
+                      borderRadius: 10,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Escandallo & Stock
+                  </span>
+                </div>
+                <p style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", margin: "0.5rem 0 0", lineHeight: 1.4 }}>
+                  Selecciona ingredientes del almacén y los gramos/unidades por plato para calcular costes y descontar inventario.
+                </p>
+              </div>
 
-            <Field label="Destacado">
-              <Dropdown
-                value={form.destacado ? "si" : "no"}
-                onChange={(v) => f("destacado", v === "si")}
-                options={[
-                  { value: "si", label: "Sí (Destacado en Home)" },
-                  { value: "no", label: "No" },
-                ]}
-              />
-            </Field>
+              {/* Formulario Añadir Ingrediente */}
+              <div
+                style={{
+                  background: "rgba(0,0,0,0.35)",
+                  border: "1px solid rgba(200,30,34,0.25)",
+                  borderRadius: 8,
+                  padding: "1rem",
+                }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Ingrediente en Almacén
+                    </label>
+                    <select
+                      value={selectedStockId}
+                      onChange={(e) => handleSelectStockItem(e.target.value === "" ? "" : Number(e.target.value))}
+                      style={{
+                        ...INPUT_STYLE,
+                        cursor: "pointer",
+                        appearance: "auto",
+                      }}
+                    >
+                      <option value="" style={{ background: "#141210", color: "#888" }}>
+                        {stockItems.length === 0
+                          ? "-- Almacén vacío (añade stock en Almacén) --"
+                          : "-- Seleccionar ingrediente del almacén --"}
+                      </option>
+                      {stockItems.map((s) => (
+                        <option key={s.id} value={s.id} style={{ background: "#141210", color: "#fff" }}>
+                          {s.nombre} ({s.cantidadActual} {s.unidad} disp. • {Number(s.costeUnitario).toFixed(2)}€/{s.unidad})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 110px", gap: "0.5rem" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        Cantidad por plato
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="Ej: 150"
+                        value={ingredientQty}
+                        onChange={(e) => setIngredientQty(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddIngredient();
+                          }
+                        }}
+                        style={INPUT_STYLE}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        Unidad
+                      </label>
+                      <select
+                        value={ingredientUnit}
+                        onChange={(e) => setIngredientUnit(e.target.value)}
+                        style={{
+                          ...INPUT_STYLE,
+                          appearance: "auto",
+                        }}
+                      >
+                        <option value="g" style={{ background: "#141210" }}>g (gramos)</option>
+                        <option value="kg" style={{ background: "#141210" }}>kg</option>
+                        <option value="ml" style={{ background: "#141210" }}>ml</option>
+                        <option value="l" style={{ background: "#141210" }}>l (litros)</option>
+                        <option value="unidad" style={{ background: "#141210" }}>ud (unidades)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddIngredient}
+                    disabled={!selectedStockId || !ingredientQty || Number(ingredientQty) <= 0}
+                    style={{
+                      marginTop: 4,
+                      padding: "8px 12px",
+                      borderRadius: 6,
+                      background: (!selectedStockId || !ingredientQty || Number(ingredientQty) <= 0)
+                        ? "rgba(200,30,34,0.2)"
+                        : "#c81e22",
+                      color: "#fff",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      border: "none",
+                      cursor: (!selectedStockId || !ingredientQty || Number(ingredientQty) <= 0) ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      opacity: (!selectedStockId || !ingredientQty || Number(ingredientQty) <= 0) ? 0.5 : 1,
+                    }}
+                  >
+                    <Plus size={14} /> Añadir Ingrediente
+                  </button>
+                </div>
+              </div>
+
+              {/* Lista de ingredientes añadidos */}
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                  <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "rgba(255,255,255,0.5)" }}>
+                    Ingredientes del plato ({recipeItems.length})
+                  </span>
+                  {loadingRecipe && (
+                    <span style={{ fontSize: 11, color: "#c9a84c" }}>Cargando escandallo...</span>
+                  )}
+                </div>
+
+                {recipeItems.length === 0 ? (
+                  <div
+                    style={{
+                      border: "1px dashed rgba(255,255,255,0.1)",
+                      borderRadius: 8,
+                      padding: "1.5rem 1rem",
+                      textAlign: "center",
+                      color: "rgba(255,255,255,0.35)",
+                      fontSize: 12,
+                    }}
+                  >
+                    <Scale size={24} style={{ margin: "0 auto 8px", opacity: 0.4 }} />
+                    <p style={{ margin: 0, fontWeight: 500 }}>No hay ingredientes asignados aún.</p>
+                    <p style={{ margin: "4px 0 0", fontSize: 11, color: "rgba(255,255,255,0.25)" }}>
+                      Selecciona un ingrediente del almacén arriba y pulsa "Añadir Ingrediente".
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.4rem",
+                      maxHeight: 240,
+                      overflowY: "auto",
+                      paddingRight: 4,
+                    }}
+                  >
+                    {recipeItems.map((item, idx) => {
+                      const uPlate = (item.unidad || "").toLowerCase();
+                      const uStock = (item.stockUnidad || "").toLowerCase();
+                      let factor = 1;
+                      if (uPlate === "g" && (uStock === "kg" || uStock === "kilos")) factor = 1 / 1000;
+                      else if (uPlate === "ml" && (uStock === "l" || uStock === "litro" || uStock === "litros")) factor = 1 / 1000;
+                      const lineCost = item.cantidad * factor * (item.costeUnitario || 0);
+
+                      return (
+                        <div
+                          key={`${item.stockItemId}-${idx}`}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            background: "rgba(255,255,255,0.03)",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                            borderRadius: 6,
+                            padding: "6px 10px",
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>
+                                {item.nombre}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: "#c9a84c",
+                                  background: "rgba(201,168,76,0.12)",
+                                  padding: "1px 6px",
+                                  borderRadius: 4,
+                                }}
+                              >
+                                {item.cantidad} {item.unidad}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>
+                              Coste estimado: {lineCost > 0 ? `${lineCost.toFixed(3)} €` : "0.00 €"} • Stock: {item.stockDisponible} {item.stockUnidad}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveIngredient(idx)}
+                            title="Eliminar ingrediente"
+                            style={{
+                              background: "rgba(252,165,165,0.08)",
+                              border: "1px solid rgba(252,165,165,0.2)",
+                              borderRadius: 4,
+                              padding: "4px 6px",
+                              cursor: "pointer",
+                              color: "#fca5a5",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              marginLeft: 8,
+                            }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Resumen de Costes / Escandallo */}
+              <div
+                style={{
+                  background: "rgba(0,0,0,0.45)",
+                  border: "1px solid rgba(201,168,76,0.25)",
+                  borderRadius: 8,
+                  padding: "0.85rem 1rem",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Coste materia prima (escandallo):</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>
+                    {totalCosteIngredientes.toFixed(2)} €
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>PVP Plato:</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#c9a84c" }}>
+                    {Number(form.precio || 0).toFixed(2)} €
+                  </span>
+                </div>
+                {Number(form.precio) > 0 && (
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      paddingTop: 4,
+                      borderTop: "1px dashed rgba(255,255,255,0.08)",
+                      marginTop: 4,
+                    }}
+                  >
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Margen bruto estimado:</span>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: (Number(form.precio) - totalCosteIngredientes) >= 0 ? "#86efac" : "#fca5a5",
+                      }}
+                    >
+                      {(Number(form.precio) - totalCosteIngredientes).toFixed(2)} € (
+                      {(
+                        ((Number(form.precio) - totalCosteIngredientes) / Number(form.precio)) *
+                        100
+                      ).toFixed(0)}
+                      %)
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.5rem" }}>
+          <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.75rem", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.25rem" }}>
             <button
               type="button"
               onClick={handleSave}
               disabled={saving || !form.nombre}
               style={{
                 flex: 2,
-                padding: "10px",
+                padding: "11px",
                 border: "none",
                 borderRadius: 6,
                 background: "#c81e22",
@@ -1372,14 +1875,14 @@ export default function CartaAdminPage() {
               }}
             >
               <Check size={14} />
-              {saving ? "Guardando..." : "Guardar Plato"}
+              {saving ? "Guardando..." : "Guardar Plato y Escandallo"}
             </button>
             <button
               type="button"
               onClick={() => setModal(null)}
               style={{
                 flex: 1,
-                padding: "10px",
+                padding: "11px",
                 border: "1px solid rgba(255,255,255,0.1)",
                 borderRadius: 6,
                 background: "transparent",
