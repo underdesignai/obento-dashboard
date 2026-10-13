@@ -1011,7 +1011,7 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
                   <Bot size={18} style={{ color: "#c9a84c" }} /> Asistente Virtual Inteligente (Chatbot Web)
                 </h2>
                 <p style={sectionDescStyle}>
-                  Configura el modelo y las instrucciones del asistente que responde dudas a tus clientes en la web. La clave API configurada aquí es la clave central compartida con el resto de módulos de IA (escaneo de facturas y bot de WhatsApp).
+                  Configura las instrucciones y la base de conocimiento del asistente que responde dudas a tus clientes en la web. El asistente está conectado directamente a la API Key Central configurada en el sistema.
                 </p>
               </div>
 
@@ -1099,76 +1099,68 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
                 </button>
               </div>
 
-              {/* Proveedor y Modelo */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div>
-                  <label style={labelStyle}>Proveedor de Inteligencia Artificial</label>
-                  <select
-                    value={agentConfig.apiProvider}
-                    onChange={(e) => {
-                      const prov = e.target.value as "openai" | "anthropic";
-                      setAgentConfig({
-                        ...agentConfig,
-                        apiProvider: prov,
-                        model: MODELS[prov][0],
-                      });
-                    }}
-                    style={{ ...INPUT_STYLE, cursor: "pointer" }}
-                  >
-                    <option value="openai" style={{ background: "#111" }}>OpenAI (ChatGPT)</option>
-                    <option value="anthropic" style={{ background: "#111" }}>Anthropic (Claude)</option>
-                  </select>
+              {/* Conexión con la API Key Central */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "0.95rem 1.15rem",
+                  background: agentConfig.apiKeySet ? "rgba(74,222,128,0.06)" : "rgba(234,179,8,0.06)",
+                  border: `1px solid ${agentConfig.apiKeySet ? "rgba(74,222,128,0.25)" : "rgba(234,179,8,0.25)"}`,
+                  borderRadius: 8,
+                  flexWrap: "wrap",
+                  gap: "0.75rem",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <Sparkles size={18} style={{ color: agentConfig.apiKeySet ? "#4ade80" : "#facc15" }} />
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", margin: 0 }}>
+                        {agentConfig.apiKeySet
+                          ? `Conectado a la API Key Central (${agentConfig.apiProvider === "anthropic" ? "Anthropic" : "OpenAI"})`
+                          : "Sin Clave de IA Configurada"}
+                      </p>
+                      {agentConfig.apiKeySet && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            padding: "1px 6px",
+                            borderRadius: 4,
+                            background: "rgba(201,168,76,0.15)",
+                            color: "#c9a84c",
+                            fontWeight: 600,
+                          }}
+                        >
+                          Modelo: {agentConfig.model}
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.45)", margin: "0.2rem 0 0 0" }}>
+                      {agentConfig.apiKeySet
+                        ? "El asistente utiliza la clave central guardada en el sistema (compartida con Facturas y WhatsApp). No necesitas meter ninguna clave aquí."
+                        : "Introduce tu API Key en la pestaña General para activar el Asistente, Facturas y WhatsApp."}
+                    </p>
+                  </div>
                 </div>
 
-                <div>
-                  <label style={labelStyle}>Modelo</label>
-                  <select
-                    value={agentConfig.model}
-                    onChange={(e) => setAgentConfig({ ...agentConfig, model: e.target.value })}
-                    style={{ ...INPUT_STYLE, cursor: "pointer" }}
-                  >
-                    {(MODELS[agentConfig.apiProvider] || MODELS.openai).map((m) => (
-                      <option key={m} value={m} style={{ background: "#111" }}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* API Key */}
-              <div>
-                <label style={labelStyle}>
-                  Clave API Central ({agentConfig.apiProvider === "anthropic" ? "Anthropic" : "OpenAI"})
-                  {agentConfig.apiKeySet && (
-                    <span style={{ color: "#4ade80", marginLeft: 8, fontWeight: 700 }}>✓ Clave configurada en el sistema (compartida con Facturas y WhatsApp)</span>
-                  )}
-                </label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    type={showAgentKey ? "text" : "password"}
-                    value={agentConfig.apiKey}
-                    onChange={(e) => setAgentConfig({ ...agentConfig, apiKey: e.target.value })}
-                    placeholder={agentConfig.apiKeySet ? "Dejar vacío para mantener la actual" : "sk-..."}
-                    style={{ ...INPUT_STYLE, paddingRight: "2.5rem" }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowAgentKey(!showAgentKey)}
-                    style={{
-                      position: "absolute",
-                      right: 10,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "none",
-                      border: "none",
-                      color: "rgba(255,255,255,0.4)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {showAgentKey ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setTab("general")}
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 6,
+                    padding: "6px 12px",
+                    color: "#c9a84c",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Gestionar Clave Central en General →
+                </button>
               </div>
 
               {/* System Prompt */}
