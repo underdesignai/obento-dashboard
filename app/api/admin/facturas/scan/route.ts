@@ -184,17 +184,30 @@ function sanitizeFacturaResponse(factura: any) {
 
 async function callOpenAIInvoice({
   prompt,
+  images,
   imageBase64,
   mimeType,
   apiKey,
 }: {
   prompt: string;
+  images?: Array<{ base64: string; mimeType?: string }>;
   imageBase64?: string;
   mimeType?: string;
   apiKey: string;
 }) {
   const content: any[] = [{ type: "text", text: prompt }];
-  if (imageBase64) {
+
+  if (images && images.length > 0) {
+    for (const img of images) {
+      content.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${img.mimeType || "image/jpeg"};base64,${img.base64}`,
+          detail: "high",
+        },
+      });
+    }
+  } else if (imageBase64) {
     content.push({
       type: "image_url",
       image_url: {
@@ -215,7 +228,7 @@ async function callOpenAIInvoice({
       messages: [{ role: "user", content }],
       response_format: { type: "json_object" },
       temperature: 0.1,
-      max_tokens: 1800,
+      max_tokens: 2200,
     }),
   });
 
@@ -284,24 +297,46 @@ export async function POST(req: Request) {
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // 1. PROCESAMIENTO DE ARCHIVOS PDF (Digitales y Escaneados con unpdf)
+    // 1. PROCESAMIENTO DE ARCHIVOS PDF (CONVERSIÓN DIRECTA DE PDF A JPG PARA VISION)
     // ─────────────────────────────────────────────────────────────────────────────
     if (isPdf) {
-      let pdfText = "";
+      const renderedImages: Array<{ base64: string; mimeType: string }> = [];
+
       try {
-        const { extractText } = await import("unpdf");
-        const { text } = await extractText(new Uint8Array(buffer));
-        pdfText = (Array.isArray(text) ? text.join("\n") : String(text || "")).trim();
-      } catch (pdfErr) {
-        console.warn("[unpdf text extraction error]", pdfErr);
+        const { getDocumentProxy, renderPageAsImage } = await import("unpdf");
+        const sharpModule = await import("sharp");
+        const sharp = sharpModule.default;
+
+        const doc = await getDocumentProxy(new Uint8Array(buffer));
+        const numPagesToRender = Math.min(doc.numPages, 3); // Renderizar hasta 3 páginas de la factura
+
+        for (let pageNum = 1; pageNum <= numPagesToRender; pageNum++) {
+          const pageArrayBuffer = await renderPageAsImage(doc, pageNum, {
+            canvasImport: () => import("@napi-rs/canvas"),
+            scale: 2.0, // Escala de 2x para nitidez máxima en lectura de tablas y números
+          });
+
+          // Convertir el buffer del lienzo a un JPG de alta calidad
+          const jpgBuffer = await sharp(Buffer.from(pageArrayBuffer))
+            .jpeg({ quality: 88 })
+            .toBuffer();
+
+          renderedImages.push({
+            base64: jpgBuffer.toString("base64"),
+            mimeType: "image/jpeg",
+          });
+        }
+      } catch (renderErr) {
+        console.warn("[PDF renderPageAsImage to JPG error]", renderErr);
       }
 
-      // Si el PDF contiene texto seleccionable (la gran mayoría de facturas digitales)
-      if (pdfText.length > 25) {
-        const prompt = `Analiza el texto de esta factura de compra o ticket de proveedor para un restaurante japonés (Obento Japanese Food).
+      // Si se obtuvieron las imágenes JPG renderizadas (Flujo Principal)
+      if (renderedImages.length > 0) {
+        const prompt = `Analiza esta imagen convertida desde una factura o ticket de compra PDF para el restaurante japonés 'Obento Japanese Food'.
+Lee con atención todos los datos impresos y tablas de artículos.
 Extrae los datos en formato JSON EXACTO con las siguientes propiedades:
 {
-  "numeroFactura": "string con el número o albarán",
+  "numeroFactura": "string con el número de factura o albarán",
   "proveedor": "nombre comercial de la empresa proveedora",
   "cifProveedor": "CIF o NIF del proveedor si aparece",
   "fechaEmision": "YYYY-MM-DD",
@@ -320,77 +355,64 @@ Extrae los datos en formato JSON EXACTO con las siguientes propiedades:
 
 Catálogo de ingredientes de nuestro almacén para asociar:
 ${stockCatalog}
-
-Texto extraído de la factura PDF:
-${pdfText.slice(0, 15000)}
 
 Responde ÚNICAMENTE con el bloque JSON, sin texto antes ni después.`;
 
         try {
-          const factura = await callOpenAIInvoice({ prompt, apiKey });
-          return NextResponse.json({ success: true, method: "pdf_text_ai", factura });
+          const factura = await callOpenAIInvoice({
+            prompt,
+            images: renderedImages,
+            apiKey,
+          });
+          return NextResponse.json({ success: true, method: "pdf_to_jpg_vision", factura });
         } catch (aiErr: any) {
-          return NextResponse.json({ error: aiErr.message || "Error procesando texto del PDF con IA" }, { status: 400 });
+          return NextResponse.json({ error: aiErr.message || "Error procesando imágenes del PDF con IA Vision" }, { status: 400 });
         }
       }
 
-      // Si el PDF no contenía texto digital (escaneo de imagen dentro del PDF)
+      // Fallback de contingencia: si el motor de canvas falló, intentar extraer texto directamente
+      let fallbackText = "";
       try {
-        const { extractImages } = await import("unpdf");
-        const images = await extractImages(new Uint8Array(buffer), 1);
+        const { extractText } = await import("unpdf");
+        const { text } = await extractText(new Uint8Array(buffer));
+        fallbackText = (Array.isArray(text) ? text.join("\n") : String(text || "")).trim();
+      } catch {}
 
-        if (images && images.length > 0 && images[0]?.data) {
-          const imgObj = images[0];
-          const sharpModule = await import("sharp");
-          const sharp = sharpModule.default;
-          const pageImgBuffer = await sharp(Buffer.from(imgObj.data.buffer, imgObj.data.byteOffset, imgObj.data.byteLength), {
-            raw: {
-              width: imgObj.width,
-              height: imgObj.height,
-              channels: imgObj.channels,
-            },
-          }).jpeg({ quality: 85 }).toBuffer();
-
-          const base64Img = pageImgBuffer.toString("base64");
-          const prompt = `Analiza esta imagen escaneada de factura de compra o ticket de proveedor para un restaurante japonés (Obento Japanese Food).
+      if (fallbackText.length > 20) {
+        const prompt = `Analiza el texto de esta factura de compra para un restaurante japonés (Obento Japanese Food).
 Extrae los datos en formato JSON EXACTO con las siguientes propiedades:
 {
-  "numeroFactura": "string con el número o albarán",
+  "numeroFactura": "string con el número",
   "proveedor": "nombre comercial de la empresa proveedora",
-  "cifProveedor": "CIF o NIF del proveedor si aparece",
+  "cifProveedor": "CIF o NIF",
   "fechaEmision": "YYYY-MM-DD",
   "estadoPago": "pagado",
   "items": [
     {
-      "descripcion": "nombre del producto en la factura",
-      "stockItemId": "ID numérico del ingrediente correspondiente de nuestro catálogo si coincide o se parece, o cadena vacía '' si no corresponde a stock",
-      "cantidad": numero de unidades o kg,
-      "unidad": "kg", "unidades", "litros", etc,
-      "precioUnitario": numero (precio sin IVA por unidad/kg),
+      "descripcion": "nombre del producto",
+      "stockItemId": "ID numérico del ingrediente correspondiente si coincide o cadena vacía ''",
+      "cantidad": numero,
+      "unidad": "kg",
+      "precioUnitario": numero,
       "ivaPct": 10
     }
   ]
 }
 
-Catálogo de ingredientes de nuestro almacén para asociar:
+Catálogo de ingredientes:
 ${stockCatalog}
 
-Responde ÚNICAMENTE con el bloque JSON, sin texto antes ni después.`;
+Texto extraído:
+${fallbackText.slice(0, 15000)}
 
-          const factura = await callOpenAIInvoice({
-            prompt,
-            imageBase64: base64Img,
-            mimeType: "image/jpeg",
-            apiKey,
-          });
-          return NextResponse.json({ success: true, method: "pdf_vision_ai", factura });
-        }
-      } catch (renderErr: any) {
-        console.error("[unpdf images extraction error]", renderErr);
+Responde ÚNICAMENTE con el bloque JSON.`;
+
+        const factura = await callOpenAIInvoice({ prompt, apiKey });
+        return NextResponse.json({ success: true, method: "pdf_text_fallback", factura });
       }
 
       return NextResponse.json(
-        { error: "No se pudo extraer texto ni imagen de este PDF. Si es un escaneo antiguo o protegido, prueba a subir una foto (JPG/PNG)." },
+        { error: "No se pudo renderizar la imagen JPG ni extraer datos de este PDF. Prueba a subir una foto (JPG/PNG)." },
         { status: 422 }
       );
     }
