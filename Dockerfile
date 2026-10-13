@@ -12,8 +12,6 @@ RUN npm install --include=dev
 
 COPY . .
 
-# Build-time environment variables
-ENV DATABASE_URL="postgresql://postgres:ZfdmNIg5P43EiDz0xAp7kMubyYJlpDMJJ9vUQnolNKLHHWoxmfd4m0WcUMBDROBF@mqnkqu8zqafdvidnmeg4swn5:5432/obento_db"
 ENV NEXT_PUBLIC_PORT=3627
 ENV PORT=3627
 
