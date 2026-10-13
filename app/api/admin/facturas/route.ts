@@ -271,3 +271,37 @@ export async function DELETE(req: Request) {
     return Response.json({ error: "Error al eliminar factura" }, { status: 500 });
   }
 }
+
+export async function PATCH(req: Request) {
+  if (!(await getSessionRole())) return deny403();
+  try {
+    const formData = await req.formData();
+    const id = Number(formData.get("id"));
+    const file = formData.get("file") as File | null;
+    if (!id || !file) {
+      return Response.json({ error: "ID de factura y archivo requeridos" }, { status: 400 });
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const isPdf = (file.type || "").toLowerCase().includes("pdf") || file.name.toLowerCase().endsWith(".pdf");
+    const mime = isPdf ? "application/pdf" : (file.type || "image/jpeg");
+
+    const savedDoc = await prisma.imagen.create({
+      data: { mime, data: buffer },
+      select: { id: true },
+    });
+
+    const updated = await prisma.factura.update({
+      where: { id },
+      data: {
+        archivoUrl: `/api/imagenes/${savedDoc.id}`,
+        archivoNombre: file.name,
+      },
+    });
+
+    return Response.json({ success: true, factura: updated });
+  } catch (e: any) {
+    console.error("[facturas PATCH]", e);
+    return Response.json({ error: e?.message || "Error al adjuntar archivo a la factura" }, { status: 500 });
+  }
+}

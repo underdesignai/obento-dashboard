@@ -196,6 +196,21 @@ export async function POST(req: Request) {
   const isPdf = rawType.includes("pdf") || fileName.endsWith(".pdf");
   const buffer = Buffer.from(await file.arrayBuffer());
 
+  // Guardar archivo original de la factura para consulta permanente
+  let archivoUrl: string | null = null;
+  try {
+    const savedDoc = await prisma.imagen.create({
+      data: {
+        mime: isPdf ? "application/pdf" : (rawType || "image/jpeg"),
+        data: buffer,
+      },
+      select: { id: true },
+    });
+    archivoUrl = `/api/imagenes/${savedDoc.id}`;
+  } catch (errSave) {
+    console.error("[Scan error saving original file]", errSave);
+  }
+
   // Preparar stream de respuesta NDJSON (Newline Delimited JSON)
   const responseStream = new TransformStream();
   const writer = responseStream.writable.getWriter();
@@ -225,6 +240,8 @@ export async function POST(req: Request) {
           isPdf: true,
           totalPages,
           fileName: file.name,
+          archivoUrl,
+          archivoNombre: file.name,
         });
 
         // Recorrer cada una de las hojas de forma secuencial y progresiva
@@ -344,6 +361,8 @@ Responde ÚNICAMENTE con el bloque JSON:
           isPdf: false,
           totalPages: 1,
           fileName: file.name,
+          archivoUrl,
+          archivoNombre: file.name,
         });
 
         await sendEvent({

@@ -219,6 +219,13 @@ export default function StockPage() {
             if (ev.type === "init") {
               setTotalScanPages(ev.totalPages || 1);
               setScanMessage(`Documento cargado: ${ev.totalPages} ${ev.totalPages === 1 ? "página" : "páginas"}.`);
+              if (ev.archivoUrl) {
+                setFacturaForm((prev: any) => ({
+                  ...prev,
+                  archivoUrl: ev.archivoUrl,
+                  archivoNombre: ev.archivoNombre || file.name,
+                }));
+              }
             } else if (ev.type === "page_start") {
               setCurrentScanPage(ev.page);
               setTotalScanPages(ev.totalPages);
@@ -371,6 +378,41 @@ export default function StockPage() {
       alert("Error de conexión al guardar factura: " + (e?.message || ""));
     } finally {
       setSavingFactura(false);
+    }
+  };
+
+  const [attachingFile, setAttachingFile] = useState<number | null>(null);
+
+  // Adjuntar archivo PDF o imagen a una factura existente
+  const handleAttachFileToFactura = async (facturaId: number, file: File) => {
+    if (!file) return;
+    setAttachingFile(facturaId);
+    try {
+      const fd = new FormData();
+      fd.append("id", String(facturaId));
+      fd.append("file", file);
+      const res = await fetch("/api/admin/facturas", {
+        method: "PATCH",
+        body: fd,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        await loadData();
+        if (selectedFacturaDetail && selectedFacturaDetail.id === facturaId) {
+          setSelectedFacturaDetail((prev: any) => ({
+            ...prev,
+            archivoUrl: data.factura?.archivoUrl || prev.archivoUrl,
+            archivoNombre: file.name,
+          }));
+        }
+      } else {
+        alert(data.error || "Error al adjuntar archivo.");
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Error de conexión al adjuntar archivo: " + (e?.message || ""));
+    } finally {
+      setAttachingFile(null);
     }
   };
 
@@ -809,7 +851,46 @@ export default function StockPage() {
                         </span>
                       </td>
                       <td style={{ padding: "0.85rem 1rem", textAlign: "right" }}>
-                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
+                          {f.archivoUrl ? (
+                            <a
+                              href={f.archivoUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Ver factura original completa (PDF o imagen)"
+                              style={{
+                                display: "inline-flex", alignItems: "center", gap: 5,
+                                background: "rgba(201,168,76,0.15)", border: "1px solid rgba(201,168,76,0.4)",
+                                borderRadius: 6, padding: "0.35rem 0.65rem", color: "#c9a84c", fontSize: 11.5,
+                                textDecoration: "none", fontWeight: 700
+                              }}
+                            >
+                              <FileText size={13} /> Factura Original <ExternalLink size={11} />
+                            </a>
+                          ) : (
+                            <label
+                              title="Adjuntar PDF o imagen original de esta factura"
+                              style={{
+                                display: "inline-flex", alignItems: "center", gap: 5,
+                                background: "rgba(255,255,255,0.05)", border: "1px dashed rgba(255,255,255,0.25)",
+                                borderRadius: 6, padding: "0.35rem 0.65rem", color: "rgba(255,255,255,0.7)",
+                                fontSize: 11.5, cursor: attachingFile === f.id ? "wait" : "pointer"
+                              }}
+                            >
+                              {attachingFile === f.id ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+                              {attachingFile === f.id ? "Adjuntando..." : "Adjuntar Factura"}
+                              <input
+                                type="file"
+                                accept="application/pdf,image/*"
+                                style={{ display: "none" }}
+                                disabled={attachingFile !== null}
+                                onChange={(e) => {
+                                  const fl = e.target.files?.[0];
+                                  if (fl) handleAttachFileToFactura(f.id, fl);
+                                }}
+                              />
+                            </label>
+                          )}
                           <button
                             onClick={() => setSelectedFacturaDetail(f)}
                             title="Ver desglose de productos"
@@ -840,8 +921,8 @@ export default function StockPage() {
           {/* Modal Detalle de Factura con desglose de IVA y líneas de productos */}
           {selectedFacturaDetail && (
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-              <div style={{ background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, width: "100%", maxWidth: 760, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-                <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, width: "100%", maxWidth: 800, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+                <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                   <div>
                     <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#fff" }}>
                       Factura {selectedFacturaDetail.numeroFactura} - {selectedFacturaDetail.proveedor}
@@ -850,9 +931,47 @@ export default function StockPage() {
                       Fecha de emisión: {new Date(selectedFacturaDetail.fechaEmision).toLocaleDateString("es-ES")} {selectedFacturaDetail.cifProveedor ? `· CIF: ${selectedFacturaDetail.cifProveedor}` : ""}
                     </p>
                   </div>
-                  <button onClick={() => setSelectedFacturaDetail(null)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
-                    <X size={20} />
-                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {selectedFacturaDetail.archivoUrl ? (
+                      <a
+                        href={selectedFacturaDetail.archivoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          background: "rgba(201,168,76,0.18)", border: "1px solid rgba(201,168,76,0.5)",
+                          borderRadius: 8, padding: "0.45rem 0.85rem", color: "#eab308", fontSize: 12,
+                          textDecoration: "none", fontWeight: 700
+                        }}
+                      >
+                        <FileText size={15} /> Ver Factura Original <ExternalLink size={12} />
+                      </a>
+                    ) : (
+                      <label style={{
+                        display: "inline-flex", alignItems: "center", gap: 6,
+                        background: "rgba(255,255,255,0.06)", border: "1px dashed rgba(255,255,255,0.25)",
+                        borderRadius: 8, padding: "0.45rem 0.85rem", color: "rgba(255,255,255,0.8)",
+                        fontSize: 12, cursor: attachingFile === selectedFacturaDetail.id ? "wait" : "pointer",
+                        fontWeight: 600
+                      }}>
+                        {attachingFile === selectedFacturaDetail.id ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                        {attachingFile === selectedFacturaDetail.id ? "Adjuntando..." : "Adjuntar Factura Original"}
+                        <input
+                          type="file"
+                          accept="application/pdf,image/*"
+                          style={{ display: "none" }}
+                          disabled={attachingFile !== null}
+                          onChange={(e) => {
+                            const fl = e.target.files?.[0];
+                            if (fl) handleAttachFileToFactura(selectedFacturaDetail.id, fl);
+                          }}
+                        />
+                      </label>
+                    )}
+                    <button onClick={() => setSelectedFacturaDetail(null)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
+                      <X size={20} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Resumen Fiscal de la Factura */}
