@@ -294,17 +294,22 @@ export default function StockPage() {
     }
   };
 
+  const [savingFactura, setSavingFactura] = useState(false);
+
   // Guardar factura
-  const handleSaveFactura = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveFactura = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (savingFactura) return;
+    setSavingFactura(true);
     try {
       const res = await fetch("/api/admin/facturas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(facturaForm),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setModalFacturaOpen(false);
+        closeModalFactura();
         setFacturaForm({
           numeroFactura: "",
           proveedor: "",
@@ -315,10 +320,15 @@ export default function StockPage() {
           notas: "",
           items: [{ descripcion: "", stockItemId: "", cantidad: 1, unidad: "kg", precioUnitario: 0, ivaPct: 10 }]
         });
-        loadData();
+        await loadData();
+      } else {
+        alert(data.error || "Error al registrar la factura en la base de datos.");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      alert("Error de conexión al guardar factura: " + (e?.message || ""));
+    } finally {
+      setSavingFactura(false);
     }
   };
 
@@ -1431,11 +1441,7 @@ export default function StockPage() {
 
                   {/* Formulario de Factura (Desplazable verticalmente) */}
                   <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      await handleSaveFactura(e);
-                      closeModalFactura();
-                    }}
+                    onSubmit={handleSaveFactura}
                     style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
                   >
                     <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 6 }}>
@@ -1694,16 +1700,24 @@ export default function StockPage() {
                         </button>
                         <button
                           type="submit"
-                          disabled={facturaForm.items.length === 0}
+                          disabled={facturaForm.items.length === 0 || savingFactura}
                           style={{
                             padding: "0.6rem 1.3rem",
-                            background: facturaForm.items.length === 0 ? "rgba(255,255,255,0.1)" : "#16a34a",
+                            background: facturaForm.items.length === 0 || savingFactura ? "rgba(255,255,255,0.1)" : "#16a34a",
                             border: "none", borderRadius: 8, color: "#fff", fontSize: 12.5, fontWeight: 700,
-                            cursor: facturaForm.items.length === 0 ? "not-allowed" : "pointer",
+                            cursor: facturaForm.items.length === 0 || savingFactura ? "not-allowed" : "pointer",
                             display: "flex", alignItems: "center", gap: 6
                           }}
                         >
-                          <CheckCircle2 size={15} /> Guardar Factura e Ingresar Stock
+                          {savingFactura ? (
+                            <>
+                              <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Guardando e ingresando stock...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 size={15} /> Guardar Factura e Ingresar Stock
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
