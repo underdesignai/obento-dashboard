@@ -101,44 +101,33 @@ export default function StockPage() {
     id: null,
     nombre: "",
     categoria: "Pescados y Mariscos",
-    unidad: "kg",
-    cantidadActual: "",
-    stockMinimo: 0,
-    costeUnitario: "",
     proveedorHabitual: "",
+    formatoCompra: "bote",
+    contenidoEnvase: 300,
+    unidadContenido: "g",
+    numEnvases: 2,
+    costeEnvase: 5.50,
+    stockMinimo: 0,
     notas: ""
   });
 
-  // Asistente para cálculo de envases (botes, sacos, cajas...)
-  const [showEnvaseAssistant, setShowEnvaseAssistant] = useState(false);
-  const [envaseForm, setEnvaseForm] = useState({
-    tipoEnvase: "bote",
-    numEnvases: 2,
-    contenidoPorEnvase: 300,
-    unidadContenido: "g",
-    precioPorEnvase: 5.5,
-  });
+  // Cálculo en vivo directo de existencias y coste unitario del producto
+  const itemCalculated = useMemo(() => {
+    const num = Math.max(0, Number(itemForm.numEnvases) || 0);
+    const contenido = Math.max(0, Number(itemForm.contenidoEnvase) || 1);
+    const costeEnv = Math.max(0, Number(itemForm.costeEnvase) || 0);
+    const totalCantidad = Number((num * contenido).toFixed(3));
+    const totalDinero = Number((num * costeEnv).toFixed(2));
+    const costePorUnidadBase = totalCantidad > 0 ? Number((totalDinero / totalCantidad).toFixed(5)) : 0;
+    const unidad = itemForm.unidadContenido || "g";
 
-  const envaseConversionPreview = useMemo(() => {
-    return calcularConversionEnvase({
-      numEnvases: envaseForm.numEnvases,
-      tipoEnvase: envaseForm.tipoEnvase,
-      contenidoPorEnvase: envaseForm.contenidoPorEnvase,
-      unidadContenido: envaseForm.unidadContenido,
-      precioPorEnvase: envaseForm.precioPorEnvase,
-    });
-  }, [envaseForm]);
-
-  const handleApplyEnvaseConversion = () => {
-    const conv = envaseConversionPreview;
-    setItemForm((prev: any) => ({
-      ...prev,
-      unidad: conv.unidadBase,
-      cantidadActual: conv.cantidadTotal,
-      costeUnitario: conv.costeUnitarioBase,
-      notas: prev.notas ? `${prev.notas}\n${conv.descripcion}` : conv.descripcion,
-    }));
-  };
+    return {
+      totalCantidad,
+      unidad,
+      costePorUnidadBase,
+      totalDinero,
+    };
+  }, [itemForm.numEnvases, itemForm.contenidoEnvase, itemForm.costeEnvase, itemForm.unidadContenido]);
 
   const [modalFacturaOpen, setModalFacturaOpen] = useState(false);
   const [scanningFactura, setScanningFactura] = useState(false);
@@ -384,10 +373,16 @@ export default function StockPage() {
     e.preventDefault();
     try {
       const isEdit = !!itemForm.id;
+      const payload = {
+        ...itemForm,
+        unidad: itemCalculated.unidad,
+        cantidadActual: itemCalculated.totalCantidad,
+        costeUnitario: itemCalculated.costePorUnidadBase,
+      };
       const res = await fetch("/api/admin/stock", {
         method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(itemForm),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         setModalItemOpen(false);
@@ -556,8 +551,17 @@ export default function StockPage() {
           <button
             onClick={() => {
               setItemForm({
-                id: null, nombre: "", categoria: "Pescados y Mariscos", unidad: "kg",
-                cantidadActual: "", stockMinimo: 0, costeUnitario: "", proveedorHabitual: "", notas: ""
+                id: null,
+                nombre: "",
+                categoria: "Pescados y Mariscos",
+                proveedorHabitual: "",
+                formatoCompra: "bote",
+                contenidoEnvase: 300,
+                unidadContenido: "g",
+                numEnvases: 1,
+                costeEnvase: 0,
+                stockMinimo: 0,
+                notas: ""
               });
               setModalItemOpen(true);
             }}
@@ -755,7 +759,14 @@ export default function StockPage() {
                       <tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                         <td style={{ padding: "0.85rem 1rem" }}>
                           <div style={{ fontWeight: 700, color: "#fff" }}>{item.nombre}</div>
-                          {item.notas && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>{item.notas}</div>}
+                          <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginTop: 2, flexWrap: "wrap" }}>
+                            {item.formatoCompra && item.formatoCompra !== "granel" && (
+                              <span style={{ fontSize: 10.5, color: "#c9a84c", background: "rgba(201,168,76,0.1)", padding: "1px 6px", borderRadius: 4 }}>
+                                {item.numEnvases || 1} {item.formatoCompra} ({item.contenidoEnvase} {item.unidadContenido || item.unidad}/ud)
+                              </span>
+                            )}
+                            {item.notas && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>{item.notas}</span>}
+                          </div>
                         </td>
                         <td style={{ padding: "0.85rem 1rem" }}>
                           <span style={{ fontSize: 11, padding: "3px 8px", borderRadius: 6, background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)" }}>
@@ -795,14 +806,18 @@ export default function StockPage() {
                           <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
                             <button
                               onClick={() => {
-                                setItemForm(item);
-                                setShowEnvaseAssistant(false);
-                                setEnvaseForm({
-                                  tipoEnvase: item.unidad === "saco" ? "saco" : item.unidad === "caja" ? "caja" : item.unidad === "paquete" ? "paquete" : "bote",
-                                  numEnvases: 1,
-                                  contenidoPorEnvase: item.cantidadActual || 1,
-                                  unidadContenido: item.unidad === "bote" || item.unidad === "saco" ? "g" : item.unidad || "g",
-                                  precioPorEnvase: item.costeUnitario || 0,
+                                setItemForm({
+                                  id: item.id,
+                                  nombre: item.nombre,
+                                  categoria: item.categoria,
+                                  proveedorHabitual: item.proveedorHabitual || "",
+                                  formatoCompra: item.formatoCompra || (item.unidad === "saco" ? "saco" : item.unidad === "caja" ? "caja" : item.unidad === "paquete" ? "paquete" : item.unidad === "g" ? "bote" : "unidad"),
+                                  contenidoEnvase: item.contenidoEnvase !== undefined && item.contenidoEnvase !== null ? item.contenidoEnvase : (item.unidad === "g" ? (item.cantidadActual || 300) : (item.unidad === "kg" ? 1 : (item.cantidadActual || 1))),
+                                  unidadContenido: item.unidadContenido || (item.unidad === "bote" || item.unidad === "saco" ? "g" : item.unidad || "g"),
+                                  numEnvases: item.numEnvases !== undefined && item.numEnvases !== null ? item.numEnvases : 1,
+                                  costeEnvase: item.costeEnvase !== undefined && item.costeEnvase !== null && item.costeEnvase > 0 ? item.costeEnvase : (item.costeUnitario || 0),
+                                  stockMinimo: item.stockMinimo || 0,
+                                  notas: item.notas || "",
                                 });
                                 setModalItemOpen(true);
                               }}
@@ -1408,6 +1423,7 @@ export default function StockPage() {
                 />
               </div>
 
+              {/* Categoría y Proveedor */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                 <div>
                   <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Categoría *</label>
@@ -1423,215 +1439,160 @@ export default function StockPage() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Unidad de Medida Base *</label>
+                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Proveedor Habitual</label>
+                  <input
+                    type="text"
+                    placeholder="Ej. Makro, Tokyo-ya, Pescados Puerto"
+                    value={itemForm.proveedorHabitual || ""}
+                    onChange={e => setItemForm({ ...itemForm, proveedorHabitual: e.target.value })}
+                    style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
+                  />
+                </div>
+              </div>
+
+              {/* Formato de Compra y Contenido por Envase */}
+              <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1.3fr", gap: "0.75rem" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>
+                    Formato de Envase *
+                  </label>
                   <select
-                    value={itemForm.unidad}
-                    onChange={e => setItemForm({ ...itemForm, unidad: e.target.value })}
+                    value={itemForm.formatoCompra || "bote"}
+                    onChange={e => setItemForm({ ...itemForm, formatoCompra: e.target.value })}
                     style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
                   >
-                    <optgroup label="Peso (Gramos / Kilogramos)">
-                      <option value="g">Gramos (g) — Recomendado para cocina/sushi</option>
-                      <option value="kg">Kilogramos (kg)</option>
-                    </optgroup>
-                    <optgroup label="Volumen (Líquidos / Salsas)">
-                      <option value="ml">Mililitros (ml)</option>
-                      <option value="cl">Centilitros (cl)</option>
-                      <option value="l">Litros (l)</option>
-                    </optgroup>
-                    <optgroup label="Unidades / Conteo">
-                      <option value="ud">Unidades / Piezas (ud)</option>
-                      <option value="botella">Botellas</option>
-                      <option value="lata">Latas</option>
-                    </optgroup>
-                    <optgroup label="Envases de Compra">
-                      <option value="bote">Botes</option>
-                      <option value="saco">Sacos</option>
-                      <option value="caja">Cajas</option>
-                      <option value="paquete">Paquetes</option>
-                    </optgroup>
+                    <option value="bote">Bote / Tarro</option>
+                    <option value="saco">Saco</option>
+                    <option value="caja">Caja / Pack</option>
+                    <option value="paquete">Paquete</option>
+                    <option value="garrafa">Garrafa / Botella</option>
+                    <option value="unidad">Unidad / Pieza</option>
+                    <option value="granel">Granel / Peso directo</option>
                   </select>
                 </div>
-              </div>
 
-              {/* ── ASISTENTE DE CONVERSIÓN DE ENVASES (Botes, Sacos, Cajas...) ── */}
-              <div style={{ background: "rgba(201,168,76,0.05)", border: "1px dashed rgba(201,168,76,0.35)", borderRadius: 10, padding: "0.75rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#eab308", fontWeight: 700, fontSize: 12 }}>
-                    <Package size={15} />
-                    ¿Viene en Bote, Saco o Caja? (Calculadora de Formato)
+                <div>
+                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>
+                    Contenido por Envase *
+                  </label>
+                  <div style={{ display: "flex", gap: "0.35rem" }}>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      required
+                      placeholder="Ej. 300 o 5"
+                      value={itemForm.contenidoEnvase ?? ""}
+                      onChange={e => setItemForm({ ...itemForm, contenidoEnvase: e.target.value === "" ? "" : Number(e.target.value) })}
+                      style={{ flex: 1, minWidth: 0, background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
+                    />
+                    <select
+                      value={itemForm.unidadContenido || "g"}
+                      onChange={e => setItemForm({ ...itemForm, unidadContenido: e.target.value })}
+                      style={{ width: 110, background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem 0.4rem", color: "#fff", fontSize: 12, boxSizing: "border-box" }}
+                    >
+                      <option value="g">Gramos (g)</option>
+                      <option value="kg">Kilos (kg)</option>
+                      <option value="ml">Mililitros (ml)</option>
+                      <option value="l">Litros (l)</option>
+                      <option value="ud">Unidades (ud)</option>
+                    </select>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowEnvaseAssistant(!showEnvaseAssistant)}
-                    style={{ background: "rgba(201,168,76,0.15)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 6, padding: "2px 8px", color: "#eab308", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
-                  >
-                    {showEnvaseAssistant ? "Cerrar Calculadora" : "Abrir Calculadora ▼"}
-                  </button>
                 </div>
-
-                {showEnvaseAssistant && (
-                  <div style={{ marginTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.65rem", paddingTop: "0.65rem", borderTop: "1px solid rgba(201,168,76,0.2)" }}>
-                    <p style={{ margin: 0, fontSize: 11.5, color: "rgba(255,255,255,0.6)" }}>
-                      Indica el formato de compra para calcular automáticamente los gramos, kg o unidades reales y el coste unitario:
-                    </p>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0.5rem" }}>
-                      <div>
-                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 2 }}>Tipo Envase</label>
-                        <select
-                          value={envaseForm.tipoEnvase}
-                          onChange={e => setEnvaseForm({ ...envaseForm, tipoEnvase: e.target.value })}
-                          style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12 }}
-                        >
-                          <option value="bote">Bote / Tarro</option>
-                          <option value="saco">Saco</option>
-                          <option value="caja">Caja / Pack</option>
-                          <option value="paquete">Paquete</option>
-                          <option value="garrafa">Garrafa / Botella</option>
-                          <option value="unidad">Unidad / Pieza</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 2 }}>Nº Envases</label>
-                        <input
-                          type="number"
-                          step="any"
-                          placeholder="2"
-                          value={envaseForm.numEnvases}
-                          onChange={e => setEnvaseForm({ ...envaseForm, numEnvases: Number(e.target.value) || 0 })}
-                          style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12 }}
-                        />
-                      </div>
-
-                      <div>
-                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 2 }}>Contenido c/u</label>
-                        <input
-                          type="number"
-                          step="any"
-                          placeholder="300"
-                          value={envaseForm.contenidoPorEnvase}
-                          onChange={e => setEnvaseForm({ ...envaseForm, contenidoPorEnvase: Number(e.target.value) || 0 })}
-                          style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12 }}
-                        />
-                      </div>
-
-                      <div>
-                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 2 }}>Unidad</label>
-                        <select
-                          value={envaseForm.unidadContenido}
-                          onChange={e => setEnvaseForm({ ...envaseForm, unidadContenido: e.target.value })}
-                          style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12 }}
-                        >
-                          <option value="g">Gramos (g)</option>
-                          <option value="kg">Kilogramos (kg)</option>
-                          <option value="ml">Mililitros (ml)</option>
-                          <option value="l">Litros (l)</option>
-                          <option value="ud">Unidades (ud)</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "0.5rem", alignItems: "flex-end" }}>
-                      <div>
-                        <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 2 }}>Precio por cada Envase (€)</label>
-                        <input
-                          type="number"
-                          step="any"
-                          placeholder="5.50"
-                          value={envaseForm.precioPorEnvase}
-                          onChange={e => setEnvaseForm({ ...envaseForm, precioPorEnvase: Number(e.target.value) || 0 })}
-                          style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "0.45rem", color: "#fff", fontSize: 12 }}
-                        />
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={handleApplyEnvaseConversion}
-                        style={{
-                          background: "linear-gradient(135deg, #c9a84c, #eab308)",
-                          color: "#000",
-                          border: "none",
-                          borderRadius: 6,
-                          padding: "0.5rem 0.75rem",
-                          fontWeight: 800,
-                          fontSize: 12,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 5
-                        }}
-                      >
-                        <Sparkles size={14} /> Aplicar al Formulario
-                      </button>
-                    </div>
-
-                    {/* Tarjeta resumen de la conversión */}
-                    <div style={{ background: "rgba(0,0,0,0.35)", borderRadius: 8, padding: "0.5rem 0.75rem", borderLeft: "3px solid #eab308", fontSize: 11.5 }}>
-                      <div style={{ color: "#fff", fontWeight: 700 }}>
-                        Stock resultante: <span style={{ color: "#4ade80" }}>{envaseConversionPreview.cantidadTotal} {envaseConversionPreview.unidadBase}</span> &nbsp;|&nbsp; Coste real: <span style={{ color: "#eab308" }}>{envaseConversionPreview.costeUnitarioBase} € / {envaseConversionPreview.unidadBase}</span>
-                      </div>
-                      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginTop: 2 }}>
-                        {envaseConversionPreview.descripcion}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
+              {/* Cantidad de Envases y Coste por Envase */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                 <div>
                   <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>
-                    Existencias en Almacén ({itemForm.unidad || "ud"})
+                    Nº Envases en Almacén *
                   </label>
                   <input
                     type="number"
                     step="any"
-                    placeholder="0"
-                    value={itemForm.cantidadActual}
-                    onChange={e => setItemForm({ ...itemForm, cantidadActual: e.target.value })}
-                    style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Stock Mínimo (Alerta)</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={itemForm.stockMinimo}
-                    onChange={e => setItemForm({ ...itemForm, stockMinimo: e.target.value })}
-                    style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>
-                    Coste Unitario (€ / {itemForm.unidad || "ud"})
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    placeholder="0.00"
-                    value={itemForm.costeUnitario}
-                    onChange={e => setItemForm({ ...itemForm, costeUnitario: e.target.value })}
+                    min="0"
+                    required
+                    placeholder="Ej. 2"
+                    value={itemForm.numEnvases ?? ""}
+                    onChange={e => setItemForm({ ...itemForm, numEnvases: e.target.value === "" ? "" : Number(e.target.value) })}
                     style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
                   />
                   <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.4)", marginTop: 2, display: "block" }}>
-                    {itemForm.unidad === "g" ? "Precio por gramo (ej. 0.0183)" : itemForm.unidad === "kg" ? "Precio por kilogramo" : itemForm.unidad === "ml" ? "Precio por mililitro" : "Precio por unidad"}
+                    Ej: 2 si tienes 2 {itemForm.formatoCompra || "envases"}
                   </span>
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Proveedor Habitual</label>
+                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>
+                    Precio de Compra por Envase (€)
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder="0.00"
+                    value={itemForm.costeEnvase ?? ""}
+                    onChange={e => setItemForm({ ...itemForm, costeEnvase: e.target.value === "" ? "" : Number(e.target.value) })}
+                    style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
+                  />
+                  <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.4)", marginTop: 2, display: "block" }}>
+                    Coste de 1 {itemForm.formatoCompra || "envase"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tarjeta de Cálculo Automático Visible y Limpio */}
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0.85rem 1rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                <div>
+                  <span style={{ display: "block", fontSize: 10.5, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Existencias Totales Calculadas
+                  </span>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#4ade80", marginTop: 2 }}>
+                    {itemCalculated.totalCantidad} {itemCalculated.unidad}
+                  </div>
+                  <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.4)", display: "block" }}>
+                    ({itemForm.numEnvases || 0} {itemForm.formatoCompra || "envases"} × {itemForm.contenidoEnvase || 0} {itemCalculated.unidad})
+                  </span>
+                </div>
+
+                <div>
+                  <span style={{ display: "block", fontSize: 10.5, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Coste Real Unitario
+                  </span>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#c9a84c", marginTop: 2 }}>
+                    {itemCalculated.costePorUnidadBase > 0 ? `${itemCalculated.costePorUnidadBase} € / ${itemCalculated.unidad}` : "0 €"}
+                  </div>
+                  <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.4)", display: "block" }}>
+                    {itemCalculated.totalDinero ? `Total invertido: ${itemCalculated.totalDinero.toFixed(2)} €` : "Listo para escandallos"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Stock Mínimo y Notas */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>
+                    Stock Mínimo Alerta ({itemCalculated.unidad})
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={itemForm.stockMinimo ?? 0}
+                    onChange={e => setItemForm({ ...itemForm, stockMinimo: Number(e.target.value) || 0 })}
+                    style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
+                  />
+                  <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.4)", marginTop: 2, display: "block" }}>
+                    Alerta cuando baje de esta cantidad
+                  </span>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4, textTransform: "uppercase" }}>Notas / Ubicación</label>
                   <input
                     type="text"
-                    placeholder="Ej. Pescados del Puerto"
-                    value={itemForm.proveedorHabitual}
-                    onChange={e => setItemForm({ ...itemForm, proveedorHabitual: e.target.value })}
+                    placeholder="Ej. Estante 2, Nevera central"
+                    value={itemForm.notas || ""}
+                    onChange={e => setItemForm({ ...itemForm, notas: e.target.value })}
                     style={{ width: "100%", background: "#1c1d24", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.65rem", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
                   />
                 </div>

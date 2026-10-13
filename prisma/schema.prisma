@@ -231,6 +231,11 @@ model StockItem {
   costeUnitario    Float              @default(0) // Precio medio ponderado actual (€/unidad)
   ultimoCoste      Float              @default(0) // Último precio pagado según última factura
   proveedorHabitual String?           @db.VarChar(150)
+  formatoCompra     String?           @default("unidad") @db.VarChar(50) // bote, saco, caja, paquete, garrafa, unidad
+  numEnvases        Float?            @default(1)
+  contenidoEnvase   Float?            @default(1)
+  unidadContenido   String?           @default("g") @db.VarChar(20)
+  costeEnvase       Float?            @default(0)
   notas            String?
   activo           Boolean            @default(true)
   createdAt        DateTime           @default(now())

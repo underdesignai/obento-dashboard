@@ -50,6 +50,11 @@ export async function POST(req: Request) {
         costeUnitario: costeUnitario,
         ultimoCoste: costeUnitario,
         proveedorHabitual: data.proveedorHabitual?.trim() || null,
+        formatoCompra: data.formatoCompra || "unidad",
+        numEnvases: data.numEnvases !== undefined ? Number(data.numEnvases) : 1,
+        contenidoEnvase: data.contenidoEnvase !== undefined ? Number(data.contenidoEnvase) : 1,
+        unidadContenido: data.unidadContenido || data.unidad || "g",
+        costeEnvase: data.costeEnvase !== undefined ? Number(data.costeEnvase) : costeUnitario,
         notas: data.notas?.trim() || null,
       },
     });
@@ -118,6 +123,11 @@ export async function PUT(req: Request) {
         stockMinimo: data.stockMinimo !== undefined ? Number(data.stockMinimo) : existing.stockMinimo,
         costeUnitario: costeNuevo,
         proveedorHabitual: data.proveedorHabitual !== undefined ? data.proveedorHabitual : existing.proveedorHabitual,
+        formatoCompra: data.formatoCompra !== undefined ? data.formatoCompra : existing.formatoCompra,
+        numEnvases: data.numEnvases !== undefined ? Number(data.numEnvases) : existing.numEnvases,
+        contenidoEnvase: data.contenidoEnvase !== undefined ? Number(data.contenidoEnvase) : existing.contenidoEnvase,
+        unidadContenido: data.unidadContenido !== undefined ? data.unidadContenido : existing.unidadContenido,
+        costeEnvase: data.costeEnvase !== undefined ? Number(data.costeEnvase) : existing.costeEnvase,
         notas: data.notas !== undefined ? data.notas : existing.notas,
       },
     });
