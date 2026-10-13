@@ -753,7 +753,7 @@ export default function StockPage() {
                 <tbody>
                   {filteredStock.map(item => {
                     const isAgotado = item.cantidadActual <= 0;
-                    const isBajo = !isAgotado && item.stockMinimo > 0 && item.cantidadActual <= item.stockMinimo;
+                    const isBajo = !isAgotado && item.stockMinimo > 0 && item.cantidadActual < item.stockMinimo;
                     const valorTotal = item.cantidadActual * item.costeUnitario;
                     return (
                       <tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>

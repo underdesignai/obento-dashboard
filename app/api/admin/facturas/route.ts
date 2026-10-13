@@ -159,7 +159,7 @@ export async function POST(req: Request) {
                 categoria: item.categoria || inferStockCategory(cleanName),
                 unidad: item.unidad || "kg",
                 cantidadActual: cantidad,
-                stockMinimo: 0, // 0 por defecto para que la compra inicial no marque el producto falsamente como "BAJO"
+                stockMinimo: cantidad, // El lote de compra de la factura define el nivel de stock operativo inicial
                 costeUnitario: precioUnitario,
                 ultimoCoste: precioUnitario,
                 proveedorHabitual: f.proveedor,

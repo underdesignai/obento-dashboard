@@ -11,8 +11,8 @@ export async function GET() {
 
     // Calcular estadísticas globales de almacén
     const totalItems = items.length;
-    // Solo se considera bajo stock si se agotó (<=0) o si tiene un stockMinimo > 0 configurado y las existencias han bajado a ese límite
-    const itemsBajoStock = items.filter(i => i.cantidadActual <= 0 || (i.stockMinimo > 0 && i.cantidadActual <= i.stockMinimo));
+    // Solo se considera bajo stock si se agotó (<=0) o si tiene un stockMinimo > 0 configurado y las existencias han bajado por debajo de ese límite (<)
+    const itemsBajoStock = items.filter(i => i.cantidadActual <= 0 || (i.stockMinimo > 0 && i.cantidadActual < i.stockMinimo));
     const valorTotalAlmacen = items.reduce((acc, i) => acc + (i.cantidadActual * i.costeUnitario), 0);
 
     return Response.json({
