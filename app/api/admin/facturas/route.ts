@@ -34,51 +34,32 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
-  if (!(await getSessionRole())) return deny403();
-  try {
-    const data = await req.json();
-
-    if (!data.numeroFactura || !data.proveedor || !data.fechaEmision) {
-      return Response.json({ error: "Número de factura, proveedor y fecha son obligatorios" }, { status: 400 });
-    }
-
-    const items = Array.isArray(data.items) ? data.items : [];
-    let totalBase = 0;
-    let totalIva = 0;
-
-    // Calcular totales de los items
-    for (const item of items) {
-      const cantidad = Number(item.cantidad || 1);
-      const precioUnitario = Number(item.precioUnitario || 0);
-      const ivaPct = Number(item.ivaPct || 10);
-      const subtotal = cantidad * precioUnitario;
-      const cuotaIva = subtotal * (ivaPct / 100);
-
-      totalBase += subtotal;
-      totalIva += cuotaIva;
-    }
-
-    const totalFactura = Number((totalBase + totalIva).toFixed(2));
-
-    // Crear factura e items en transacción atómica
-    const facturaCreada = await prisma.$transaction(async (tx) => {
-      const f = await tx.factura.create({
-        data: {
-          numeroFactura: data.numeroFactura.trim(),
-          proveedor: data.proveedor.trim(),
-          cifProveedor: data.cifProveedor?.trim() || null,
-          fechaEmision: new Date(data.fechaEmision),
-          totalBase: Number(totalBase.toFixed(2)),
-          totalIva: Number(totalIva.toFixed(2)),
-          totalFactura: totalFactura,
-          estadoPago: data.estadoPago || "pagado",
-          metodoPago: data.metodoPago || "transferencia",
-          archivoUrl: data.archivoUrl || null,
-          archivoNombre: data.archivoNombre || null,
-          notas: data.notas?.trim() || null,
-        },
-      });
+function isFiscalSummaryText(text: string): boolean {
+  const d = (text || "").toLowerCase().trim();
+  if (!d) return false;
+  return (
+    d.includes("identific. iva") ||
+    d.includes("identific iva") ||
+    d.includes("identif. iva") ||
+    d.includes("identif iva") ||
+    d.includes("base imponible") ||
+    d.includes("base imp.") ||
+    d.includes("cuota iva") ||
+    d.includes("cuota de iva") ||
+    d.includes("desglose iva") ||
+    d.includes("desglose de iva") ||
+    d.includes("tipo iva") ||
+    d.includes("total factura") ||
+    d.includes("total a pagar") ||
+    d.includes("total importe") ||
+    d.includes("recargo de equiv") ||
+    d.includes("recargo equiv") ||
+    d.includes("importe iva") ||
+    d === "iva" ||
+    /^iva\s*[:\-\s]?\s*\d+%?$/i.test(d) ||
+    /^(base|total|cuota)\s*(imponible|iva|factura)?$/i.test(d)
+  );
+}
 
 function inferStockCategory(nombre: string): string {
   const n = (nombre || "").toLowerCase();
@@ -93,130 +74,186 @@ function inferStockCategory(nombre: string): string {
   return "Varios";
 }
 
-      // Crear cada línea y alimentar automáticamente el stock
-      for (const item of items) {
-        const cantidad = Number(item.cantidad || 1);
-        const precioUnitario = Number(item.precioUnitario || 0);
-        const ivaPct = Number(item.ivaPct || 10);
-        const subtotal = Number((cantidad * precioUnitario).toFixed(2));
-        const requestedId = item.stockItemId && !isNaN(Number(item.stockItemId)) ? Number(item.stockItemId) : null;
+export async function POST(req: Request) {
+  if (!(await getSessionRole())) return deny403();
+  try {
+    const data = await req.json();
 
-        let finalStockItemId: number | null = null;
-        let stockRecord: any = null;
+    if (!data.numeroFactura || !data.proveedor || !data.fechaEmision) {
+      return Response.json({ error: "Número de factura, proveedor y fecha son obligatorios" }, { status: 400 });
+    }
 
-        // 1. Si vino un ID, verificar si realmente existe en la BD
-        if (requestedId) {
-          stockRecord = await tx.stockItem.findUnique({ where: { id: requestedId } });
-        }
-
-        // 2. Si no existe por ID, buscar coincidencia por nombre de ingrediente
-        if (!stockRecord && item.descripcion?.trim()) {
-          stockRecord = await tx.stockItem.findFirst({
-            where: {
-              nombre: {
-                equals: item.descripcion.trim(),
-                mode: "insensitive",
-              },
-              activo: true,
-            },
-          });
-        }
-
-        // 3. Si no existe en el almacén, CREARLO AUTOMÁTICAMENTE para que los productos entren al stock
-        const esGastoSinStock = String(item.stockItemId || "").toLowerCase() === "gasto_general" || String(item.stockItemId || "").toLowerCase() === "none";
-        if (!stockRecord && item.descripcion?.trim() && !esGastoSinStock) {
-          stockRecord = await tx.stockItem.create({
-            data: {
-              nombre: item.descripcion.trim(),
-              categoria: item.categoria || inferStockCategory(item.descripcion),
-              unidad: item.unidad || "kg",
-              cantidadActual: cantidad,
-              stockMinimo: 5,
-              costeUnitario: precioUnitario,
-              ultimoCoste: precioUnitario,
-              proveedorHabitual: f.proveedor,
-              activo: true,
-            },
-          });
-
-          // Registrar movimiento inicial de alta por factura
-          await tx.stockMovimiento.create({
-            data: {
-              stockItemId: stockRecord.id,
-              tipo: "entrada_factura",
-              cantidad,
-              stockPrevio: 0,
-              stockPosterior: cantidad,
-              costeUnitario: precioUnitario,
-              referencia: `Factura ${f.numeroFactura} (${f.proveedor})`,
-              notas: `Alta en almacén por factura: ${item.descripcion}`,
-            },
-          });
-        } else if (stockRecord) {
-          // El ingrediente ya existía: sumar cantidad al stock y recalcular precio medio ponderado
-          const stockPrevio = stockRecord.cantidadActual;
-          const stockPosterior = stockPrevio + cantidad;
-
-          let nuevoCosteMedio = stockRecord.costeUnitario;
-          if (stockPosterior > 0) {
-            const valorPrevio = Math.max(0, stockPrevio) * stockRecord.costeUnitario;
-            const valorNuevo = cantidad * precioUnitario;
-            nuevoCosteMedio = (valorPrevio + valorNuevo) / stockPosterior;
-          } else {
-            nuevoCosteMedio = precioUnitario;
-          }
-
-          await tx.stockItem.update({
-            where: { id: stockRecord.id },
-            data: {
-              cantidadActual: Number(stockPosterior.toFixed(3)),
-              costeUnitario: Number(nuevoCosteMedio.toFixed(3)),
-              ultimoCoste: precioUnitario,
-              proveedorHabitual: f.proveedor,
-            },
-          });
-
-          await tx.stockMovimiento.create({
-            data: {
-              stockItemId: stockRecord.id,
-              tipo: "entrada_factura",
-              cantidad,
-              stockPrevio,
-              stockPosterior,
-              costeUnitario: precioUnitario,
-              referencia: `Factura ${f.numeroFactura} (${f.proveedor})`,
-              notas: item.descripcion,
-            },
-          });
-        }
-
-        if (stockRecord) {
-          finalStockItemId = stockRecord.id;
-        }
-
-        // Crear la línea de factura con un stockItemId 100% verificado o null
-        await tx.facturaItem.create({
-          data: {
-            facturaId: f.id,
-            stockItemId: finalStockItemId,
-            descripcion: item.descripcion?.trim() || "Artículo",
-            categoria: stockRecord?.categoria || item.categoria || null,
-            cantidad,
-            unidad: item.unidad || "kg",
-            precioUnitario,
-            ivaPct,
-            subtotal,
-          },
-        });
-      }
-
-      return f;
+    const rawItems = Array.isArray(data.items) ? data.items : [];
+    // Filtrar estrictamente cualquier fila de impuestos/resumen que no sea producto
+    const validItems = rawItems.filter((it: any) => {
+      const desc = String(it.descripcion || "").trim();
+      return desc && !isFiscalSummaryText(desc);
     });
 
+    let totalBase = 0;
+    let totalIva = 0;
+
+    for (const item of validItems) {
+      const cantidad = Number(item.cantidad || 1);
+      const precioUnitario = Number(item.precioUnitario || 0);
+      const ivaPct = Number(item.ivaPct || 10);
+      const subtotal = cantidad * precioUnitario;
+      const cuotaIva = subtotal * (ivaPct / 100);
+
+      totalBase += subtotal;
+      totalIva += cuotaIva;
+    }
+
+    const totalFactura = Number((totalBase + totalIva).toFixed(2));
+
+    // Transacción atómica optimizada con timeout de 60 segundos
+    const facturaCreada = await prisma.$transaction(
+      async (tx) => {
+        const f = await tx.factura.create({
+          data: {
+            numeroFactura: data.numeroFactura.trim(),
+            proveedor: data.proveedor.trim(),
+            cifProveedor: data.cifProveedor?.trim() || null,
+            fechaEmision: new Date(data.fechaEmision),
+            totalBase: Number(totalBase.toFixed(2)),
+            totalIva: Number(totalIva.toFixed(2)),
+            totalFactura: totalFactura,
+            estadoPago: data.estadoPago || "pagado",
+            metodoPago: data.metodoPago || "transferencia",
+            archivoUrl: data.archivoUrl || null,
+            archivoNombre: data.archivoNombre || null,
+            notas: data.notas?.trim() || null,
+          },
+        });
+
+        // Pre-cargar todos los ingredientes activos una sola vez en memoria (evita 100+ roundtrips de red)
+        const existingStock = await tx.stockItem.findMany({ where: { activo: true } });
+        const stockById = new Map<number, any>(existingStock.map((s) => [s.id, s]));
+        const stockByName = new Map<string, any>(existingStock.map((s) => [s.nombre.toLowerCase().trim(), s]));
+
+        for (const item of validItems) {
+          const cantidad = Number(item.cantidad || 1);
+          const precioUnitario = Number(item.precioUnitario || 0);
+          const ivaPct = Number(item.ivaPct || 10);
+          const subtotal = Number((cantidad * precioUnitario).toFixed(2));
+          const requestedId = item.stockItemId && !isNaN(Number(item.stockItemId)) ? Number(item.stockItemId) : null;
+          const cleanName = String(item.descripcion || "").trim();
+          const cleanNameLower = cleanName.toLowerCase();
+
+          let finalStockItemId: number | null = null;
+          let stockRecord: any = null;
+
+          if (requestedId && stockById.has(requestedId)) {
+            stockRecord = stockById.get(requestedId);
+          } else if (cleanNameLower && stockByName.has(cleanNameLower)) {
+            stockRecord = stockByName.get(cleanNameLower);
+          }
+
+          const esGastoSinStock = String(item.stockItemId || "").toLowerCase() === "gasto_general" || String(item.stockItemId || "").toLowerCase() === "none";
+
+          if (!stockRecord && cleanName && !esGastoSinStock) {
+            // Alta automática del producto nuevo en inventario
+            stockRecord = await tx.stockItem.create({
+              data: {
+                nombre: cleanName,
+                categoria: item.categoria || inferStockCategory(cleanName),
+                unidad: item.unidad || "kg",
+                cantidadActual: cantidad,
+                stockMinimo: 5,
+                costeUnitario: precioUnitario,
+                ultimoCoste: precioUnitario,
+                proveedorHabitual: f.proveedor,
+                activo: true,
+              },
+            });
+            // Guardar en cache en memoria para las siguientes líneas
+            stockById.set(stockRecord.id, stockRecord);
+            stockByName.set(cleanNameLower, stockRecord);
+
+            await tx.stockMovimiento.create({
+              data: {
+                stockItemId: stockRecord.id,
+                tipo: "entrada_factura",
+                cantidad,
+                stockPrevio: 0,
+                stockPosterior: cantidad,
+                costeUnitario: precioUnitario,
+                referencia: `Factura ${f.numeroFactura} (${f.proveedor})`,
+                notas: `Alta en almacén por factura: ${cleanName}`,
+              },
+            });
+          } else if (stockRecord) {
+            // Actualizar stock existente y recalcular precio medio ponderado
+            const stockPrevio = stockRecord.cantidadActual;
+            const stockPosterior = stockPrevio + cantidad;
+
+            let nuevoCosteMedio = stockRecord.costeUnitario;
+            if (stockPosterior > 0) {
+              const valorPrevio = Math.max(0, stockPrevio) * stockRecord.costeUnitario;
+              const valorNuevo = cantidad * precioUnitario;
+              nuevoCosteMedio = (valorPrevio + valorNuevo) / stockPosterior;
+            } else {
+              nuevoCosteMedio = precioUnitario;
+            }
+
+            await tx.stockItem.update({
+              where: { id: stockRecord.id },
+              data: {
+                cantidadActual: Number(stockPosterior.toFixed(3)),
+                costeUnitario: Number(nuevoCosteMedio.toFixed(3)),
+                ultimoCoste: precioUnitario,
+                proveedorHabitual: f.proveedor,
+              },
+            });
+
+            await tx.stockMovimiento.create({
+              data: {
+                stockItemId: stockRecord.id,
+                tipo: "entrada_factura",
+                cantidad,
+                stockPrevio,
+                stockPosterior,
+                costeUnitario: precioUnitario,
+                referencia: `Factura ${f.numeroFactura} (${f.proveedor})`,
+                notas: cleanName,
+              },
+            });
+
+            stockRecord.cantidadActual = stockPosterior;
+            stockRecord.costeUnitario = nuevoCosteMedio;
+          }
+
+          if (stockRecord) {
+            finalStockItemId = stockRecord.id;
+          }
+
+          await tx.facturaItem.create({
+            data: {
+              facturaId: f.id,
+              stockItemId: finalStockItemId,
+              descripcion: cleanName || "Artículo",
+              categoria: stockRecord?.categoria || item.categoria || null,
+              cantidad,
+              unidad: item.unidad || "kg",
+              precioUnitario,
+              ivaPct,
+              subtotal,
+            },
+          });
+        }
+
+        return f;
+      },
+      {
+        timeout: 60000,
+        maxWait: 15000,
+      }
+    );
+
     return Response.json(facturaCreada, { status: 201 });
-  } catch (e) {
+  } catch (e: any) {
     console.error("[facturas POST]", e);
-    return Response.json({ error: "Error al registrar factura de compra" }, { status: 500 });
+    return Response.json({ error: e?.message || "Error al registrar factura de compra" }, { status: 500 });
   }
 }
 

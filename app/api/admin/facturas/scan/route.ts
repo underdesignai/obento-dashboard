@@ -5,39 +5,73 @@ import { getSessionRole, deny403 } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120; // Hasta 2 minutos para PDFs multipágina
 
+function isFiscalSummaryText(text: string): boolean {
+  const d = (text || "").toLowerCase().trim();
+  if (!d) return false;
+  return (
+    d.includes("identific. iva") ||
+    d.includes("identific iva") ||
+    d.includes("identif. iva") ||
+    d.includes("identif iva") ||
+    d.includes("base imponible") ||
+    d.includes("base imp.") ||
+    d.includes("cuota iva") ||
+    d.includes("cuota de iva") ||
+    d.includes("desglose iva") ||
+    d.includes("desglose de iva") ||
+    d.includes("tipo iva") ||
+    d.includes("total factura") ||
+    d.includes("total a pagar") ||
+    d.includes("total importe") ||
+    d.includes("recargo de equiv") ||
+    d.includes("recargo equiv") ||
+    d.includes("importe iva") ||
+    d === "iva" ||
+    /^iva\s*[:\-\s]?\s*\d+%?$/i.test(d) ||
+    /^(base|total|cuota)\s*(imponible|iva|factura)?$/i.test(d)
+  );
+}
+
 function sanitizeStockItemMatch(
   items: any[],
   existingStockItems: { id: number; nombre: string; unidad: string }[]
 ) {
   if (!Array.isArray(items)) return [];
 
-  return items.map((it: any) => {
-    const desc = String(it.descripcion || "").trim();
-    let matchedStockId = String(it.stockItemId || "").trim();
+  return items
+    .filter((it: any) => {
+      const desc = String(it.descripcion || "").trim();
+      if (!desc) return false;
+      if (isFiscalSummaryText(desc)) return false;
+      return true;
+    })
+    .map((it: any) => {
+      const desc = String(it.descripcion || "").trim();
+      let matchedStockId = String(it.stockItemId || "").trim();
 
-    // Si no vino vinculado, buscar coincidencia inteligente por nombre
-    if (!matchedStockId && desc) {
-      const lowerDesc = desc.toLowerCase();
-      const match = existingStockItems.find((s) => {
-        const sLower = s.nombre.toLowerCase();
-        return lowerDesc.includes(sLower) || sLower.includes(lowerDesc);
-      });
-      if (match) matchedStockId = String(match.id);
-    }
+      // Si no vino vinculado, buscar coincidencia inteligente por nombre
+      if (!matchedStockId && desc) {
+        const lowerDesc = desc.toLowerCase();
+        const match = existingStockItems.find((s) => {
+          const sLower = s.nombre.toLowerCase();
+          return lowerDesc.includes(sLower) || sLower.includes(lowerDesc);
+        });
+        if (match) matchedStockId = String(match.id);
+      }
 
-    const cantidad = Number(it.cantidad);
-    const precio = Number(it.precioUnitario);
-    const iva = Number(it.ivaPct);
+      const cantidad = Number(it.cantidad);
+      const precio = Number(it.precioUnitario);
+      const iva = Number(it.ivaPct);
 
-    return {
-      descripcion: desc || "Artículo de compra",
-      stockItemId: matchedStockId,
-      cantidad: !isNaN(cantidad) && cantidad > 0 ? cantidad : 1,
-      unidad: String(it.unidad || "kg").trim() || "unidades",
-      precioUnitario: !isNaN(precio) && precio >= 0 ? precio : 0,
-      ivaPct: !isNaN(iva) && iva >= 0 ? iva : 10,
-    };
-  });
+      return {
+        descripcion: desc || "Artículo de compra",
+        stockItemId: matchedStockId,
+        cantidad: !isNaN(cantidad) && cantidad > 0 ? cantidad : 1,
+        unidad: String(it.unidad || "kg").trim() || "unidades",
+        precioUnitario: !isNaN(precio) && precio >= 0 ? precio : 0,
+        ivaPct: !isNaN(iva) && iva >= 0 ? iva : 10,
+      };
+    });
 }
 
 function sanitizeHeader(header: any) {
@@ -218,13 +252,17 @@ export async function POST(req: Request) {
           let prompt = "";
           if (pageNum === 1) {
             prompt = `Analiza la PÁGINA 1 de ${totalPages} de esta factura o ticket de compra para el restaurante japonés 'Obento Japanese Food'.
+REGLAS ESTRICTAS DE EXTRACCIÓN:
+- PRODUCTOS REALES EXCLUSIVAMENTE: Extrae en la lista "items" SOLO alimentos, bebidas o suministros reales comprados (salmón, arroz, verduras, packaging, etc.).
+- PROHIBIDO AÑADIR DESGLOSE DE IMPUESTOS: Las líneas del pie de página que dicen "Identific. IVA", "4%", "10%", "21%", "Base Imponible", "Cuota IVA", "Total Factura", etc., NO SON PRODUCTOS. PROHIBIDO añadirlos a "items".
+
 Extrae con máxima precisión:
 1. Objeto "header" con datos generales:
    - "numeroFactura": número o código de factura/albarán.
    - "proveedor": nombre comercial de la empresa proveedora.
    - "cifProveedor": CIF/NIF del proveedor si aparece.
    - "fechaEmision": fecha en formato YYYY-MM-DD.
-2. Lista "items" con TODOS los artículos que aparezcan listados en la tabla de esta Página 1.
+2. Lista "items" con los productos reales que aparezcan listados en la tabla de esta Página 1.
    Para cada artículo:
    - "descripcion": nombre exacto del producto impreso.
    - "stockItemId": ID numérico del ingrediente correspondiente de nuestro catálogo si coincide, o cadena vacía "" si no coincide.
@@ -240,19 +278,23 @@ ${stockCatalog}
 Responde ÚNICAMENTE con el bloque JSON:
 {
   "header": { "numeroFactura": "...", "proveedor": "...", "cifProveedor": "...", "fechaEmision": "YYYY-MM-DD" },
-  "items": [ ... ]
+  "items": [ ... ]${totalPages === 1 ? ', "totals": { "totalBase": 0, "totalIva": 0, "totalFactura": 0 }' : ""}
 }`;
           } else {
             prompt = `Analiza la PÁGINA ${pageNum} de ${totalPages} de esta factura de compra para el restaurante japonés 'Obento Japanese Food'.
 Esta es una hoja de continuación con más líneas de artículos de la misma factura.
-Extrae TODOS los artículos que aparezcan en esta Página ${pageNum} en la lista "items":
+REGLAS ESTRICTAS:
+- PRODUCTOS REALES EXCLUSIVAMENTE: Extrae en la lista "items" SOLO productos de alimentación, bebidas o packaging.
+- PROHIBIDO AÑADIR FILAS DE IVA: Las tablas o líneas de resumen fiscal del pie como "Identific. IVA", "Base Imponible", "Cuota IVA", "Total Factura" NO SON PRODUCTOS. NUNCA las pongas en "items".
+${pageNum === totalPages ? '- TOTALES: Si en esta última página aparecen los totales acumulados finales de la factura, extráelos en "totals": { "totalBase": número, "totalIva": número, "totalFactura": número }.' : ""}
+
+Extrae los artículos reales de esta Página ${pageNum} en la lista "items":
 - "descripcion": nombre exacto del producto impreso.
 - "stockItemId": ID numérico de nuestro catálogo si coincide, o "".
 - "cantidad": número de unidades o kg.
 - "unidad": "kg", "unidades", etc.
 - "precioUnitario": precio sin IVA por unidad/kg.
 - "ivaPct": porcentaje de IVA.
-${pageNum === totalPages ? 'Si en esta última página aparecen los totales acumulados finales, extráelos en "totals": { "totalBase": número, "totalIva": número, "totalFactura": número }.' : ""}
 
 Catálogo de ingredientes del almacén:
 ${stockCatalog}
@@ -312,15 +354,24 @@ Responde ÚNICAMENTE con el bloque JSON:
         });
 
         const prompt = `Analiza esta imagen de factura o ticket de compra para el restaurante japonés 'Obento Japanese Food'.
+REGLAS ESTRICTAS DE EXTRACCIÓN:
+- PRODUCTOS REALES EXCLUSIVAMENTE: Extrae a la lista "items" SOLO productos de alimentación, bebidas o packaging reales.
+- NO AÑADIR FILAS DE IVA: Las tablas del pie de página con "Identific. IVA", "4%", "10%", "21%", "Base Imponible", "Cuota IVA", "Total Factura", etc. NO SON PRODUCTOS. PROHIBIDO añadirlos a "items".
+
 Extrae con precisión:
 1. Objeto "header" con "numeroFactura", "proveedor", "cifProveedor", "fechaEmision" (YYYY-MM-DD).
-2. Lista "items" con TODOS los artículos: "descripcion", "stockItemId", "cantidad", "unidad", "precioUnitario", "ivaPct".
+2. Lista "items" con los productos reales: "descripcion", "stockItemId", "cantidad", "unidad", "precioUnitario", "ivaPct".
 3. Objeto "totals" con "totalBase", "totalIva", "totalFactura" si aparecen.
 
 Catálogo de ingredientes:
 ${stockCatalog}
 
-Responde ÚNICAMENTE con formato JSON.`;
+Responde ÚNICAMENTE con formato JSON:
+{
+  "header": { ... },
+  "items": [ ... ],
+  "totals": { "totalBase": 0, "totalIva": 0, "totalFactura": 0 }
+}`;
 
         const result = await callOpenAIVisionSingle({
           prompt,

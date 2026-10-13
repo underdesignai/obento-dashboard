@@ -41,6 +41,33 @@ const SCAN_STEPS = [
   { step: 6, title: "Finalizando y preparando formulario...", detail: "Casi listo para tu revisión y confirmación" }
 ];
 
+function isFiscalSummaryText(text: string): boolean {
+  const d = (text || "").toLowerCase().trim();
+  if (!d) return false;
+  return (
+    d.includes("identific. iva") ||
+    d.includes("identific iva") ||
+    d.includes("identif. iva") ||
+    d.includes("identif iva") ||
+    d.includes("base imponible") ||
+    d.includes("base imp.") ||
+    d.includes("cuota iva") ||
+    d.includes("cuota de iva") ||
+    d.includes("desglose iva") ||
+    d.includes("desglose de iva") ||
+    d.includes("tipo iva") ||
+    d.includes("total factura") ||
+    d.includes("total a pagar") ||
+    d.includes("total importe") ||
+    d.includes("recargo de equiv") ||
+    d.includes("recargo equiv") ||
+    d.includes("importe iva") ||
+    d === "iva" ||
+    /^iva\s*[:\-\s]?\s*\d+%?$/i.test(d) ||
+    /^(base|total|cuota)\s*(imponible|iva|factura)?$/i.test(d)
+  );
+}
+
 export default function StockPage() {
   const [activeTab, setActiveTab] = useState<"almacen" | "facturas" | "mermas" | "escandallo" | "rentabilidad">("almacen");
   const [loading, setLoading] = useState(true);
@@ -52,6 +79,9 @@ export default function StockPage() {
   const [mermas, setMermas] = useState<any[]>([]);
   const [escandallos, setEscandallos] = useState<any[]>([]);
   const [rentabilidad, setRentabilidad] = useState<any>(null);
+
+  // Modal para ver productos detallados de una factura guardada
+  const [selectedFacturaDetail, setSelectedFacturaDetail] = useState<any | null>(null);
 
   // Filtros de Almacén
   const [searchStock, setSearchStock] = useState("");
@@ -94,10 +124,21 @@ export default function StockPage() {
   const [currentScanPage, setCurrentScanPage] = useState<number>(0);
   const [totalScanPages, setTotalScanPages] = useState<number>(0);
 
-  const totalFacturaCalculado = useMemo(() => {
-    return (facturaForm.items || []).reduce((acc: number, it: any) => {
-      return acc + (Number(it.cantidad || 0) * Number(it.precioUnitario || 0));
-    }, 0);
+  // Separación nítida de Gastos sin IVA (Base Imponible), Importe IVA y Total Factura
+  const { baseImponible, totalIva, totalFactura } = useMemo(() => {
+    let base = 0;
+    let iva = 0;
+    for (const it of facturaForm.items || []) {
+      const sub = Number(it.cantidad || 0) * Number(it.precioUnitario || 0);
+      const cuota = sub * (Number(it.ivaPct || 10) / 100);
+      base += sub;
+      iva += cuota;
+    }
+    return {
+      baseImponible: base,
+      totalIva: iva,
+      totalFactura: base + iva,
+    };
   }, [facturaForm.items]);
 
   const closeModalFactura = () => {
@@ -194,9 +235,10 @@ export default function StockPage() {
                 }));
               }
               if (ev.items && ev.items.length > 0) {
+                const cleanItems = ev.items.filter((it: any) => !isFiscalSummaryText(it.descripcion));
                 setFacturaForm((prev: any) => ({
                   ...prev,
-                  items: [...prev.items, ...ev.items],
+                  items: [...prev.items, ...cleanItems],
                 }));
               }
             } else if (ev.type === "complete") {
@@ -716,11 +758,12 @@ export default function StockPage() {
                     <th style={{ padding: "0.85rem 1rem" }}>Nº Factura</th>
                     <th style={{ padding: "0.85rem 1rem" }}>Proveedor</th>
                     <th style={{ padding: "0.85rem 1rem" }}>Fecha Emisión</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Base Imponible</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>IVA</th>
+                    <th style={{ padding: "0.85rem 1rem" }}>Gasto sin IVA (Base)</th>
+                    <th style={{ padding: "0.85rem 1rem" }}>Importe IVA</th>
                     <th style={{ padding: "0.85rem 1rem" }}>Total Factura</th>
                     <th style={{ padding: "0.85rem 1rem" }}>Estado</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Líneas de Compra</th>
+                    <th style={{ padding: "0.85rem 1rem" }}>Productos en Almacén</th>
+                    <th style={{ padding: "0.85rem 1rem", textAlign: "right" }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -736,10 +779,10 @@ export default function StockPage() {
                       <td style={{ padding: "0.85rem 1rem", color: "rgba(255,255,255,0.6)" }}>
                         {new Date(f.fechaEmision).toLocaleDateString("es-ES")}
                       </td>
-                      <td style={{ padding: "0.85rem 1rem", color: "rgba(255,255,255,0.8)" }}>
+                      <td style={{ padding: "0.85rem 1rem", fontWeight: 600, color: "#f3ede0" }}>
                         {f.totalBase.toFixed(2)} €
                       </td>
-                      <td style={{ padding: "0.85rem 1rem", color: "rgba(255,255,255,0.5)" }}>
+                      <td style={{ padding: "0.85rem 1rem", color: "#a1a1aa" }}>
                         {f.totalIva.toFixed(2)} €
                       </td>
                       <td style={{ padding: "0.85rem 1rem", fontWeight: 800, fontSize: 14, color: "#4ade80" }}>
@@ -754,14 +797,31 @@ export default function StockPage() {
                           {f.estadoPago.toUpperCase()}
                         </span>
                       </td>
-                      <td style={{ padding: "0.85rem 1rem", color: "rgba(255,255,255,0.6)" }}>
-                        {f.items?.length || 0} artículos añadidos a stock
+                      <td style={{ padding: "0.85rem 1rem", color: "rgba(255,255,255,0.7)" }}>
+                        <span style={{ background: "rgba(255,255,255,0.06)", padding: "2px 8px", borderRadius: 5, fontSize: 12 }}>
+                          {f.items?.length || 0} productos ingresados
+                        </span>
+                      </td>
+                      <td style={{ padding: "0.85rem 1rem", textAlign: "right" }}>
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                          <button
+                            onClick={() => setSelectedFacturaDetail(f)}
+                            title="Ver desglose de productos"
+                            style={{
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+                              borderRadius: 6, padding: "0.35rem 0.65rem", color: "#fff", fontSize: 11.5, cursor: "pointer"
+                            }}
+                          >
+                            <Eye size={13} /> Ver Detalle
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                   {facturas.length === 0 && (
                     <tr>
-                      <td colSpan={8} style={{ padding: "2.5rem", textAlign: "center", color: "rgba(255,255,255,0.4)" }}>
+                      <td colSpan={9} style={{ padding: "2.5rem", textAlign: "center", color: "rgba(255,255,255,0.4)" }}>
                         No hay facturas registradas todavía. Pulsa en "Subir Factura / Compra" para registrar tu primera factura.
                       </td>
                     </tr>
@@ -770,6 +830,90 @@ export default function StockPage() {
               </table>
             </div>
           </div>
+
+          {/* Modal Detalle de Factura con desglose de IVA y líneas de productos */}
+          {selectedFacturaDetail && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+              <div style={{ background: "#14151a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, width: "100%", maxWidth: 760, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+                <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#fff" }}>
+                      Factura {selectedFacturaDetail.numeroFactura} - {selectedFacturaDetail.proveedor}
+                    </h3>
+                    <p style={{ margin: "3px 0 0", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+                      Fecha de emisión: {new Date(selectedFacturaDetail.fechaEmision).toLocaleDateString("es-ES")} {selectedFacturaDetail.cifProveedor ? `· CIF: ${selectedFacturaDetail.cifProveedor}` : ""}
+                    </p>
+                  </div>
+                  <button onClick={() => setSelectedFacturaDetail(null)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Resumen Fiscal de la Factura */}
+                <div style={{ padding: "1rem 1.5rem", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ background: "#1a1b22", padding: "0.75rem", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Gasto sin IVA (Base)</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "#fff", marginTop: 2 }}>{selectedFacturaDetail.totalBase.toFixed(2)} €</div>
+                  </div>
+                  <div style={{ background: "#1a1b22", padding: "0.75rem", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Importe del IVA</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "#a1a1aa", marginTop: 2 }}>{selectedFacturaDetail.totalIva.toFixed(2)} €</div>
+                  </div>
+                  <div style={{ background: "#1a1b22", padding: "0.75rem", borderRadius: 8, border: "1px solid rgba(34,197,94,0.2)" }}>
+                    <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Total Factura (con IVA)</div>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: "#4ade80", marginTop: 2 }}>{selectedFacturaDetail.totalFactura.toFixed(2)} €</div>
+                  </div>
+                </div>
+
+                {/* Líneas de Productos Comprados e Ingresados en el Almacén */}
+                <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "1rem 1.5rem" }}>
+                  <h4 style={{ margin: "0 0 0.75rem", fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>
+                    Productos Ingresados en el Almacén ({selectedFacturaDetail.items?.length || 0})
+                  </h4>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, textAlign: "left" }}>
+                    <thead>
+                      <tr style={{ color: "rgba(255,255,255,0.4)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                        <th style={{ padding: "0.5rem" }}>Producto / Artículo</th>
+                        <th style={{ padding: "0.5rem" }}>Cantidad</th>
+                        <th style={{ padding: "0.5rem" }}>Unidad</th>
+                        <th style={{ padding: "0.5rem" }}>P. Unitario</th>
+                        <th style={{ padding: "0.5rem" }}>IVA</th>
+                        <th style={{ padding: "0.5rem", textAlign: "right" }}>Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selectedFacturaDetail.items || []).map((it: any, i: number) => (
+                        <tr key={it.id || i} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                          <td style={{ padding: "0.6rem 0.5rem", fontWeight: 600, color: "#fff" }}>
+                            {it.descripcion}
+                            {it.stockItem?.nombre && (
+                              <span style={{ display: "block", fontSize: 11, color: "#4ade80" }}>
+                                Vinculado a: {it.stockItem.nombre}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "0.6rem 0.5rem", color: "rgba(255,255,255,0.8)" }}>{it.cantidad}</td>
+                          <td style={{ padding: "0.6rem 0.5rem", color: "rgba(255,255,255,0.5)" }}>{it.unidad}</td>
+                          <td style={{ padding: "0.6rem 0.5rem", color: "rgba(255,255,255,0.8)" }}>{it.precioUnitario.toFixed(2)} €</td>
+                          <td style={{ padding: "0.6rem 0.5rem", color: "rgba(255,255,255,0.5)" }}>{it.ivaPct}%</td>
+                          <td style={{ padding: "0.6rem 0.5rem", textAlign: "right", fontWeight: 700, color: "#4ade80" }}>{it.subtotal.toFixed(2)} €</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    onClick={() => setSelectedFacturaDetail(null)}
+                    style={{ padding: "0.55rem 1.25rem", background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 8, color: "#fff", fontSize: 13, cursor: "pointer" }}
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1677,15 +1821,21 @@ export default function StockPage() {
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                         <div>
-                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Base Imponible</div>
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Gasto sin IVA (Base)</div>
                           <div style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>
-                            {totalFacturaCalculado.toFixed(2)} €
+                            {baseImponible.toFixed(2)} €
                           </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Total Estimado (+10% IVA)</div>
-                          <div style={{ fontSize: 16, fontWeight: 900, color: "#c9a84c" }}>
-                            {(totalFacturaCalculado * 1.10).toFixed(2)} €
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Importe IVA</div>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: "#a1a1aa" }}>
+                            {totalIva.toFixed(2)} €
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Total con IVA</div>
+                          <div style={{ fontSize: 16, fontWeight: 900, color: "#4ade80" }}>
+                            {totalFactura.toFixed(2)} €
                           </div>
                         </div>
                       </div>
