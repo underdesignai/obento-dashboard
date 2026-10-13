@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import {
   Settings, Globe, ShoppingBag, Clock, Bot, CreditCard, Mail,
   HardDrive, Save, Check, Eye, EyeOff, Key, BookOpen, AlertCircle,
-  RefreshCw, CheckSquare, Square, Download, Trash2, ArrowRight
+  RefreshCw, CheckSquare, Square, Download, Trash2, ArrowRight,
+  Sparkles, Receipt, MessageSquare
 } from "lucide-react";
 import { useAdminLanguage } from "@/lib/LanguageContext";
 
@@ -225,14 +226,21 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
 
   const saveGeneral = async () => {
     setGeneralSaving(true);
-    await fetch("/api/admin/configuracion/general", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(generalConfig),
-    });
-    setGeneralSaving(false);
-    setGeneralSaved(true);
-    setTimeout(() => setGeneralSaved(false), 2500);
+    try {
+      await fetch("/api/admin/configuracion/general", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(generalConfig),
+      });
+      // Si el usuario introdujo una API key de IA en la sección general, guardarla también
+      if (agentConfig.apiKey.trim()) {
+        await saveAgent();
+      }
+      setGeneralSaved(true);
+      setTimeout(() => setGeneralSaved(false), 2500);
+    } finally {
+      setGeneralSaving(false);
+    }
   };
 
   const saveTakeaway = async () => {
@@ -249,14 +257,23 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
 
   const saveAgent = async () => {
     setAgentSaving(true);
-    await fetch("/api/admin/agente", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(agentConfig),
-    });
-    setAgentSaving(false);
-    setAgentSaved(true);
-    setTimeout(() => setAgentSaved(false), 2500);
+    try {
+      const res = await fetch("/api/admin/agente", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(agentConfig),
+      });
+      if (res.ok) {
+        const d = await fetch("/api/admin/agente").then((r) => r.json());
+        if (d) {
+          setAgentConfig((prev) => ({ ...prev, ...d, apiKey: "" }));
+        }
+      }
+    } finally {
+      setAgentSaving(false);
+      setAgentSaved(true);
+      setTimeout(() => setAgentSaved(false), 2500);
+    }
   };
 
   const saveStripe = async () => {
@@ -569,6 +586,197 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
               </button>
             </div>
           </div>
+
+          {/* SECCIÓN 2: API KEY GENERAL DE INTELIGENCIA ARTIFICIAL */}
+          <div style={cardSectionStyle}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.85rem", flexWrap: "wrap", gap: "0.75rem" }}>
+              <div>
+                <h2 style={sectionTitleStyle}>
+                  <Sparkles size={18} style={{ color: "#c9a84c" }} /> Inteligencia Artificial Central (API Key Global del Sistema)
+                </h2>
+                <p style={sectionDescStyle}>
+                  Esta clave API única alimenta automáticamente todos los servicios de Inteligencia Artificial de Obento: Asistente Web de clientes, extracción de facturas (OCR Visión) y el bot de WhatsApp.
+                </p>
+              </div>
+
+              {agentConfig.apiKeySet ? (
+                <span style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  padding: "0.35rem 0.75rem",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  background: "rgba(74,222,128,0.12)",
+                  color: "#4ade80",
+                  border: "1px solid rgba(74,222,128,0.3)"
+                }}>
+                  <Check size={13} /> Clave Operativa en el Sistema
+                </span>
+              ) : (
+                <span style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  padding: "0.35rem 0.75rem",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: "rgba(234,179,8,0.1)",
+                  color: "#facc15",
+                  border: "1px solid rgba(234,179,8,0.25)"
+                }}>
+                  <AlertCircle size={13} /> Sin Clave Configurada
+                </span>
+              )}
+            </div>
+
+            {/* Servicios Conectados a esta API Key */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+              gap: "0.75rem",
+              marginBottom: "1.25rem",
+              padding: "0.85rem 1rem",
+              background: "rgba(255,255,255,0.02)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 8,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <Bot size={16} style={{ color: "#38bdf8" }} />
+                <div>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#fff" }}>Asistente Web</p>
+                  <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Chatbot clientes en vivo</p>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <Receipt size={16} style={{ color: "#c9a84c" }} />
+                <div>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#fff" }}>Escaneo de Facturas</p>
+                  <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Extracción OCR con Visión</p>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <MessageSquare size={16} style={{ color: "#4ade80" }} />
+                <div>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#fff" }}>WhatsApp Bot</p>
+                  <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Atención y respuestas a dudas</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Selector de Proveedor y Modelo */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1.25rem" }}>
+              <div>
+                <label style={labelStyle}>Proveedor de Inteligencia Artificial</label>
+                <select
+                  value={agentConfig.apiProvider}
+                  onChange={(e) => {
+                    const prov = e.target.value as "openai" | "anthropic";
+                    setAgentConfig({
+                      ...agentConfig,
+                      apiProvider: prov,
+                      model: MODELS[prov][0],
+                    });
+                  }}
+                  style={{ ...INPUT_STYLE, cursor: "pointer" }}
+                >
+                  <option value="openai" style={{ background: "#111" }}>OpenAI (ChatGPT & GPT-4o Vision)</option>
+                  <option value="anthropic" style={{ background: "#111" }}>Anthropic (Claude 3.5 Sonnet)</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Modelo Predeterminado</label>
+                <select
+                  value={agentConfig.model}
+                  onChange={(e) => setAgentConfig({ ...agentConfig, model: e.target.value })}
+                  style={{ ...INPUT_STYLE, cursor: "pointer" }}
+                >
+                  {(MODELS[agentConfig.apiProvider] || MODELS.openai).map((m) => (
+                    <option key={m} value={m} style={{ background: "#111" }}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={labelStyle}>
+                  Clave API General ({agentConfig.apiProvider === "anthropic" ? "Anthropic" : "OpenAI"})
+                  {agentConfig.apiKeySet && (
+                    <span style={{ color: "#4ade80", marginLeft: 8, fontWeight: 700 }}>
+                      ✓ Clave guardada (encriptada en servidor)
+                    </span>
+                  )}
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showAgentKey ? "text" : "password"}
+                    value={agentConfig.apiKey}
+                    onChange={(e) => setAgentConfig({ ...agentConfig, apiKey: e.target.value })}
+                    placeholder={agentConfig.apiKeySet ? "•••••••••••••••••••••••••••••••• (Dejar vacío para mantener la actual)" : "sk-..."}
+                    style={{ ...INPUT_STYLE, paddingRight: "2.75rem" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAgentKey(!showAgentKey)}
+                    style={{
+                      position: "absolute",
+                      right: 10,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.45)",
+                      cursor: "pointer",
+                      padding: 4,
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    {showAgentKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.35)", marginTop: "0.4rem" }}>
+                  Introduce tu clave de API de {agentConfig.apiProvider === "anthropic" ? "console.anthropic.com" : "platform.openai.com"}. Se compartirá de forma centralizada con todos los módulos de IA.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ marginTop: "1.5rem", display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={saveAgent}
+                disabled={agentSaving}
+                style={primaryButtonStyle(agentSaved)}
+              >
+                {agentSaved ? (
+                  <><Check size={15} /> Clave de IA Guardada</>
+                ) : (
+                  <><Sparkles size={15} /> {agentSaving ? "Guardando..." : "Guardar API Key de IA"}</>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTab("agente")}
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "rgba(255,255,255,0.7)",
+                  padding: "0.6rem 1rem",
+                  borderRadius: 6,
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Ajustar Prompts y Base de Conocimiento del Chatbot →
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -803,7 +1011,7 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
                   <Bot size={18} style={{ color: "#c9a84c" }} /> Asistente Virtual Inteligente (Chatbot Web)
                 </h2>
                 <p style={sectionDescStyle}>
-                  Configura el modelo y las instrucciones del asistente que responde dudas a tus clientes en la web.
+                  Configura el modelo y las instrucciones del asistente que responde dudas a tus clientes en la web. La clave API configurada aquí es la clave central compartida con el resto de módulos de IA (escaneo de facturas y bot de WhatsApp).
                 </p>
               </div>
 
@@ -931,9 +1139,9 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
               {/* API Key */}
               <div>
                 <label style={labelStyle}>
-                  Clave API ({agentConfig.apiProvider === "anthropic" ? "Anthropic" : "OpenAI"})
+                  Clave API Central ({agentConfig.apiProvider === "anthropic" ? "Anthropic" : "OpenAI"})
                   {agentConfig.apiKeySet && (
-                    <span style={{ color: "#4ade80", marginLeft: 8, fontWeight: 700 }}>✓ Clave configurada</span>
+                    <span style={{ color: "#4ade80", marginLeft: 8, fontWeight: 700 }}>✓ Clave configurada en el sistema (compartida con Facturas y WhatsApp)</span>
                   )}
                 </label>
                 <div style={{ position: "relative" }}>

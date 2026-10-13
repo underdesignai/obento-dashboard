@@ -35,7 +35,60 @@ export async function POST(req: Request) {
 👉 https://obentojapanesefood.es/pedidos
 
 Desde allí puedes elegir tus rollos, seleccionar tu hora de recogida y pagar de forma rápida y segura. ¡Si tienes alguna duda sobre algún plato de la carta, pregúntame sin problema! 🥢`;
-    } else if (lower.includes("horario") || lower.includes("abierto") || lower.includes("abren") || lower.includes("hora")) {
+    } else {
+      // 1. Intentar responder con la API Key Central de IA si está configurada
+      const agentRow = await prisma.configuracion.findUnique({ where: { clave: "agent_config" } });
+      let agentCfg: any = {};
+      if (agentRow?.valor) {
+        try { agentCfg = JSON.parse(agentRow.valor); } catch {}
+      }
+      const apiKey = agentCfg.apiKey || process.env.OPENAI_API_KEY;
+
+      if (apiKey && agentCfg.apiProvider !== "anthropic") {
+        try {
+          const waRow = await prisma.configuracion.findUnique({ where: { clave: "whatsapp_config" } });
+          let waPrompt = "";
+          if (waRow?.valor) {
+            try { waPrompt = JSON.parse(waRow.valor).systemPrompt; } catch {}
+          }
+          const sysPrompt = waPrompt || "Eres el Asistente Oficial de WhatsApp de Obento Japanese Food en Murcia.";
+
+          const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: agentCfg.model || "gpt-4o-mini",
+              messages: [
+                { role: "system", content: sysPrompt },
+                ...(Array.isArray(history) ? history : []),
+                { role: "user", content: cleanMsg },
+              ],
+              temperature: 0.6,
+              max_tokens: 350,
+            }),
+          });
+
+          if (aiRes.ok) {
+            const aiData = await aiRes.json();
+            const aiReply = aiData.choices?.[0]?.message?.content;
+            if (aiReply) {
+              return Response.json({
+                reply: aiReply,
+                detectedIntent: "ai_response",
+              });
+            }
+          }
+        } catch (aiErr) {
+          console.error("[whatsapp-bot/test AI fallback]", aiErr);
+        }
+      }
+    }
+
+    if (!reply) {
+      if (lower.includes("horario") || lower.includes("abierto") || lower.includes("abren") || lower.includes("hora")) {
       reply = `🕒 Nuestro horario de Takeaway y recogida en tienda es:
 • Martes a Domingo: 13:00 a 16:00 y de 20:00 a 23:30.
 • Lunes: Cerrado por descanso.
@@ -59,6 +112,7 @@ En nuestra carta online tienes todos los alérgenos detallados plato por plato:
 
 Si deseas realizar tu pedido para recoger en local, accede a nuestra web oficial:
 👉 https://obentojapanesefood.es/pedidos`;
+      }
     }
 
     return Response.json({
