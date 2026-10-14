@@ -199,11 +199,15 @@ function Modal({
   onClose,
   children,
   maxWidth = 580,
+  closeOnBackdrop = true,
+  showCloseButton = true,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   maxWidth?: number | string;
+  closeOnBackdrop?: boolean;
+  showCloseButton?: boolean;
 }) {
   return (
     <div
@@ -219,7 +223,7 @@ function Modal({
         backdropFilter: "blur(6px)",
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (closeOnBackdrop && e.target === e.currentTarget) onClose();
       }}
     >
       <div
@@ -244,21 +248,23 @@ function Modal({
           }}
         >
           <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", margin: 0 }}>{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 6,
-              color: "rgba(255,255,255,0.5)",
-              cursor: "pointer",
-              padding: 6,
-              display: "flex",
-            }}
-          >
-            <X size={16} />
-          </button>
+          {showCloseButton && (
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 6,
+                color: "rgba(255,255,255,0.5)",
+                cursor: "pointer",
+                padding: 6,
+                display: "flex",
+              }}
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
         <div style={{ padding: "1.5rem" }}>{children}</div>
       </div>
@@ -1366,6 +1372,8 @@ export default function CartaAdminPage() {
           title={modal === "add" ? "Añadir Nuevo Plato" : "Editar Plato"}
           maxWidth={1060}
           onClose={() => setModal(null)}
+          closeOnBackdrop={false}
+          showCloseButton={false}
         >
           <div
             style={{
