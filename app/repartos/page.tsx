@@ -5,7 +5,7 @@ import {
   Bike, Calendar, Clock, MapPin, User, Phone, DollarSign,
   TrendingUp, Download, RefreshCw, ChevronLeft, ChevronRight,
   ExternalLink, CheckCircle2, AlertTriangle, Package, Loader2,
-  Navigation, CreditCard, Banknote, ShieldCheck
+  Navigation, CreditCard, Banknote, ShieldCheck, CloudUpload, FolderOpen
 } from "lucide-react";
 import { useAdminLanguage } from "@/lib/LanguageContext";
 
@@ -158,6 +158,32 @@ export default function RepartosPage() {
     window.open(`/api/admin/repartos/reporte?tipo=${reporteTipo}&fecha=${fecha}`, "_blank");
   };
 
+  const [uploadingDrive, setUploadingDrive] = useState(false);
+  const [driveResult, setDriveResult] = useState<{ url: string; name: string } | null>(null);
+
+  const handleUploadDrive = async () => {
+    setUploadingDrive(true);
+    setDriveResult(null);
+    try {
+      const res = await fetch("/api/admin/repartos/subir-drive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo: "semanal", fecha }),
+      });
+      const json = await res.json();
+      if (res.ok && json.ok) {
+        setDriveResult({ url: json.webViewLink, name: json.fileName });
+      } else {
+        alert(json.error || "Error al subir a Google Drive");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error de conexión al subir reporte a Google Drive");
+    } finally {
+      setUploadingDrive(false);
+    }
+  };
+
   const handleUpdatePedido = async (pedidoId: number, changes: { estado_pedido?: string; repartidor_nombre?: string }) => {
     setUpdatingId(pedidoId);
     try {
@@ -276,6 +302,54 @@ export default function RepartosPage() {
           </button>
 
           <button
+            onClick={handleUploadDrive}
+            disabled={uploadingDrive}
+            style={{
+              background: "rgba(34,197,94,0.08)",
+              border: "1px solid rgba(34,197,94,0.25)",
+              color: "#4ade80",
+              borderRadius: 6,
+              padding: "7px 12px",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: uploadingDrive ? "wait" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "all 150ms",
+            }}
+          >
+            {uploadingDrive ? (
+              <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+            ) : (
+              <CloudUpload size={14} />
+            )}
+            {uploadingDrive ? "Subiendo a Drive..." : "Subir a Google Drive"}
+          </button>
+
+          <a
+            href="https://drive.google.com/drive/folders/1D7Js-cGvqfdCPnTtdXm_m-VwmDC5-FaG"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: "rgba(255,255,255,0.7)",
+              borderRadius: 6,
+              padding: "7px 12px",
+              fontSize: 12,
+              fontWeight: 600,
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "all 150ms",
+            }}
+          >
+            <FolderOpen size={14} /> Abrir Drive
+          </a>
+
+          <button
             onClick={fetchData}
             style={{
               background: "rgba(255,255,255,0.04)",
@@ -293,6 +367,46 @@ export default function RepartosPage() {
           </button>
         </div>
       </div>
+
+      {/* ── BANNER EXITO GOOGLE DRIVE ── */}
+      {driveResult && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          background: "rgba(34,197,94,0.1)",
+          border: "1px solid rgba(34,197,94,0.3)",
+          borderRadius: 8,
+          padding: "0.75rem 1.25rem",
+          marginBottom: "1.25rem",
+          color: "#4ade80",
+          fontSize: 13,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <CheckCircle2 size={16} />
+            <span>Reporte semanal <strong>{driveResult.name}</strong> sincronizado y archivado con éxito en Google Drive.</span>
+          </div>
+          <a
+            href={driveResult.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: "#fff",
+              background: "rgba(34,197,94,0.25)",
+              padding: "5px 12px",
+              borderRadius: 4,
+              fontSize: 12,
+              fontWeight: 600,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            Ver archivo en Drive <ExternalLink size={12} />
+          </a>
+        </div>
+      )}
 
       {/* ── SELECTOR DE MODO Y FECHA ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: "1rem" }}>

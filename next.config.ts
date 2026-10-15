@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@napi-rs/canvas", "sharp", "unpdf", "pdfkit"],
+  serverExternalPackages: ["@napi-rs/canvas", "sharp", "unpdf", "pdfkit", "googleapis"],
   turbopack: {
     root: __dirname,
   },
