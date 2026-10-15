@@ -1,13 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 
 export default function AdminLoginPage() {
   const [user, setUser] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      const savedRemember = localStorage.getItem("obento_dashboard_remember") === "true";
+      if (savedRemember) {
+        const savedUser = localStorage.getItem("obento_dashboard_user") || "";
+        const savedPass = localStorage.getItem("obento_dashboard_pass") || "";
+        setUser(savedUser);
+        setPassword(savedPass);
+        setRememberMe(true);
+      }
+    } catch (_) {}
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,6 +36,17 @@ export default function AdminLoginPage() {
       });
 
       if (res.ok) {
+        try {
+          if (rememberMe) {
+            localStorage.setItem("obento_dashboard_user", user);
+            localStorage.setItem("obento_dashboard_pass", password);
+            localStorage.setItem("obento_dashboard_remember", "true");
+          } else {
+            localStorage.removeItem("obento_dashboard_user");
+            localStorage.removeItem("obento_dashboard_pass");
+            localStorage.removeItem("obento_dashboard_remember");
+          }
+        } catch (_) {}
         window.location.href = "/";
       } else {
         const data = await res.json().catch(() => ({}));
@@ -153,6 +178,7 @@ export default function AdminLoginPage() {
               value={user}
               onChange={e => setUser(e.target.value)}
               placeholder="admin"
+              autoComplete="username"
               required
               autoFocus
               style={{
@@ -180,7 +206,7 @@ export default function AdminLoginPage() {
           </div>
 
           {/* Campo Contraseña */}
-          <div style={{ marginBottom: "1.75rem" }}>
+          <div style={{ marginBottom: "1.25rem" }}>
             <label
               style={{
                 display: "block",
@@ -199,6 +225,7 @@ export default function AdminLoginPage() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
+              autoComplete="current-password"
               required
               style={{
                 width: "100%",
@@ -222,6 +249,36 @@ export default function AdminLoginPage() {
                 e.currentTarget.style.boxShadow = "none";
               }}
             />
+          </div>
+
+          {/* Checkbox Recordar Contraseña */}
+          <div style={{ marginBottom: "1.45rem", display: "flex", alignItems: "center" }}>
+            <label
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.6rem",
+                cursor: "pointer",
+                fontSize: 13.5,
+                color: "#d1d5db",
+                userSelect: "none",
+                fontWeight: 600,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={e => setRememberMe(e.target.checked)}
+                style={{
+                  width: 18,
+                  height: 18,
+                  accentColor: "#dc2626",
+                  cursor: "pointer",
+                  borderRadius: 4,
+                }}
+              />
+              <span>Recordar contraseña</span>
+            </label>
           </div>
 
           {/* Error */}
