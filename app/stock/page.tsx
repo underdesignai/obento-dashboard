@@ -739,15 +739,15 @@ export default function StockPage() {
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", color: "rgba(255,255,255,0.45)" }}>
-                    <th style={{ padding: "0.85rem 1rem" }}>Ingrediente</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Categoría</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Existencias Actuales</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Stock Mínimo</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Coste Medio Unit.</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Valor Total</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Proveedor</th>
-                    <th style={{ padding: "0.85rem 1rem", textAlign: "right" }}>Acciones</th>
+                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(96,165,250,0.04)" }}>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Ingrediente</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Categoría</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Existencias Actuales</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Stock Mínimo</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Coste Medio Unit.</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Valor Total</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Proveedor</th>
+                    <th style={{ padding: "0.85rem 1rem", textAlign: "right", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -880,16 +880,16 @@ export default function StockPage() {
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", color: "rgba(255,255,255,0.45)" }}>
-                    <th style={{ padding: "0.85rem 1rem" }}>Nº Factura</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Proveedor</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Fecha Emisión</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Gasto sin IVA (Base)</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Importe IVA</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Total Factura</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Estado</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Productos en Almacén</th>
-                    <th style={{ padding: "0.85rem 1rem", textAlign: "right" }}>Acciones</th>
+                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(96,165,250,0.04)" }}>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Nº Factura</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Proveedor</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Fecha Emisión</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Gasto sin IVA (Base)</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Importe IVA</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Total Factura</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Estado</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Productos en Almacén</th>
+                    <th style={{ padding: "0.85rem 1rem", textAlign: "right", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1150,13 +1150,13 @@ export default function StockPage() {
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", color: "rgba(255,255,255,0.45)" }}>
-                    <th style={{ padding: "0.85rem 1rem" }}>Fecha</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Producto Desperdiciado</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Cantidad Tirada</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Motivo</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Coste Económico Perdido</th>
-                    <th style={{ padding: "0.85rem 1rem" }}>Notas / Explicación</th>
+                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(96,165,250,0.04)" }}>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Fecha</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Producto Desperdiciado</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Cantidad Tirada</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Motivo</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Coste Económico Perdido</th>
+                    <th style={{ padding: "0.85rem 1rem", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>Notas / Explicación</th>
                   </tr>
                 </thead>
                 <tbody>

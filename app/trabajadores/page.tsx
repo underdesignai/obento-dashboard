@@ -179,45 +179,75 @@ export default function TrabajadoresPage() {
           {a.noHayTrabajadores}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          {usuarios.map(u => {
+        <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, overflow: "hidden" }}>
+          {/* Head */}
+          <div style={{
+            display: "grid", gridTemplateColumns: "1fr 180px 140px 100px",
+            gap: "1rem", padding: "0.85rem 1.5rem",
+            background: "rgba(96,165,250,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)",
+            alignItems: "center"
+          }}>
+            <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>
+              {a.trabajadores || "TRABAJADOR"}
+            </span>
+            <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>
+              {a.rol || "ROL"}
+            </span>
+            <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700 }}>
+              {a.estado || "ESTADO"}
+            </span>
+            <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700, textAlign: "right" }}>
+              {a.thAccion || "ACCIONES"}
+            </span>
+          </div>
+
+          {/* Rows */}
+          {usuarios.map((u, i) => {
             const rol = ROL_STYLE[u.rol];
             const Icon = rol.icon;
             return (
               <div key={u.id} style={{
-                display: "grid", gridTemplateColumns: "1fr auto auto auto auto",
+                display: "grid", gridTemplateColumns: "1fr 180px 140px 100px",
                 gap: "1rem", alignItems: "center",
-                padding: "1rem 1.25rem",
-                background: u.activo ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.01)",
-                border: `1px solid ${u.activo ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)"}`,
-                borderRadius: 6, opacity: u.activo ? 1 : 0.5,
-              }}>
+                padding: "0.9rem 1.5rem",
+                background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)",
+                borderBottom: i < usuarios.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                opacity: u.activo ? 1 : 0.5,
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)"; }}
+              >
                 {/* Info */}
                 <div>
-                  <p style={{ fontSize: 15, fontWeight: 600, color: "#fff", margin: 0 }}>{u.username}</p>
-                  {u.email && <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: "2px 0 0" }}>{u.email}</p>}
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", margin: 0 }}>{u.username}</p>
+                  {u.email && <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", margin: "2px 0 0" }}>{u.email}</p>}
                 </div>
 
                 {/* Rol */}
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "4px 13px", borderRadius: 999, background: rol.bg, color: rol.color, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
-                  <Icon size={11} /> {rol.label}
-                </span>
+                <div>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, padding: "3px 10px", borderRadius: 999, background: rol.bg, color: rol.color, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+                    <Icon size={11} /> {rol.label}
+                  </span>
+                </div>
 
                 {/* Estado */}
-                <span style={{ fontSize: 12, padding: "4px 13px", borderRadius: 999, background: u.activo ? "rgba(74,222,128,0.1)" : "rgba(255,255,255,0.04)", color: u.activo ? "#4ade80" : "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", cursor: "pointer", whiteSpace: "nowrap" }}
-                  onClick={() => toggleActivo(u)}>
-                  {u.activo ? a.statusActivo : a.statusInactivo}
-                </span>
+                <div>
+                  <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 999, background: u.activo ? "rgba(74,222,128,0.1)" : "rgba(255,255,255,0.04)", color: u.activo ? "#4ade80" : "rgba(255,255,255,0.25)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", cursor: "pointer", whiteSpace: "nowrap" }}
+                    onClick={() => toggleActivo(u)}>
+                    {u.activo ? a.statusActivo : a.statusInactivo}
+                  </span>
+                </div>
 
-                {/* Editar */}
-                <button onClick={() => openEdit(u)} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "6px 8px", cursor: "pointer", color: "rgba(255,255,255,0.5)" }}>
-                  <Pencil size={13} />
-                </button>
-
-                {/* Eliminar */}
-                <button onClick={() => setDeleteId(u.id)} style={{ background: "rgba(252,165,165,0.06)", border: "1px solid rgba(252,165,165,0.12)", borderRadius: 4, padding: "6px 8px", cursor: "pointer", color: "rgba(252,165,165,0.6)" }}>
-                  <Trash2 size={13} />
-                </button>
+                {/* Acciones */}
+                <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                  <button onClick={() => openEdit(u)} title="Editar" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "6px 8px", cursor: "pointer", color: "rgba(255,255,255,0.5)" }}>
+                    <Pencil size={13} />
+                  </button>
+                  <button onClick={() => setDeleteId(u.id)} title="Eliminar" style={{ background: "rgba(252,165,165,0.06)", border: "1px solid rgba(252,165,165,0.12)", borderRadius: 4, padding: "6px 8px", cursor: "pointer", color: "rgba(252,165,165,0.6)" }}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </div>
             );
           })}

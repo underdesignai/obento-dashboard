@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Bot, MessageSquare, MessageCircle, Send, CheckCircle2, AlertCircle, RefreshCw,
   Sparkles, ShieldCheck, Eye, Palette, Settings2, Plus, Trash2
@@ -29,7 +30,7 @@ const LABEL_STYLE: React.CSSProperties = {
   fontWeight: 700,
 };
 
-export default function BotsWebPage() {
+export function BotsWebContent() {
   useSession();
 
   const [loading, setLoading] = useState(true);
@@ -515,4 +516,12 @@ export default function BotsWebPage() {
       </div>
     </div>
   );
+}
+
+export default function BotsWebPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/configuracion?tab=bots_web");
+  }, [router]);
+  return <BotsWebContent />;
 }

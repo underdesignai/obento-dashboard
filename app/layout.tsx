@@ -102,8 +102,6 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
     { href: "/analytics",    label: a.analytics,  icon: BarChart2 },
     { href: "/leads",        label: a.leads,      icon: UserRound },
     { href: "/cupones",      label: a.cupones,    icon: Tag },
-    { href: "/bots-web",     label: "Bots Web",   icon: MessageSquare },
-    { href: "/whatsapp-bot", label: "WhatsApp Bot", icon: MessageCircle },
   ];
 
   const NAV_CONFIG: { href: string; label: string; icon: any }[] = [];

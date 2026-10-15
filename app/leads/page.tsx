@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, memo } from "react";
-import { UserRound, RefreshCw, Download, ChevronDown, ChevronUp, Phone, Mail, Users, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { UserRound, RefreshCw, Download, ChevronDown, ChevronUp, Phone, Mail, Users, ChevronLeft, ChevronRight, Loader2, ArrowUpDown } from "lucide-react";
 import { useAdminLanguage } from "@/lib/LanguageContext";
 import { TAG_META, AUTO_TAGS, MANUAL_TAGS, calcAutoTags, type TagKey } from "@/lib/tags";
 
@@ -33,7 +33,6 @@ function HistorialRow({ r, lang }: { r: Reserva; lang: string }) {
     <div className="history-row">
       <span className="h-fecha">{fecha} · {hora}</span>
       <span className="h-personas"><Users size={10} /> {r.personas}p</span>
-      <span className={r.seccion === "sushi" ? "badge-sushi" : "badge-mex"}>{r.seccion === "sushi" ? "🍣" : "🌮"}</span>
       <span className="h-msg">{r.mensaje ?? ""}</span>
       <span style={{ color: est.color, fontSize: 17, fontWeight: 700, whiteSpace: "nowrap" }}>{est.emoji} {est.label}</span>
     </div>
@@ -110,7 +109,32 @@ function LeadExpanded({ lead, lang }: { lead: Lead; lang: string }) {
   );
 }
 
-const LeadRow = memo(function LeadRow({ l, open, onToggle, lang, manualTagsMap }: { l: Lead; open: boolean; onToggle: () => void; lang: string; manualTagsMap: Record<string, TagKey[]> }) {
+const GRID_COLS = "minmax(240px, 2fr) 100px 100px 105px 100px 135px 44px";
+
+function SortIcon({ col, sortKey, sortDir }: { col: string; sortKey: string; sortDir: "asc" | "desc" }) {
+  if (col !== sortKey) return <ChevronUp size={12} style={{ opacity: 0.2 }} />;
+  return sortDir === "asc"
+    ? <ChevronUp size={12} style={{ color: "#60a5fa" }} />
+    : <ChevronDown size={12} style={{ color: "#60a5fa" }} />;
+}
+
+const LeadRow = memo(function LeadRow({
+  l,
+  open,
+  onToggle,
+  lang,
+  manualTagsMap,
+  isEven,
+  isLast,
+}: {
+  l: Lead;
+  open: boolean;
+  onToggle: () => void;
+  lang: string;
+  manualTagsMap: Record<string, TagKey[]>;
+  isEven: boolean;
+  isLast: boolean;
+}) {
   const pct = l.pctAsistencia;
   const pctColor = pct >= 80 ? "#4ade80" : pct >= 50 ? "#fbbf24" : "#ef4444";
   const clientKey = l.email?.toLowerCase().trim() || l.nombre.toLowerCase().trim();
@@ -119,44 +143,92 @@ const LeadRow = memo(function LeadRow({ l, open, onToggle, lang, manualTagsMap }
   const allTags   = [...new Set([...autoTags, ...manualTags])];
 
   return (
-    <div className="lead-card">
-      <div onClick={onToggle} className={`lead-row${open ? " lead-row--open" : ""}`}>
-        <div className="lead-col-name">
-          <span className="lead-nombre">{l.nombre}</span>
-          <span className="lead-contact">
-            {l.email && <><Mail size={10} /> {l.email}</>}
-            {l.telefono && <><Phone size={10} /> {l.telefono}</>}
-          </span>
+    <div style={{
+      borderBottom: isLast && !open ? "none" : "1px solid rgba(255,255,255,0.04)",
+      background: open ? "rgba(96,165,250,0.04)" : isEven ? "transparent" : "rgba(255,255,255,0.01)",
+      transition: "background 0.15s",
+    }}>
+      <div
+        onClick={onToggle}
+        style={{
+          display: "grid",
+          gridTemplateColumns: GRID_COLS,
+          gap: "0.75rem",
+          padding: "0.9rem 1.5rem",
+          alignItems: "center",
+          cursor: "pointer",
+        }}
+        onMouseEnter={e => { if (!open) e.currentTarget.parentElement!.style.background = "rgba(255,255,255,0.03)"; }}
+        onMouseLeave={e => { if (!open) e.currentTarget.parentElement!.style.background = isEven ? "transparent" : "rgba(255,255,255,0.01)"; }}
+      >
+        {/* Cliente */}
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {l.nombre}
+          </p>
+          <div style={{ display: "flex", gap: 10, marginTop: 2, fontSize: 12, color: "rgba(255,255,255,0.35)", alignItems: "center", flexWrap: "wrap" }}>
+            {l.email && <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Mail size={11} /> {l.email}</span>}
+            {l.telefono && <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Phone size={11} /> {l.telefono}</span>}
+          </div>
           {allTags.length > 0 && (
-            <span className="lead-tags-row">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
               {allTags.map(tag => {
                 const m = TAG_META[tag];
                 return (
-                  <span key={tag} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: m.bg, color: m.color, fontWeight: 700, border: `1px solid ${m.color}50`, whiteSpace: "nowrap" }}>
+                  <span key={tag} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 12, background: m.bg, color: m.color, fontWeight: 700, border: `1px solid ${m.color}40`, whiteSpace: "nowrap" }}>
                     {m.emoji} {m.label}
                   </span>
                 );
               })}
-            </span>
+            </div>
           )}
         </div>
-        <div className="lead-col-sec">
-          {l.secciones.map(s => (
-            <span key={s} className={s === "sushi" ? "badge-sushi" : "badge-mex"}>
-              {s === "sushi" ? "🍣 Sushi" : "🌮 Mex"}
-            </span>
-          ))}
+
+
+        {/* Reservas */}
+        <div style={{ textAlign: "center" }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#c9a84c", fontVariantNumeric: "tabular-nums", fontFamily: "monospace" }}>
+            {l.totalReservas}
+          </span>
         </div>
-        <div className="lead-metric"><span style={{ color: "#c9a84c" }}>{l.totalReservas}</span><small>reservas</small></div>
-        <div className="lead-metric"><span style={{ color: "#60a5fa" }}>{l.totalPedidos}</span><small>pedidos</small></div>
-        <div className="lead-metric"><span style={{ color: l.canceladas > 0 ? "#f87171" : "rgba(255,255,255,0.2)" }}>{l.canceladas}</span><small>cancel.</small></div>
-        <div className="lead-metric"><span style={{ color: l.noShows > 0 ? "#ef4444" : "rgba(255,255,255,0.2)" }}>{l.noShows}</span><small>no show</small></div>
-        <div className="lead-col-pct">
-          <div className="pct-track"><div className="pct-fill" style={{ width: `${pct}%`, background: pctColor }} /></div>
-          <span style={{ color: pctColor, fontSize: 12, fontWeight: 700 }}>{pct}%</span>
+
+        {/* Pedidos */}
+        <div style={{ textAlign: "center" }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#60a5fa", fontVariantNumeric: "tabular-nums", fontFamily: "monospace" }}>
+            {l.totalPedidos}
+          </span>
         </div>
-        <div className="lead-chevron">{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</div>
+
+        {/* Canceladas */}
+        <div style={{ textAlign: "center" }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: l.canceladas > 0 ? "#f87171" : "rgba(255,255,255,0.2)", fontVariantNumeric: "tabular-nums", fontFamily: "monospace" }}>
+            {l.canceladas}
+          </span>
+        </div>
+
+        {/* No Show */}
+        <div style={{ textAlign: "center" }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: l.noShows > 0 ? "#ef4444" : "rgba(255,255,255,0.2)", fontVariantNumeric: "tabular-nums", fontFamily: "monospace" }}>
+            {l.noShows}
+          </span>
+        </div>
+
+        {/* % Asistencia */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: 6 }}>
+          <div style={{ flex: 1, height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
+            <div style={{ width: `${pct}%`, height: "100%", background: pctColor, borderRadius: 3 }} />
+          </div>
+          <span style={{ color: pctColor, fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums", minWidth: 32, textAlign: "right" }}>
+            {pct}%
+          </span>
+        </div>
+
+        {/* Chevron */}
+        <div style={{ display: "flex", justifyContent: "center", color: open ? "#60a5fa" : "rgba(255,255,255,0.3)" }}>
+          {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+        </div>
       </div>
+
       {open && <LeadExpanded lead={l} lang={lang} />}
     </div>
   );
@@ -170,7 +242,8 @@ export default function LeadsPage() {
   const [syncing, setSyncing]       = useState(false);
   const [openKey, setOpenKey]       = useState<string | null>(null);
   const [search, setSearch]         = useState("");
-  const [sortBy, setSortBy]         = useState<"reservas"|"asistencia"|"canceladas"|"noshow"|"pedidos">("reservas");
+  const [sortBy, setSortBy]         = useState<"reservas"|"asistencia"|"canceladas"|"noshow"|"pedidos"|"nombre">("reservas");
+  const [sortDir, setSortDir]       = useState<"asc" | "desc">("desc");
   const [page, setPage]             = useState(0);
   const [manualTagsMap, setManualTagsMap] = useState<Record<string, TagKey[]>>({});
 
@@ -193,7 +266,15 @@ export default function LeadsPage() {
   };
 
   const handleSearch = useCallback((v: string) => { setSearch(v); setPage(0); setOpenKey(null); }, []);
-  const handleSort   = useCallback((v: typeof sortBy) => { setSortBy(v); setPage(0); }, []);
+  const toggleSort   = useCallback((key: typeof sortBy) => {
+    if (sortBy === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(key);
+      setSortDir(key === "nombre" ? "asc" : "desc");
+    }
+    setPage(0);
+  }, [sortBy]);
   const toggle       = useCallback((key: string) => setOpenKey(prev => prev === key ? null : key), []);
 
   const filtrados = useMemo(() => {
@@ -202,13 +283,16 @@ export default function LeadsPage() {
       ? leads.filter(l => l.nombre.toLowerCase().includes(q) || l.email.toLowerCase().includes(q) || (l.telefono ?? "").includes(q))
       : leads;
     return [...arr].sort((a, b) => {
-      if (sortBy === "asistencia") return b.pctAsistencia - a.pctAsistencia;
-      if (sortBy === "canceladas") return b.canceladas - a.canceladas;
-      if (sortBy === "noshow")     return b.noShows - a.noShows;
-      if (sortBy === "pedidos")    return b.totalPedidos - a.totalPedidos;
-      return b.totalReservas - a.totalReservas;
+      let diff = 0;
+      if (sortBy === "nombre")          diff = a.nombre.localeCompare(b.nombre);
+      else if (sortBy === "asistencia") diff = a.pctAsistencia - b.pctAsistencia;
+      else if (sortBy === "canceladas") diff = a.canceladas - b.canceladas;
+      else if (sortBy === "noshow")     diff = a.noShows - b.noShows;
+      else if (sortBy === "pedidos")    diff = a.totalPedidos - b.totalPedidos;
+      else                              diff = a.totalReservas - b.totalReservas;
+      return sortDir === "asc" ? diff : -diff;
     });
-  }, [leads, search, sortBy]);
+  }, [leads, search, sortBy, sortDir]);
 
   const totalPages = Math.ceil(filtrados.length / PAGE_SIZE);
   const pagina = useMemo(() => filtrados.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtrados, page]);
@@ -240,36 +324,32 @@ export default function LeadsPage() {
     URL.revokeObjectURL(url);
   }
 
+  const thStyle: React.CSSProperties = {
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: "0.15em",
+    color: "rgba(96,165,250,0.5)",
+    fontWeight: 700,
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    whiteSpace: "nowrap",
+  };
+
   return (
     <div>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        .lead-card{border:1px solid rgba(255,255,255,0.07);border-radius:8px;overflow:hidden;margin-bottom:4px}
-        .lead-row{display:grid;grid-template-columns:2fr 1.5fr 80px 80px 80px 80px 120px 40px;gap:16px;padding:18px 20px;align-items:center;cursor:pointer;background:transparent;transition:background .1s}
-        .lead-row:hover{background:rgba(255,255,255,0.02)}
-        .lead-row--open{background:rgba(201,168,76,0.04)}
-        .lead-row--open:hover{background:rgba(201,168,76,0.05)}
-        .lead-col-name{overflow:hidden}
-        .lead-nombre{display:block;font-size:18px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .lead-contact{display:flex;gap:14px;margin-top:4px;font-size:14px;color:rgba(255,255,255,0.3);align-items:center;flex-wrap:wrap}
-        .lead-tags-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
-        .lead-col-sec{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-        .lead-metric{text-align:center}
-        .lead-metric span{display:block;font-size:26px;font-weight:700}
-        .lead-metric small{font-size:12px;color:rgba(255,255,255,0.2);text-transform:uppercase}
-        .lead-col-pct{display:flex;align-items:center;gap:8px}
-        .pct-track{flex:1;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden}
-        .pct-fill{height:100%;border-radius:3px}
-        .lead-chevron{display:flex;justify-content:center;color:rgba(255,255,255,0.3)}
-        .badge-sushi{font-size:13px;padding:4px 11px;border-radius:20px;background:rgba(96,165,250,0.1);color:#60a5fa;font-weight:700;white-space:nowrap}
-        .badge-mex{font-size:13px;padding:4px 11px;border-radius:20px;background:rgba(201,168,76,0.08);color:#c9a84c;font-weight:700;white-space:nowrap}
-        .lead-history{border-top:1px solid rgba(255,255,255,0.05);padding:10px 20px 14px}
+        .lead-history{border-top:1px solid rgba(255,255,255,0.05);padding:10px 20px 14px;background:rgba(96,165,250,0.02)}
         .lead-history-title{font-size:12px;text-transform:uppercase;letter-spacing:.2em;color:rgba(201,168,76,0.35);margin:0 0 6px}
-        .history-row{display:grid;grid-template-columns:200px 60px 28px 1fr auto;gap:14px;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
-        .h-fecha{font-size:16px;color:rgba(255,255,255,0.55);text-transform:capitalize;font-weight:500}
-        .h-personas{font-size:16px;color:rgba(255,255,255,0.4);display:flex;align-items:center;gap:4px}
-        .h-msg{font-size:15px;color:rgba(201,168,76,0.5);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .sort-btn{font-size:14px;padding:7px 14px;border-radius:20px;cursor:pointer;font-weight:600;white-space:nowrap;transition:border-color .1s,color .1s}
+        .history-row{display:grid;grid-template-columns:200px 60px 1fr auto;gap:14px;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+        .h-fecha{font-size:14px;color:rgba(255,255,255,0.55);text-transform:capitalize;font-weight:500}
+        .h-personas{font-size:14px;color:rgba(255,255,255,0.4);display:flex;align-items:center;gap:4px}
+        .h-msg{font-size:13px;color:rgba(201,168,76,0.5);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       `}</style>
 
       {/* Cabecera */}
@@ -296,50 +376,87 @@ export default function LeadsPage() {
       {/* Buscador */}
       <div style={{ marginBottom: "0.75rem" }}>
         <input value={search} onChange={e => handleSearch(e.target.value)} placeholder={a.buscarCliente}
-          style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "10px 16px", color: "#fff", fontSize: 17, outline: "none" }} />
+          style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "10px 16px", color: "#fff", fontSize: 14, outline: "none" }} />
       </div>
 
-      {/* Cabecera de columnas — mismo grid que .lead-row */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 80px 80px 80px 80px 120px 40px", gap: "16px", padding: "6px 21px 8px", marginBottom: "4px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <button onClick={() => handleSort("reservas")} style={{ background:"none", border:"none", padding:0, textAlign:"left", cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color:"rgba(255,255,255,0.3)" }}>{a.cliente}</button>
-        <div style={{ fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color:"rgba(255,255,255,0.2)" }}>{a.seccion}</div>
-        <button onClick={() => handleSort("reservas")}   style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="reservas"   ? "#c9a84c" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ {a.reservas2}</button>
-        <button onClick={() => handleSort("pedidos")}    style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="pedidos"    ? "#60a5fa" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ {a.pedidos}</button>
-        <button onClick={() => handleSort("canceladas")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="canceladas" ? "#c9a84c" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ {a.thCanceladas}</button>
-        <button onClick={() => handleSort("noshow")}     style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="noshow"     ? "#c9a84c" : "rgba(255,255,255,0.3)", textAlign:"center" }}>↕ {a.noShow}</button>
-        <button onClick={() => handleSort("asistencia")} style={{ background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color: sortBy==="asistencia" ? "#c9a84c" : "rgba(255,255,255,0.3)" }}>↕ {a.asistencia}</button>
-        <div />
-      </div>
+      {/* ── DESKTOP: tabla idéntica a Pedidos ── */}
+      <div style={{ overflowX: "auto", width: "100%", paddingBottom: "1rem" }}>
+        <div style={{ minWidth: 980, border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, overflow: "hidden" }}>
+          {/* Head */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: GRID_COLS,
+            gap: "0.75rem",
+            padding: "0.85rem 1.5rem",
+            background: "rgba(96,165,250,0.04)",
+            borderBottom: "1px solid rgba(255,255,255,0.06)",
+            alignItems: "center"
+          }}>
+            <button onClick={() => toggleSort("nombre")} style={{ ...thStyle, color: sortBy === "nombre" ? "#60a5fa" : thStyle.color }}>
+              {a.cliente} <SortIcon col="nombre" sortKey={sortBy} sortDir={sortDir} />
+            </button>
+            <button onClick={() => toggleSort("reservas")} style={{ ...thStyle, justifyContent: "center", color: sortBy === "reservas" ? "#60a5fa" : thStyle.color }}>
+              {a.reservas2} <SortIcon col="reservas" sortKey={sortBy} sortDir={sortDir} />
+            </button>
+            <button onClick={() => toggleSort("pedidos")} style={{ ...thStyle, justifyContent: "center", color: sortBy === "pedidos" ? "#60a5fa" : thStyle.color }}>
+              {a.pedidos} <SortIcon col="pedidos" sortKey={sortBy} sortDir={sortDir} />
+            </button>
+            <button onClick={() => toggleSort("canceladas")} style={{ ...thStyle, justifyContent: "center", color: sortBy === "canceladas" ? "#60a5fa" : thStyle.color }}>
+              {a.thCanceladas} <SortIcon col="canceladas" sortKey={sortBy} sortDir={sortDir} />
+            </button>
+            <button onClick={() => toggleSort("noshow")} style={{ ...thStyle, justifyContent: "center", color: sortBy === "noshow" ? "#60a5fa" : thStyle.color }}>
+              {a.noShow} <SortIcon col="noshow" sortKey={sortBy} sortDir={sortDir} />
+            </button>
+            <button onClick={() => toggleSort("asistencia")} style={{ ...thStyle, justifyContent: "center", color: sortBy === "asistencia" ? "#60a5fa" : thStyle.color }}>
+              {a.asistencia} <SortIcon col="asistencia" sortKey={sortBy} sortDir={sortDir} />
+            </button>
+            <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(96,165,250,0.5)", fontWeight: 700, textAlign: "center", display: "block" }}>
+              {a.thAccion || "ACCIÓN"}
+            </span>
+          </div>
 
-      {loading ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, color: "rgba(255,255,255,0.25)", fontSize: 13, padding: "2rem 0" }}>
-          <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> {a.cargandoClientes}
-        </div>
-      ) : filtrados.length === 0 ? (
-        <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 13, textAlign: "center", padding: "3rem" }}>{a.noHayLeads}</p>
-      ) : (
-        <>
-          {pagina.map(l => {
-            const key = l.email || l.nombre;
-            return <LeadRow key={key} l={l} open={openKey === key} onToggle={() => toggle(key)} lang={lang} manualTagsMap={manualTagsMap} />;
-          })}
-
-          {totalPages > 1 && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem", padding: "1rem 0" }}>
-              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "6px 10px", color: page === 0 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", cursor: page === 0 ? "default" : "pointer" }}>
-                <ChevronLeft size={14} />
-              </button>
-              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
-                {page + 1} / {totalPages} · {filtrados.length} {a.clientesCount}
-              </span>
-              <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "6px 10px", color: page === totalPages - 1 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", cursor: page === totalPages - 1 ? "default" : "pointer" }}>
-                <ChevronRight size={14} />
-              </button>
+          {/* Rows */}
+          {loading ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "rgba(255,255,255,0.25)", fontSize: 13, padding: "3rem 0" }}>
+              <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> {a.cargandoClientes}
             </div>
+          ) : filtrados.length === 0 ? (
+            <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 13, textAlign: "center", padding: "3rem" }}>{a.noHayLeads}</p>
+          ) : (
+            pagina.map((l, i) => {
+              const key = l.email || l.nombre;
+              return (
+                <LeadRow
+                  key={key}
+                  l={l}
+                  open={openKey === key}
+                  onToggle={() => toggle(key)}
+                  lang={lang}
+                  manualTagsMap={manualTagsMap}
+                  isEven={i % 2 === 0}
+                  isLast={i === pagina.length - 1}
+                />
+              );
+            })
           )}
-        </>
+        </div>
+      </div>
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem", padding: "1rem 0" }}>
+          <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "6px 10px", color: page === 0 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", cursor: page === 0 ? "default" : "pointer" }}>
+            <ChevronLeft size={14} />
+          </button>
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
+            {page + 1} / {totalPages} · {filtrados.length} {a.clientesCount}
+          </span>
+          <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "6px 10px", color: page === totalPages - 1 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", cursor: page === totalPages - 1 ? "default" : "pointer" }}>
+            <ChevronRight size={14} />
+          </button>
+        </div>
       )}
     </div>
   );

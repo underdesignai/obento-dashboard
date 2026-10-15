@@ -5,9 +5,11 @@ import {
   Settings, Globe, ShoppingBag, Clock, Bot, CreditCard, Mail,
   HardDrive, Save, Check, Eye, EyeOff, Key, BookOpen, AlertCircle,
   RefreshCw, CheckSquare, Square, Download, Trash2, ArrowRight,
-  Sparkles, Receipt, MessageSquare
+  Sparkles, Receipt, MessageSquare, MessageCircle
 } from "lucide-react";
 import { useAdminLanguage } from "@/lib/LanguageContext";
+import { BotsWebContent } from "@/app/bots-web/page";
+import { WhatsAppBotContent } from "@/app/whatsapp-bot/page";
 
 // ─── TIPOS ───────────────────────────────────────────────────────────────────
 
@@ -91,7 +93,22 @@ const INPUT_STYLE: React.CSSProperties = {
 
 export default function ConfiguracionPage() {
   const { tr } = useAdminLanguage();
-  const [tab, setTab] = useState<"general" | "takeaway" | "horarios" | "agente" | "stripe" | "email" | "backup">("general");
+  const [tab, setTab] = useState<
+    "general" | "takeaway" | "horarios" | "agente" | "bots_web" | "whatsapp_bot" | "stripe" | "email" | "backup"
+  >("general");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlTab = params.get("tab");
+      if (
+        urlTab &&
+        ["general", "takeaway", "horarios", "agente", "bots_web", "whatsapp_bot", "stripe", "email", "backup"].includes(urlTab)
+      ) {
+        setTab(urlTab as any);
+      }
+    }
+  }, []);
 
   // 1. General Config
   const [generalConfig, setGeneralConfig] = useState<GeneralConfig>({
@@ -149,10 +166,14 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
   const [stripeSaving, setStripeSaving] = useState(false);
   const [stripeSaved, setStripeSaved] = useState(false);
 
-  // 5. Email Config
-  const [emailFrom, setEmailFrom] = useState("");
-  const [emailPass, setEmailPass] = useState("");
-  const [showEmailPass, setShowEmailPass] = useState(false);
+  // 5. Resend Email Config
+  const [resendApiKey, setResendApiKey] = useState("");
+  const [resendHasKey, setResendHasKey] = useState(false);
+  const [resendKeyMasked, setResendKeyMasked] = useState("");
+  const [resendFrom, setResendFrom] = useState("pedidos@obentojapanesefood.es");
+  const [resendFromName, setResendFromName] = useState("Obento Japanese Food");
+  const [showResendKey, setShowResendKey] = useState(false);
+  const [testRecipient, setTestRecipient] = useState("");
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailSaved, setEmailSaved] = useState(false);
   const [emailTesting, setEmailTesting] = useState(false);
@@ -196,11 +217,16 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
       })
       .catch(() => {});
 
-    // Email
+    // Email (Resend)
     fetch("/api/admin/configuracion/email")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (d) setEmailFrom(d.from ?? "");
+        if (d) {
+          if (d.from) setResendFrom(d.from);
+          if (d.fromName) setResendFromName(d.fromName);
+          setResendHasKey(Boolean(d.hasApiKey));
+          setResendKeyMasked(d.apiKeyMasked || "");
+        }
       })
       .catch(() => {});
 
@@ -296,29 +322,46 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
 
   const saveEmail = async () => {
     setEmailSaving(true);
-    await fetch("/api/admin/configuracion/email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: emailFrom,
-        password: emailPass || undefined,
-      }),
-    });
-    setEmailSaving(false);
-    setEmailSaved(true);
-    setEmailPass("");
-    setTimeout(() => setEmailSaved(false), 2500);
+    try {
+      const res = await fetch("/api/admin/configuracion/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          apiKey: resendApiKey || undefined,
+          from: resendFrom,
+          fromName: resendFromName,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setEmailSaved(true);
+        if (resendApiKey) {
+          setResendHasKey(true);
+          setResendKeyMasked(`${resendApiKey.slice(0, 6)}...${resendApiKey.slice(-4)}`);
+          setResendApiKey("");
+        }
+        setTimeout(() => setEmailSaved(false), 2500);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setEmailSaving(false);
+    }
   };
 
   const testEmail = async () => {
     setEmailTesting(true);
     setEmailTestResult(null);
     try {
-      const res = await fetch("/api/admin/configuracion/email/test", { method: "POST" });
+      const res = await fetch("/api/admin/configuracion/email/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: testRecipient || undefined }),
+      });
       const data = await res.json();
       setEmailTestResult(data);
     } catch {
-      setEmailTestResult({ ok: false, msg: "Error al conectar con el servidor de correo" });
+      setEmailTestResult({ ok: false, msg: "Error al conectar con el servicio de correo de Resend" });
     } finally {
       setEmailTesting(false);
     }
@@ -404,8 +447,10 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
     { id: "takeaway", label: "Take Away & Pedidos", icon: ShoppingBag },
     { id: "horarios", label: "Horarios de Cocina", icon: Clock },
     { id: "agente", label: "Asistente IA", icon: Bot },
+    { id: "bots_web", label: "Bots Web", icon: MessageSquare },
+    { id: "whatsapp_bot", label: "WhatsApp Bot", icon: MessageCircle },
     { id: "stripe", label: "Pagos Online (Stripe)", icon: CreditCard },
-    { id: "email", label: "Correo (SMTP)", icon: Mail },
+    { id: "email", label: "Correo (Resend)", icon: Mail },
     { id: "backup", label: "Copias de Seguridad", icon: HardDrive },
   ] as const;
 
@@ -1202,6 +1247,20 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
         </div>
       )}
 
+      {/* ─── TAB: BOTS WEB ─────────────────────────────────────────────────── */}
+      {tab === "bots_web" && (
+        <div>
+          <BotsWebContent />
+        </div>
+      )}
+
+      {/* ─── TAB: WHATSAPP BOT ─────────────────────────────────────────────── */}
+      {tab === "whatsapp_bot" && (
+        <div>
+          <WhatsAppBotContent />
+        </div>
+      )}
+
       {/* ─── TAB 5: STRIPE ─────────────────────────────────────────────────── */}
       {tab === "stripe" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -1295,78 +1354,61 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
         </div>
       )}
 
-      {/* ─── TAB 6: EMAIL (SMTP) ───────────────────────────────────────────── */}
+      {/* ─── TAB 6: EMAIL (RESEND) ────────────────────────────────────────── */}
       {tab === "email" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
           <div style={cardSectionStyle}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
               <div>
-                <h2 style={sectionTitleStyle}>
-                  <Mail size={18} style={{ color: "#c9a84c" }} /> Configuración de Envío de Correos (SMTP)
-                </h2>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.25rem" }}>
+                  <h2 style={sectionTitleStyle}>
+                    <Mail size={18} style={{ color: "#c9a84c" }} /> Configuración de Envíos con Resend (API)
+                  </h2>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: "2px 8px",
+                      borderRadius: 12,
+                      background: resendHasKey ? "rgba(74,222,128,0.12)" : "rgba(234,179,8,0.12)",
+                      color: resendHasKey ? "#4ade80" : "#facc15",
+                      border: `1px solid ${resendHasKey ? "rgba(74,222,128,0.25)" : "rgba(234,179,8,0.25)"}`,
+                    }}
+                  >
+                    {resendHasKey ? "● Conectado a Resend" : "○ Clave Pendiente"}
+                  </span>
+                </div>
                 <p style={sectionDescStyle}>
-                  Configura la cuenta para enviar confirmaciones automáticas de pedidos a clientes y avisos al restaurante.
+                  Resend gestiona los correos transaccionales (confirmaciones de pedidos, tickets de cocina y avisos) con alta entregabilidad y sin bloqueos SMTP.
                 </p>
               </div>
-
-              <button
-                type="button"
-                onClick={testEmail}
-                disabled={emailTesting || !emailFrom}
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  padding: "0.45rem 0.85rem",
-                  borderRadius: 6,
-                  color: "#fff",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {emailTesting ? "Enviando prueba..." : "Enviar Correo de Prueba"}
-              </button>
             </div>
 
-            {emailTestResult && (
-              <div style={{
-                padding: "0.85rem 1rem",
-                background: emailTestResult.ok ? "rgba(74,222,128,0.08)" : "rgba(239,68,68,0.08)",
-                border: `1px solid ${emailTestResult.ok ? "rgba(74,222,128,0.25)" : "rgba(239,68,68,0.25)"}`,
-                borderRadius: 8,
-                marginBottom: "1.25rem",
-                fontSize: 13,
-                color: emailTestResult.ok ? "#4ade80" : "#f87171",
-              }}>
-                {emailTestResult.ok ? "✓ " : "✕ "} {emailTestResult.msg}
-              </div>
-            )}
-
             <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+              {/* API Key */}
               <div>
-                <label style={labelStyle}>Email Remitente (ej. Gmail / Servidor SMTP)</label>
-                <input
-                  type="email"
-                  value={emailFrom}
-                  onChange={(e) => setEmailFrom(e.target.value)}
-                  placeholder="pedidos@obentojapanesefood.es"
-                  style={INPUT_STYLE}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Contraseña de Aplicación (App Password)</label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                  <label style={labelStyle}>API Key de Resend (re_...)</label>
+                  <a
+                    href="https://resend.com/api-keys"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontSize: 11.5, color: "#c9a84c", textDecoration: "none" }}
+                  >
+                    Obtener API Key en resend.com ↗
+                  </a>
+                </div>
                 <div style={{ position: "relative" }}>
                   <input
-                    type={showEmailPass ? "text" : "password"}
-                    value={emailPass}
-                    onChange={(e) => setEmailPass(e.target.value)}
-                    placeholder="Dejar vacío para mantener la actual"
+                    type={showResendKey ? "text" : "password"}
+                    value={resendApiKey}
+                    onChange={(e) => setResendApiKey(e.target.value)}
+                    placeholder={resendHasKey ? `Clave guardada (${resendKeyMasked}) — escribe para sustituirla` : "re_1234567890abcdef..."}
                     style={{ ...INPUT_STYLE, paddingRight: "2.5rem" }}
                   />
                   <button
                     type="button"
-                    onClick={() => setShowEmailPass(!showEmailPass)}
+                    onClick={() => setShowResendKey(!showResendKey)}
                     style={{
                       position: "absolute",
                       right: 10,
@@ -1378,12 +1420,47 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
                       cursor: "pointer",
                     }}
                   >
-                    {showEmailPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                    {showResendKey ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
+                </div>
+                <p style={{ margin: "4px 0 0", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                  Clave privada generada en tu cuenta de Resend con permisos de envío (Sending access).
+                </p>
+              </div>
+
+              {/* Fila: Email Remitente y Nombre Remitente */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div>
+                  <label style={labelStyle}>Email Remitente (From)</label>
+                  <input
+                    type="email"
+                    value={resendFrom}
+                    onChange={(e) => setResendFrom(e.target.value)}
+                    placeholder="pedidos@obentojapanesefood.es"
+                    style={INPUT_STYLE}
+                  />
+                  <p style={{ margin: "4px 0 0", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                    Usa tu dominio verificado en Resend (o <code>onboarding@resend.dev</code> en modo test).
+                  </p>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Nombre del Remitente</label>
+                  <input
+                    type="text"
+                    value={resendFromName}
+                    onChange={(e) => setResendFromName(e.target.value)}
+                    placeholder="Obento Japanese Food"
+                    style={INPUT_STYLE}
+                  />
+                  <p style={{ margin: "4px 0 0", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                    Nombre visible para los clientes en su bandeja de entrada.
+                  </p>
                 </div>
               </div>
             </div>
 
+            {/* Botón Guardar */}
             <div style={{ marginTop: "1.5rem" }}>
               <button
                 type="button"
@@ -1392,11 +1469,75 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
                 style={primaryButtonStyle(emailSaved)}
               >
                 {emailSaved ? (
-                  <><Check size={15} /> Correo Guardado</>
+                  <><Check size={15} /> Configuración de Resend Guardada</>
                 ) : (
-                  <><Save size={15} /> {emailSaving ? "Guardando..." : "Guardar Configuración de Correo"}</>
+                  <><Save size={15} /> {emailSaving ? "Guardando..." : "Guardar Configuración de Resend"}</>
                 )}
               </button>
+            </div>
+
+            {/* Caja de Prueba de Envío */}
+            <div
+              style={{
+                marginTop: "1.75rem",
+                padding: "1.25rem",
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 10,
+              }}
+            >
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: "#fff", margin: "0 0 0.4rem" }}>
+                Probar Conexión y Envío de Correo con Resend
+              </h3>
+              <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.45)", margin: "0 0 1rem" }}>
+                Envía un correo de comprobación para validar que tu API Key y dominio funcionan perfectamente:
+              </p>
+
+              <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  type="email"
+                  value={testRecipient}
+                  onChange={(e) => setTestRecipient(e.target.value)}
+                  placeholder={`Destinatario de prueba (por defecto: ${resendFrom || "tu email"})`}
+                  style={{ ...INPUT_STYLE, flex: 1, minWidth: 240 }}
+                />
+                <button
+                  type="button"
+                  onClick={testEmail}
+                  disabled={emailTesting || (!resendHasKey && !resendApiKey)}
+                  style={{
+                    background: "rgba(201,168,76,0.15)",
+                    border: "1px solid rgba(201,168,76,0.35)",
+                    padding: "0.65rem 1.1rem",
+                    borderRadius: 7,
+                    color: "#f5c542",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    cursor: (!resendHasKey && !resendApiKey) ? "not-allowed" : "pointer",
+                    whiteSpace: "nowrap",
+                    opacity: (!resendHasKey && !resendApiKey) ? 0.5 : 1,
+                  }}
+                >
+                  {emailTesting ? "Enviando prueba..." : "Enviar Correo de Prueba"}
+                </button>
+              </div>
+
+              {emailTestResult && (
+                <div style={{
+                  padding: "0.85rem 1rem",
+                  background: emailTestResult.ok ? "rgba(74,222,128,0.08)" : "rgba(239,68,68,0.08)",
+                  border: `1px solid ${emailTestResult.ok ? "rgba(74,222,128,0.25)" : "rgba(239,68,68,0.25)"}`,
+                  borderRadius: 8,
+                  marginTop: "1rem",
+                  fontSize: 12.5,
+                  color: emailTestResult.ok ? "#4ade80" : "#f87171",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}>
+                  {emailTestResult.ok ? "✓ " : "✕ "} {emailTestResult.msg}
+                </div>
+              )}
             </div>
           </div>
         </div>

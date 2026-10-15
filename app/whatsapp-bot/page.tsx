@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   MessageCircle, Send, Check, Copy, AlertTriangle, ShieldCheck,
   RefreshCw, Bot, ExternalLink, Settings2, Globe2, Key, Link2,
@@ -51,7 +52,7 @@ const LABEL_STYLE: React.CSSProperties = {
   fontWeight: 700,
 };
 
-export default function WhatsAppBotPage() {
+export function WhatsAppBotContent() {
   useSession();
 
   const [loading, setLoading] = useState(true);
@@ -1115,4 +1116,12 @@ export default function WhatsAppBotPage() {
       </div>
     </div>
   );
+}
+
+export default function WhatsAppBotPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/configuracion?tab=whatsapp_bot");
+  }, [router]);
+  return <WhatsAppBotContent />;
 }

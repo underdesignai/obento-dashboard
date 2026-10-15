@@ -1,32 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionRole, deny403 } from "@/lib/auth";
-import nodemailer from "nodemailer";
-
-async function getEmailTransporter() {
-  let from = process.env.EMAIL_FROM || "pedidos@obentojapanesefood.es";
-  let pass = process.env.EMAIL_PASSWORD;
-
-  try {
-    const row = await prisma.configuracion.findUnique({ where: { clave: "email_config" } });
-    if (row) {
-      const cfg = JSON.parse(row.valor);
-      if (cfg.from) from = cfg.from;
-      if (cfg.password) pass = cfg.password;
-    }
-  } catch {
-    // ignorar error de lectura de config
-  }
-
-  if (pass) {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: { user: from, pass },
-    });
-    return { transporter, from };
-  }
-
-  return { transporter: null, from };
-}
+import { sendEmail } from "@/lib/email";
 
 function generateOfferEmailHtml(params: {
   nombreCliente: string;
@@ -200,8 +174,6 @@ export async function POST(req: Request) {
       return Response.json({ error: "Debes seleccionar al menos un cliente destinatario" }, { status: 400 });
     }
 
-    const { transporter, from } = await getEmailTransporter();
-
     let enviadosCount = 0;
     const errors: string[] = [];
 
@@ -221,23 +193,16 @@ export async function POST(req: Request) {
         ofertaValidoHasta,
       });
 
-      if (transporter) {
-        try {
-          await transporter.sendMail({
-            from: `"Obento Japanese Food" <${from}>`,
-            to: email,
-            subject: asunto,
-            html,
-          });
-          enviadosCount++;
-        } catch (mailErr: any) {
-          console.error(`[Error enviando a ${email}]:`, mailErr);
-          errors.push(`${email}: ${mailErr.message}`);
-        }
-      } else {
-        // Modo simulado / desarrollo si no hay credenciales SMTP configuradas
-        console.log(`[Simulación Email Oferta] Enviado a ${nombre} <${email}>: "${asunto}"`);
+      const res = await sendEmail({
+        to: email,
+        subject: asunto,
+        html,
+      });
+
+      if (res.success) {
         enviadosCount++;
+      } else {
+        errors.push(`${email}: ${res.error || "Error al enviar correo"}`);
       }
     }
 
@@ -245,8 +210,7 @@ export async function POST(req: Request) {
       ok: true,
       enviados: enviadosCount,
       totalSolicitados: destinatarios.length,
-      modo: transporter ? "smtp" : "simulado",
-      message: `¡Campaña enviada exitosamente a ${enviadosCount} cliente(s)!`,
+      message: `¡Campaña enviada a ${enviadosCount} cliente(s)!`,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error: any) {
