@@ -12,11 +12,13 @@ import {
   Sliders,
   Calendar,
   Save,
-  Eye,
   AlertTriangle,
   Layers,
   ShoppingBag,
-  Info
+  Info,
+  Check,
+  RefreshCw,
+  Clock
 } from "lucide-react";
 import { useAdminLanguage } from "@/lib/LanguageContext";
 
@@ -48,7 +50,7 @@ const THEME_CARDS: {
   bgGradient: string;
   icon: any;
   particles: string;
-  previewClass: string;
+  badgeLabel: string;
 }[] = [
   {
     id: "normal",
@@ -57,10 +59,10 @@ const THEME_CARDS: {
     description: "La elegancia sobria y limpia de Obento: negro obsidiana, rojo carmesí y toques dorados sin animaciones estacionales.",
     accent: "#c9a84c",
     glow: "rgba(201, 168, 76, 0.2)",
-    bgGradient: "linear-gradient(135deg, rgba(201,168,76,0.08) 0%, rgba(12,11,10,0.95) 100%)",
+    bgGradient: "linear-gradient(135deg, rgba(201,168,76,0.06) 0%, rgba(18,16,14,0.95) 100%)",
     icon: Sparkles,
     particles: "Sin partículas adicionales",
-    previewClass: "border-[#c9a84c]/30",
+    badgeLabel: "Por Defecto",
   },
   {
     id: "halloween",
@@ -69,10 +71,10 @@ const THEME_CARDS: {
     description: "Atmósfera nocturna refinada inspirada en los espíritus japoneses: niebla espectral, llamas Hitodama etéreas y detalles calabaza oscuros.",
     accent: "#ff7518",
     glow: "rgba(255, 117, 24, 0.25)",
-    bgGradient: "linear-gradient(135deg, rgba(255,117,24,0.12) 0%, rgba(35,10,45,0.4) 50%, rgba(12,11,10,0.98) 100%)",
+    bgGradient: "linear-gradient(135deg, rgba(255,117,24,0.1) 0%, rgba(35,10,45,0.3) 50%, rgba(18,16,14,0.95) 100%)",
     icon: Flame,
     particles: "Hitodama (fuego fatuo) & murciélagos origami",
-    previewClass: "border-[#ff7518]/40",
+    badgeLabel: "Otoño / Octubre",
   },
   {
     id: "navidad",
@@ -81,10 +83,10 @@ const THEME_CARDS: {
     description: "Caída suave y elegante de copos de nieve de cristal sobre fondo oscuro, con luces doradas cálidas tipo campana Shinto.",
     accent: "#38ef7d",
     glow: "rgba(56, 239, 125, 0.25)",
-    bgGradient: "linear-gradient(135deg, rgba(56,239,125,0.1) 0%, rgba(200,30,34,0.15) 50%, rgba(12,11,10,0.98) 100%)",
+    bgGradient: "linear-gradient(135deg, rgba(56,239,125,0.08) 0%, rgba(200,30,34,0.12) 50%, rgba(18,16,14,0.95) 100%)",
     icon: Snowflake,
     particles: "Copos de nieve suaves & destellos escarchados",
-    previewClass: "border-[#38ef7d]/40",
+    badgeLabel: "Diciembre",
   },
   {
     id: "ano_nuevo",
@@ -93,10 +95,10 @@ const THEME_CARDS: {
     description: "Celebración de nuevo ciclo al estilo nipón: micro-destellos de oro líquido, soplos festivos y estética de máxima distinción.",
     accent: "#ffd700",
     glow: "rgba(255, 215, 0, 0.3)",
-    bgGradient: "linear-gradient(135deg, rgba(255,215,0,0.15) 0%, rgba(200,30,34,0.15) 60%, rgba(12,11,10,0.98) 100%)",
+    bgGradient: "linear-gradient(135deg, rgba(255,215,0,0.12) 0%, rgba(200,30,34,0.12) 60%, rgba(18,16,14,0.95) 100%)",
     icon: Sun,
     particles: "Chispas doradas Kira-kira & confeti dorado",
-    previewClass: "border-[#ffd700]/40",
+    badgeLabel: "Fin de Año",
   },
   {
     id: "reyes",
@@ -105,10 +107,10 @@ const THEME_CARDS: {
     description: "Elegancia mística de la epifanía: estrellas fugaces sutiles, polvo cósmico en tonos púrpura y zafiro real, y detalles de corona.",
     accent: "#9d4edd",
     glow: "rgba(157, 78, 221, 0.3)",
-    bgGradient: "linear-gradient(135deg, rgba(157,78,221,0.15) 0%, rgba(30,144,255,0.12) 50%, rgba(12,11,10,0.98) 100%)",
+    bgGradient: "linear-gradient(135deg, rgba(157,78,221,0.12) 0%, rgba(30,144,255,0.1) 50%, rgba(18,16,14,0.95) 100%)",
     icon: Crown,
     particles: "Polvo de estrellas & cometas fugaces",
-    previewClass: "border-[#9d4edd]/40",
+    badgeLabel: "Enero",
   },
 ];
 
@@ -167,10 +169,10 @@ export default function TemasPage() {
 
   if (loading || !config) {
     return (
-      <div className="flex h-96 items-center justify-center text-white/40">
-        <div className="flex items-center gap-3">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#c9a84c] border-t-transparent" />
-          <span>Cargando gestor de temas festivos...</span>
+      <div style={{ display: "flex", height: "50vh", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.4)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <RefreshCw size={20} className="animate-spin" style={{ color: "#c9a84c" }} />
+          <span style={{ fontSize: 14 }}>Cargando gestor de temas festivos...</span>
         </div>
       </div>
     );
@@ -179,128 +181,268 @@ export default function TemasPage() {
   const activeThemeMeta = THEME_CARDS.find((c) => c.id === config.theme) || THEME_CARDS[0];
 
   return (
-    <div className="min-h-full pb-16 px-4 md:px-8 pt-6 max-w-7xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-[#c9a84c]/10 text-[#c9a84c] border border-[#c9a84c]/20">
-              <Palette size={24} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
+    <div style={{ maxWidth: 1240, margin: "0 auto", paddingBottom: "4rem", display: "flex", flexDirection: "column", gap: "1.75rem" }}>
+      {/* ─── CABECERA PRINCIPAL ─── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "1rem",
+          paddingBottom: "1.25rem",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              background: "linear-gradient(135deg, rgba(200,30,34,0.25) 0%, rgba(133,19,22,0.35) 100%)",
+              border: "1px solid rgba(200,30,34,0.4)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 6px 18px rgba(200, 30, 34, 0.25)",
+              color: "#c81e22",
+            }}
+          >
+            <Palette size={22} />
+          </div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, color: "#fff", fontFamily: "var(--font-playfair, serif)" }}>
                 Temas y Animaciones de Temporada
-                {config.active && config.theme !== "normal" && (
-                  <span
-                    className="text-xs uppercase tracking-widest px-2.5 py-1 rounded-full font-bold"
-                    style={{
-                      background: activeThemeMeta.glow,
-                      color: activeThemeMeta.accent,
-                      border: `1px solid ${activeThemeMeta.accent}40`,
-                    }}
-                  >
-                    {activeThemeMeta.title} Activo
-                  </span>
-                )}
               </h1>
-              <p className="text-sm text-white/50 mt-1">
-                Personaliza la estética festiva y animaciones de la web y el módulo de pedidos online en tiempo real.
-              </p>
+              {config.active && config.theme !== "normal" && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    padding: "3px 9px",
+                    borderRadius: 999,
+                    fontWeight: 700,
+                    background: activeThemeMeta.glow,
+                    color: activeThemeMeta.accent,
+                    border: `1px solid ${activeThemeMeta.accent}50`,
+                  }}
+                >
+                  {activeThemeMeta.title} Activo
+                </span>
+              )}
             </div>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "rgba(255, 255, 255, 0.45)" }}>
+              Personaliza la estética festiva y animaciones de la web y el módulo de pedidos online en tiempo real.
+            </p>
           </div>
         </div>
 
-        {/* Acciones principales */}
-        <div className="flex items-center gap-3">
+        {/* Botón Guardar Cambios */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button
+            type="button"
             onClick={() => handleSave()}
             disabled={saving}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg active:scale-95 disabled:opacity-50"
             style={{
-              background: saveSuccess ? "#10b981" : "linear-gradient(135deg, #c81e22 0%, #a11417 100%)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "0.6rem 1.35rem",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: saving ? "not-allowed" : "pointer",
+              transition: "all 0.15s",
+              border: "1px solid rgba(255,255,255,0.15)",
+              background: saveSuccess
+                ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
+                : "linear-gradient(135deg, #c81e22 0%, #851316 100%)",
               color: "#fff",
-              boxShadow: "0 4px 14px rgba(200, 30, 34, 0.35)",
+              boxShadow: saveSuccess
+                ? "0 4px 14px rgba(16, 185, 129, 0.35)"
+                : "0 4px 14px rgba(200, 30, 34, 0.35)",
+              opacity: saving ? 0.7 : 1,
             }}
           >
             {saving ? (
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <RefreshCw size={15} className="animate-spin" />
             ) : saveSuccess ? (
-              <CheckCircle2 size={18} />
+              <CheckCircle2 size={16} />
             ) : (
-              <Save size={18} />
+              <Save size={16} />
             )}
-            {saveSuccess ? "¡Guardado con éxito!" : "Guardar Cambios"}
+            <span>{saveSuccess ? "¡Guardado con éxito!" : saving ? "Guardando..." : "Guardar Cambios"}</span>
           </button>
         </div>
       </div>
 
       {/* Alertas */}
       {errorMsg && (
-        <div className="p-4 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 text-sm flex items-center gap-3">
-          <AlertTriangle size={18} className="shrink-0 text-red-400" />
+        <div
+          style={{
+            padding: "0.85rem 1rem",
+            borderRadius: 8,
+            background: "rgba(239, 68, 68, 0.15)",
+            border: "1px solid rgba(239, 68, 68, 0.35)",
+            color: "#fca5a5",
+            fontSize: 13,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <AlertTriangle size={17} style={{ flexShrink: 0, color: "#f87171" }} />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* Switch Maestro de Activación */}
+      {/* ─── SWITCH MAESTRO DE ACTIVACIÓN (Banner de Control) ─── */}
       <div
-        className="p-6 rounded-2xl border transition-all"
         style={{
           background: config.active
-            ? "linear-gradient(135deg, rgba(200,30,34,0.12) 0%, rgba(20,20,22,0.95) 100%)"
-            : "rgba(255,255,255,0.02)",
-          borderColor: config.active ? "rgba(200,30,34,0.3)" : "rgba(255,255,255,0.08)",
+            ? "linear-gradient(135deg, rgba(200,30,34,0.12) 0%, rgba(20,18,17,0.95) 100%)"
+            : "#0e0c0b",
+          border: `1px solid ${config.active ? "rgba(200,30,34,0.35)" : "rgba(255,255,255,0.08)"}`,
+          borderRadius: 12,
+          padding: "1.25rem 1.5rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "1rem",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
         }}
       >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-base font-semibold text-white">
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              background: config.active ? "#4ade80" : "rgba(255,255,255,0.2)",
+              boxShadow: config.active ? "0 0 10px #4ade80" : "none",
+              flexShrink: 0,
+            }}
+          />
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>
                 Modo Festivo en Vivo (Web & Pedidos)
               </span>
               <span
-                className={`text-xs px-2 py-0.5 rounded font-mono font-bold ${
-                  config.active ? "bg-green-500/20 text-green-400" : "bg-white/10 text-white/40"
-                }`}
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  padding: "2px 8px",
+                  borderRadius: 4,
+                  background: config.active ? "rgba(74,222,128,0.15)" : "rgba(255,255,255,0.08)",
+                  color: config.active ? "#4ade80" : "rgba(255,255,255,0.4)",
+                  border: `1px solid ${config.active ? "rgba(74,222,128,0.3)" : "rgba(255,255,255,0.1)"}`,
+                }}
               >
-                {config.active ? "ACTIVO" : "DESACTIVADO (NORMAL)"}
+                {config.active ? "Activo" : "Desactivado (Normal)"}
               </span>
             </div>
-            <p className="text-sm text-white/50">
+            <p style={{ margin: "4px 0 0", fontSize: 12, color: "rgba(255,255,255,0.45)" }}>
               Cuando está encendido, el tema seleccionado a continuación se mostrará en todos los dominios de Obento.
             </p>
           </div>
-
-          <label className="relative inline-flex items-center cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={config.active}
-              onChange={(e) => {
-                const next = { ...config, active: e.target.checked };
-                setConfig(next);
-                handleSave(next);
-              }}
-              className="sr-only peer"
-            />
-            <div className="w-14 h-7 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-[#c81e22]" />
-          </label>
         </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            const next = { ...config, active: !config.active };
+            setConfig(next);
+            handleSave(next);
+          }}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "0.55rem 1.15rem",
+            borderRadius: 8,
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer",
+            transition: "all 0.15s",
+            background: config.active ? "rgba(200,30,34,0.2)" : "rgba(255,255,255,0.06)",
+            border: `1px solid ${config.active ? "#c81e22" : "rgba(255,255,255,0.12)"}`,
+            color: config.active ? "#ff7c80" : "rgba(255,255,255,0.6)",
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: config.active ? "#c81e22" : "rgba(255,255,255,0.3)",
+            }}
+          />
+          {config.active ? "Desactivar Modo Festivo" : "Activar Modo Festivo"}
+        </button>
       </div>
 
-      {/* Selector de Temas Visuales */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Layers size={18} className="text-[#c9a84c]" />
-            Colección de Temas Estacionales
-          </h2>
-          <span className="text-xs text-white/40">Haz clic en un tema para seleccionarlo</span>
+      {/* ─── SECCIÓN: LISTA ESTRUCTURADA DE TEMAS ESTACIONALES ─── */}
+      <div
+        style={{
+          background: "#0e0c0b",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 12,
+          overflow: "hidden",
+          boxShadow: "0 6px 24px rgba(0,0,0,0.4)",
+        }}
+      >
+        {/* Cabecera de la Lista */}
+        <div
+          style={{
+            padding: "1rem 1.5rem",
+            background: "rgba(255,255,255,0.02)",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "0.5rem",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Layers size={18} style={{ color: "#c9a84c" }} />
+            <div>
+              <h2 style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0 }}>
+                Colección de Temas Estacionales
+              </h2>
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", margin: "2px 0 0" }}>
+                Selecciona la ambientación visual activa para el diseño web y cartas
+              </p>
+            </div>
+          </div>
+          <span
+            style={{
+              fontSize: 11,
+              padding: "3px 10px",
+              borderRadius: 999,
+              background: "rgba(201,168,76,0.1)",
+              border: "1px solid rgba(201,168,76,0.25)",
+              color: "#c9a84c",
+              fontWeight: 600,
+            }}
+          >
+            {THEME_CARDS.length} Temas Disponibles
+          </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {THEME_CARDS.map((theme) => {
+        {/* Filas de la Lista de Temas */}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {THEME_CARDS.map((theme, index) => {
             const isSelected = config.theme === theme.id;
             const Icon = theme.icon;
+            const isLast = index === THEME_CARDS.length - 1;
 
             return (
               <div
@@ -309,51 +451,137 @@ export default function TemasPage() {
                   const next = { ...config, theme: theme.id };
                   setConfig(next);
                 }}
-                className={`group relative p-6 rounded-2xl border transition-all cursor-pointer overflow-hidden flex flex-col justify-between ${
-                  isSelected
-                    ? "ring-2 ring-offset-2 ring-offset-[#080808]"
-                    : "hover:border-white/20 hover:bg-white/[0.02]"
-                }`}
                 style={{
-                  background: theme.bgGradient,
-                  borderColor: isSelected ? theme.accent : "rgba(255,255,255,0.08)",
-                  boxShadow: isSelected ? `0 8px 32px ${theme.glow}` : "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "1.1rem 1.5rem",
+                  borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.05)",
+                  background: isSelected
+                    ? `linear-gradient(90deg, ${theme.glow} 0%, rgba(18,16,14,0.6) 100%)`
+                    : "transparent",
+                  cursor: "pointer",
+                  transition: "background 0.15s, border-color 0.15s",
+                  borderLeft: isSelected ? `4px solid ${theme.accent}` : "4px solid transparent",
+                  gap: "1.25rem",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) e.currentTarget.style.background = "transparent";
                 }}
               >
-                {/* Indicador de selección */}
-                {isSelected && (
+                {/* Lado izquierdo: Icono y Textos */}
+                <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1, minWidth: 0 }}>
                   <div
-                    className="absolute top-4 right-4 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
                     style={{
-                      background: theme.accent,
-                      color: "#080808",
-                    }}
-                  >
-                    <CheckCircle2 size={13} />
-                    Seleccionado
-                  </div>
-                )}
-
-                <div>
-                  <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110"
-                    style={{
-                      background: `rgba(255, 255, 255, 0.05)`,
+                      width: 44,
+                      height: 44,
+                      borderRadius: 10,
+                      background: `rgba(255,255,255,0.04)`,
+                      border: `1px solid ${isSelected ? theme.accent : "rgba(255,255,255,0.1)"}`,
                       color: theme.accent,
-                      border: `1px solid ${theme.accent}30`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      boxShadow: isSelected ? `0 0 16px ${theme.glow}` : "none",
                     }}
                   >
-                    <Icon size={24} />
+                    <Icon size={22} />
                   </div>
 
-                  <h3 className="text-lg font-bold text-white tracking-wide">{theme.title}</h3>
-                  <p className="text-xs font-medium text-white/60 mb-3">{theme.subtitle}</p>
-                  <p className="text-xs text-white/50 leading-relaxed">{theme.description}</p>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 3 }}>
+                      <h3 style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0 }}>
+                        {theme.title}
+                      </h3>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          padding: "2px 7px",
+                          borderRadius: 4,
+                          background: "rgba(255,255,255,0.06)",
+                          color: "rgba(255,255,255,0.5)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                        }}
+                      >
+                        {theme.subtitle}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: "rgba(255,255,255,0.3)",
+                          marginLeft: 4,
+                        }}
+                      >
+                        · {theme.badgeLabel}
+                      </span>
+                    </div>
+
+                    <p style={{ margin: "2px 0 0", fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.4 }}>
+                      {theme.description}
+                    </p>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>
+                      <span style={{ color: "rgba(255,255,255,0.25)" }}>Efecto partículas:</span>
+                      <span style={{ color: isSelected ? theme.accent : "rgba(255,255,255,0.6)", fontWeight: 500 }}>
+                        {theme.particles}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-5 pt-4 border-t border-white/10 flex items-center justify-between text-xs">
-                  <span className="text-white/40">Efecto visual:</span>
-                  <span className="font-medium text-white/80">{theme.particles}</span>
+                {/* Lado derecho: Botón o Estado de Selección */}
+                <div style={{ flexShrink: 0 }}>
+                  {isSelected ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "0.45rem 0.95rem",
+                        borderRadius: 999,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        background: theme.accent,
+                        color: "#080808",
+                        boxShadow: `0 4px 12px ${theme.glow}`,
+                      }}
+                    >
+                      <Check size={14} strokeWidth={3} />
+                      <span>Seleccionado</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      style={{
+                        padding: "0.45rem 0.95rem",
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        color: "rgba(255,255,255,0.6)",
+                        cursor: "pointer",
+                        transition: "all 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = "#fff";
+                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)";
+                        e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = "rgba(255,255,255,0.6)";
+                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                        e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                      }}
+                    >
+                      Elegir tema
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -361,21 +589,48 @@ export default function TemasPage() {
         </div>
       </div>
 
-      {/* Ajustes de Animación y Efectos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* ─── DOS COLUMNAS: INTENSIDAD Y MICRO-INTERACCIONES ─── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem" }}>
         {/* Intensidad de Animaciones */}
-        <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/10 space-y-5">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#c9a84c]/10 text-[#c9a84c]">
-              <Sliders size={20} />
+        <div
+          style={{
+            background: "#0e0c0b",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 12,
+            padding: "1.25rem 1.5rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1.25rem",
+            boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                background: "rgba(201,168,76,0.1)",
+                border: "1px solid rgba(201,168,76,0.25)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#c9a84c",
+              }}
+            >
+              <Sliders size={18} />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white">Intensidad de Animaciones</h3>
-              <p className="text-xs text-white/40">Controla la densidad y frecuencia de las partículas</p>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: "#fff", margin: 0 }}>
+                Intensidad de Animaciones
+              </h3>
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", margin: "2px 0 0" }}>
+                Controla la densidad y frecuencia de las partículas en pantalla
+              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.6rem" }}>
             {(
               [
                 { id: "subtle", label: "Sutil", desc: "Mínima carga, elegante" },
@@ -389,46 +644,109 @@ export default function TemasPage() {
                   key={lvl.id}
                   type="button"
                   onClick={() => setConfig({ ...config, intensity: lvl.id })}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    active
-                      ? "bg-[#c9a84c]/10 border-[#c9a84c] text-white"
-                      : "bg-white/[0.02] border-white/10 text-white/60 hover:border-white/20"
-                  }`}
+                  style={{
+                    padding: "0.75rem 0.6rem",
+                    borderRadius: 8,
+                    border: `1px solid ${active ? "#c9a84c" : "rgba(255,255,255,0.08)"}`,
+                    background: active ? "rgba(201,168,76,0.12)" : "rgba(255,255,255,0.02)",
+                    color: active ? "#fff" : "rgba(255,255,255,0.6)",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
                 >
-                  <div className="text-xs font-bold">{lvl.label}</div>
-                  <div className="text-[10px] text-white/40 mt-1">{lvl.desc}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: active ? "#c9a84c" : "#fff" }}>
+                    {lvl.label}
+                  </div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 4 }}>
+                    {lvl.desc}
+                  </div>
                 </button>
               );
             })}
           </div>
 
-          <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex items-start gap-2.5 text-xs text-white/50">
-            <Info size={16} className="text-[#c9a84c] shrink-0 mt-0.5" />
+          <div
+            style={{
+              padding: "0.75rem 0.9rem",
+              borderRadius: 8,
+              background: "rgba(255,255,255,0.02)",
+              border: "1px solid rgba(255,255,255,0.05)",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+              fontSize: 11,
+              color: "rgba(255,255,255,0.45)",
+              lineHeight: 1.4,
+            }}
+          >
+            <Info size={15} style={{ color: "#c9a84c", flexShrink: 0, marginTop: 1 }} />
             <span>
-              Todas las animaciones usan un canvas nativo ultra-optimizado. Si el dispositivo del usuario tiene activado &quot;Reducir movimiento&quot;, se suspenderán automáticamente para máxima accesibilidad.
+              Todas las animaciones usan un canvas ultra-optimizado. Si el dispositivo tiene activado &quot;Reducir movimiento&quot;, se suspenderán automáticamente.
             </span>
           </div>
         </div>
 
         {/* Micro-Interacciones Específicas */}
-        <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/10 space-y-5">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#c81e22]/10 text-[#c81e22]">
-              <Sparkles size={20} />
+        <div
+          style={{
+            background: "#0e0c0b",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 12,
+            padding: "1.25rem 1.5rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1.25rem",
+            boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                background: "rgba(200,30,34,0.12)",
+                border: "1px solid rgba(200,30,34,0.25)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#c81e22",
+              }}
+            >
+              <Sparkles size={18} />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white">Micro-Interacciones & Extras</h3>
-              <p className="text-xs text-white/40">Detalles interactivos al navegar o comprar</p>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: "#fff", margin: 0 }}>
+                Micro-Interacciones & Extras
+              </h3>
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", margin: "2px 0 0" }}>
+                Detalles interactivos al navegar o comprar en la web
+              </p>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <label className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5 cursor-pointer hover:bg-white/[0.04]">
-              <div className="flex items-center gap-3">
-                <ShoppingBag size={18} className="text-[#c9a84c]" />
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0.75rem 1rem",
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                cursor: "pointer",
+                gap: 12,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <ShoppingBag size={16} style={{ color: "#c9a84c", flexShrink: 0 }} />
                 <div>
-                  <div className="text-sm font-medium text-white">Celebración al Añadir al Carrito</div>
-                  <div className="text-xs text-white/40">
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>
+                    Celebración al Añadir al Carrito
+                  </div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
                     Explosión temática de confeti (fantasmitas en Halloween, estrellas en Navidad)
                   </div>
                 </div>
@@ -437,16 +755,30 @@ export default function TemasPage() {
                 type="checkbox"
                 checked={config.cartCelebration}
                 onChange={(e) => setConfig({ ...config, cartCelebration: e.target.checked })}
-                className="w-4 h-4 rounded text-[#c81e22] focus:ring-[#c81e22]"
+                style={{ width: 16, height: 16, accentColor: "#c81e22", cursor: "pointer" }}
               />
             </label>
 
-            <label className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5 cursor-pointer hover:bg-white/[0.04]">
-              <div className="flex items-center gap-3">
-                <Sparkles size={18} className="text-[#c81e22]" />
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0.75rem 1rem",
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                cursor: "pointer",
+                gap: 12,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Sparkles size={16} style={{ color: "#c81e22", flexShrink: 0 }} />
                 <div>
-                  <div className="text-sm font-medium text-white">Badges Flotantes Estacionales</div>
-                  <div className="text-xs text-white/40">
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>
+                    Badges Flotantes Estacionales
+                  </div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
                     Insignias de fiesta sutiles en la esquina superior o en platos destacados
                   </div>
                 </div>
@@ -455,33 +787,58 @@ export default function TemasPage() {
                 type="checkbox"
                 checked={config.floatingBadges}
                 onChange={(e) => setConfig({ ...config, floatingBadges: e.target.checked })}
-                className="w-4 h-4 rounded text-[#c81e22] focus:ring-[#c81e22]"
+                style={{ width: 16, height: 16, accentColor: "#c81e22", cursor: "pointer" }}
               />
             </label>
           </div>
         </div>
       </div>
 
-      {/* Programación Automática por Calendario */}
-      <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/10 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
-            <Calendar size={20} />
+      {/* ─── SECCIÓN: PROGRAMACIÓN AUTOMÁTICA POR CALENDARIO ─── */}
+      <div
+        style={{
+          background: "#0e0c0b",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 12,
+          padding: "1.25rem 1.5rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "1.25rem",
+          boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              background: "rgba(96,165,250,0.1)",
+              border: "1px solid rgba(96,165,250,0.25)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#60a5fa",
+            }}
+          >
+            <Calendar size={18} />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-white">Programación Automática (Calendario Anual)</h3>
-            <p className="text-xs text-white/40">
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#fff", margin: 0 }}>
+              Programación Automática (Calendario Anual)
+            </h3>
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", margin: "2px 0 0" }}>
               Activa los temas automáticamente en las fechas establecidas sin necesidad de encenderlos a mano.
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
           {[
-            { key: "halloween", title: "Halloween", range: "24 Oct - 02 Nov" },
-            { key: "navidad", title: "Navidad", range: "15 Dic - 28 Dic" },
-            { key: "ano_nuevo", title: "Año Nuevo", range: "29 Dic - 02 Ene" },
-            { key: "reyes", title: "Reyes Magos", range: "03 Ene - 07 Ene" },
+            { key: "halloween", title: "Halloween", range: "24 Oct - 02 Nov", color: "#ff7518" },
+            { key: "navidad", title: "Navidad", range: "15 Dic - 28 Dic", color: "#38ef7d" },
+            { key: "ano_nuevo", title: "Año Nuevo", range: "29 Dic - 02 Ene", color: "#ffd700" },
+            { key: "reyes", title: "Reyes Magos", range: "03 Ene - 07 Ene", color: "#9d4edd" },
           ].map((item) => {
             const sched = config.schedule?.[item.key as keyof typeof config.schedule] || {
               enabled: false,
@@ -491,14 +848,45 @@ export default function TemasPage() {
             return (
               <div
                 key={item.key}
-                className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col justify-between"
+                style={{
+                  padding: "1rem",
+                  borderRadius: 10,
+                  background: "rgba(255,255,255,0.02)",
+                  border: `1px solid ${sched.enabled ? `${item.color}40` : "rgba(255,255,255,0.06)"}`,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
               >
                 <div>
-                  <div className="text-sm font-bold text-white">{item.title}</div>
-                  <div className="text-xs text-white/40 mt-1">{item.range}</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{item.title}</div>
+                    <span
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        background: sched.enabled ? item.color : "rgba(255,255,255,0.2)",
+                      }}
+                    />
+                  </div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
+                    <Clock size={12} />
+                    <span>{item.range}</span>
+                  </div>
                 </div>
-                <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-xs text-white/50">Auto-activar:</span>
+
+                <div
+                  style={{
+                    paddingTop: "0.65rem",
+                    borderTop: "1px solid rgba(255,255,255,0.06)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Auto-activar:</span>
                   <input
                     type="checkbox"
                     checked={sched.enabled}
@@ -515,7 +903,7 @@ export default function TemasPage() {
                       };
                       setConfig(next);
                     }}
-                    className="w-4 h-4 rounded text-[#c81e22]"
+                    style={{ width: 16, height: 16, accentColor: "#c81e22", cursor: "pointer" }}
                   />
                 </div>
               </div>
