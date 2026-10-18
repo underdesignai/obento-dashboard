@@ -6,6 +6,7 @@ import {
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
   CheckSquare, Square, Trash2, X, Clock, CreditCard,
   ChefHat, Bell, Package, TrendingUp, Bike, CheckCircle2,
+  SlidersHorizontal, AlertTriangle, MessageCircle
 } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { useAdminLanguage } from "@/lib/LanguageContext";
@@ -230,6 +231,96 @@ export default function PedidosPage() {
   // Bulk
   const [bulkSelected, setBulkSelected] = useState<Set<number>>(new Set());
 
+  // Estado de Recepción de Pedidos Online (Activo / Pausado)
+  const [tiendaActiva, setTiendaActiva] = useState<boolean>(true);
+  const [mensajeDesactivado, setMensajeDesactivado] = useState<string>(
+    "Pedidos online desactivados temporalmente. Para realizar su pedido, por favor contacte directamente por WhatsApp o por teléfono al 613 927 596."
+  );
+  const [whatsappTienda, setWhatsappTienda] = useState<string>("34613927596");
+  const [loadingTiendaEstado, setLoadingTiendaEstado] = useState<boolean>(false);
+  const [modalConfigTiendaOpen, setModalConfigTiendaOpen] = useState<boolean>(false);
+  const [tempMensaje, setTempMensaje] = useState<string>("");
+  const [tempWhatsapp, setTempWhatsapp] = useState<string>("");
+
+  const loadTiendaEstado = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/pedidos/estado-tienda");
+      if (res.ok) {
+        const data = await res.json();
+        setTiendaActiva(data.activo);
+        if (data.mensaje) setMensajeDesactivado(data.mensaje);
+        if (data.whatsapp) setWhatsappTienda(data.whatsapp);
+      }
+    } catch (err) {
+      console.error("[loadTiendaEstado error]", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTiendaEstado();
+  }, [loadTiendaEstado]);
+
+  const handleToggleTienda = async (nuevoEstado: boolean) => {
+    setLoadingTiendaEstado(true);
+    try {
+      const res = await fetch("/api/admin/pedidos/estado-tienda", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          activo: nuevoEstado,
+          mensaje: mensajeDesactivado,
+          whatsapp: whatsappTienda,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTiendaActiva(data.activo);
+        if (data.mensaje) setMensajeDesactivado(data.mensaje);
+        if (data.whatsapp) setWhatsappTienda(data.whatsapp);
+      } else {
+        alert(data.error || "Error al actualizar estado");
+      }
+    } catch (err: any) {
+      alert("Error de conexión: " + err.message);
+    } finally {
+      setLoadingTiendaEstado(false);
+    }
+  };
+
+  const handleSaveConfigTienda = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoadingTiendaEstado(true);
+    try {
+      const res = await fetch("/api/admin/pedidos/estado-tienda", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          activo: tiendaActiva,
+          mensaje: tempMensaje,
+          whatsapp: tempWhatsapp,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMensajeDesactivado(data.mensaje);
+        setWhatsappTienda(data.whatsapp);
+        setModalConfigTiendaOpen(false);
+      } else {
+        alert(data.error || "Error al guardar configuración");
+      }
+    } catch (err: any) {
+      alert("Error al guardar: " + err.message);
+    } finally {
+      setLoadingTiendaEstado(false);
+    }
+  };
+
+  const openConfigModal = () => {
+    setTempMensaje(mensajeDesactivado);
+    setTempWhatsapp(whatsappTienda);
+    setModalConfigTiendaOpen(true);
+  };
+
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     const res = await fetch("/api/admin/pedidos");
@@ -383,7 +474,61 @@ export default function PedidosPage() {
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+          {/* Interruptor Activar / Desactivar Pedidos Online */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+            <button
+              onClick={() => handleToggleTienda(!tiendaActiva)}
+              disabled={loadingTiendaEstado}
+              title={tiendaActiva ? "Pausar recepción de pedidos web (abrirá WhatsApp para clientes)" : "Reanudar recepción normal de pedidos web"}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.55rem",
+                padding: "0.45rem 0.95rem",
+                borderRadius: "9999px",
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: loadingTiendaEstado ? "wait" : "pointer",
+                border: tiendaActiva ? "1px solid rgba(34, 197, 94, 0.4)" : "1px solid rgba(239, 68, 68, 0.5)",
+                background: tiendaActiva ? "rgba(34, 197, 94, 0.12)" : "rgba(239, 68, 68, 0.18)",
+                color: tiendaActiva ? "#4ade80" : "#f87171",
+                transition: "all 0.2s ease",
+                boxShadow: tiendaActiva ? "0 0 12px rgba(34,197,94,0.15)" : "0 0 12px rgba(239,68,68,0.25)",
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: tiendaActiva ? "#22c55e" : "#ef4444",
+                  boxShadow: tiendaActiva ? "0 0 8px #22c55e" : "0 0 8px #ef4444",
+                }}
+              />
+              <span>{tiendaActiva ? "Pedidos Web: ACTIVOS" : "Pedidos Web: PAUSADOS"}</span>
+            </button>
+
+            <button
+              onClick={openConfigModal}
+              title="Configurar mensaje de aviso y WhatsApp para clientes"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(255,255,255,0.04)",
+                color: "rgba(255,255,255,0.6)",
+                cursor: "pointer",
+              }}
+            >
+              <SlidersHorizontal size={14} />
+            </button>
+          </div>
+
           {!isMobile && (
             <button onClick={exportCSV} style={{ ...inputStyle, display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.5rem 1rem", cursor: "pointer", color: "rgba(201,168,76,0.7)", borderColor: "rgba(201,168,76,0.15)" }}>
               <Download size={13} /> {a.exportarCSV}
@@ -402,6 +547,67 @@ export default function PedidosPage() {
           </button>
         </div>
       </div>
+
+      {/* Banner de alerta prominente cuando la tienda online está pausada */}
+      {!tiendaActiva && (
+        <div style={{
+          background: "rgba(239, 68, 68, 0.12)",
+          border: "1px solid rgba(239, 68, 68, 0.35)",
+          borderRadius: 12,
+          padding: "0.85rem 1.25rem",
+          marginBottom: "1.25rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "0.75rem",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <span style={{ fontSize: 22 }}>⚠️</span>
+            <div>
+              <div style={{ fontWeight: 800, color: "#f87171", fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Recepción de Pedidos Web Pausada
+              </div>
+              <div style={{ color: "#fca5a5", fontSize: 12.5, marginTop: 2 }}>
+                Los clientes en la web ven: <em>"{mensajeDesactivado}"</em> y botón directo para pedir por WhatsApp ({whatsappTienda}).
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <button
+              onClick={openConfigModal}
+              style={{
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 700,
+                padding: "0.4rem 0.8rem",
+                borderRadius: 6,
+                cursor: "pointer",
+              }}
+            >
+              Editar Mensaje
+            </button>
+            <button
+              onClick={() => handleToggleTienda(true)}
+              disabled={loadingTiendaEstado}
+              style={{
+                background: "#16a34a",
+                border: "none",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 800,
+                padding: "0.45rem 0.95rem",
+                borderRadius: 6,
+                cursor: loadingTiendaEstado ? "wait" : "pointer",
+              }}
+            >
+              Reactivar Pedidos Ahora
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stats — en móvil solo 3 compactas */}
       {isMobile ? (
@@ -704,6 +910,131 @@ export default function PedidosPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Modal para configurar mensaje y WhatsApp de pedidos pausados */}
+      {modalConfigTiendaOpen && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.75)",
+          backdropFilter: "blur(4px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+          padding: "1rem"
+        }}>
+          <div style={{
+            background: "#141419",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 14,
+            width: "100%",
+            maxWidth: 520,
+            padding: "1.5rem",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
+            color: "#fff"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "0.75rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <SlidersHorizontal size={18} style={{ color: "#60a5fa" }} />
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Ajustes de Pedidos Online</h3>
+              </div>
+              <button
+                onClick={() => setModalConfigTiendaOpen(false)}
+                style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", padding: 4 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveConfigTienda}>
+              <div style={{ marginBottom: "1.25rem" }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "rgba(255,255,255,0.6)", marginBottom: "0.4rem" }}>
+                  Mensaje para los clientes
+                </label>
+                <textarea
+                  rows={4}
+                  value={tempMensaje}
+                  onChange={(e) => setTempMensaje(e.target.value)}
+                  style={{
+                    ...inputStyle,
+                    width: "100%",
+                    resize: "vertical",
+                    lineHeight: 1.5,
+                    boxSizing: "border-box"
+                  }}
+                  placeholder="Ej: Pedidos online desactivados temporalmente. Para realizar su pedido, por favor contacte directamente por WhatsApp..."
+                  required
+                />
+                <p style={{ margin: "0.35rem 0 0", fontSize: 11, color: "rgba(255,255,255,0.35)" }}>
+                  Este texto se mostrará en un banner y en el carrito de la web cuando los pedidos estén desactivados.
+                </p>
+              </div>
+
+              <div style={{ marginBottom: "1.5rem" }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "rgba(255,255,255,0.6)", marginBottom: "0.4rem" }}>
+                  Número de WhatsApp para pedidos
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <MessageCircle size={18} style={{ color: "#22c55e", flexShrink: 0 }} />
+                  <input
+                    type="text"
+                    value={tempWhatsapp}
+                    onChange={(e) => setTempWhatsapp(e.target.value.replace(/\s+/g, ""))}
+                    style={{
+                      ...inputStyle,
+                      flex: 1,
+                      fontFamily: "monospace",
+                      boxSizing: "border-box"
+                    }}
+                    placeholder="34613927596"
+                    required
+                  />
+                </div>
+                <p style={{ margin: "0.35rem 0 0", fontSize: 11, color: "rgba(255,255,255,0.35)" }}>
+                  Incluye el prefijo del país sin '+' (ej. 34613927596). Al pulsar el botón, el cliente abrirá WhatsApp con su pedido desglosado.
+                </p>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setModalConfigTiendaOpen(false)}
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    color: "rgba(255,255,255,0.7)",
+                    borderRadius: 6,
+                    padding: "0.5rem 1rem",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer"
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loadingTiendaEstado}
+                  style={{
+                    background: "#2563eb",
+                    border: "none",
+                    color: "#fff",
+                    borderRadius: 6,
+                    padding: "0.5rem 1.25rem",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    opacity: loadingTiendaEstado ? 0.6 : 1
+                  }}
+                >
+                  {loadingTiendaEstado ? "Guardando..." : "Guardar Cambios"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
