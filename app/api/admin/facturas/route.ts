@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionRole, deny403 } from "@/lib/auth";
+import { uploadFacturaToDrive } from "@/lib/googleDriveFacturas";
 
 export async function GET() {
   if (!(await getSessionRole())) return deny403();
@@ -250,7 +251,38 @@ export async function POST(req: Request) {
       }
     );
 
-    return Response.json(facturaCreada, { status: 201 });
+    // Si la factura tiene un archivo asociado (por ejemplo tras escaneo), subirlo a Google Drive organizado
+    let resultadoFactura = facturaCreada;
+    if (facturaCreada.archivoUrl && facturaCreada.archivoUrl.startsWith("/api/imagenes/")) {
+      const match = facturaCreada.archivoUrl.match(/\/api\/imagenes\/(\d+)/);
+      if (match) {
+        const imagenId = Number(match[1]);
+        try {
+          const imgDoc = await prisma.imagen.findUnique({ where: { id: imagenId } });
+          if (imgDoc?.data) {
+            const driveRes = await uploadFacturaToDrive({
+              fechaEmision: facturaCreada.fechaEmision,
+              proveedor: facturaCreada.proveedor,
+              numeroFactura: facturaCreada.numeroFactura,
+              totalFactura: facturaCreada.totalFactura,
+              fileBuffer: Buffer.from(imgDoc.data),
+            });
+
+            resultadoFactura = await prisma.factura.update({
+              where: { id: facturaCreada.id },
+              data: {
+                archivoUrl: driveRes.webViewLink,
+                archivoNombre: driveRes.fileName,
+              },
+            });
+          }
+        } catch (driveErr) {
+          console.error("[facturas POST] Error subiendo factura a Google Drive:", driveErr);
+        }
+      }
+    }
+
+    return Response.json(resultadoFactura, { status: 201 });
   } catch (e: any) {
     console.error("[facturas POST]", e);
     return Response.json({ error: e?.message || "Error al registrar factura de compra" }, { status: 500 });
@@ -282,6 +314,11 @@ export async function PATCH(req: Request) {
       return Response.json({ error: "ID de factura y archivo requeridos" }, { status: 400 });
     }
 
+    const factura = await prisma.factura.findUnique({ where: { id } });
+    if (!factura) {
+      return Response.json({ error: "Factura no encontrada" }, { status: 404 });
+    }
+
     const buffer = Buffer.from(await file.arrayBuffer());
     const isPdf = (file.type || "").toLowerCase().includes("pdf") || file.name.toLowerCase().endsWith(".pdf");
     const mime = isPdf ? "application/pdf" : (file.type || "image/jpeg");
@@ -291,11 +328,28 @@ export async function PATCH(req: Request) {
       select: { id: true },
     });
 
+    let finalArchivoUrl = `/api/imagenes/${savedDoc.id}`;
+    let finalArchivoNombre = file.name;
+
+    try {
+      const driveRes = await uploadFacturaToDrive({
+        fechaEmision: factura.fechaEmision,
+        proveedor: factura.proveedor,
+        numeroFactura: factura.numeroFactura,
+        totalFactura: factura.totalFactura,
+        fileBuffer: buffer,
+      });
+      finalArchivoUrl = driveRes.webViewLink;
+      finalArchivoNombre = driveRes.fileName;
+    } catch (driveErr) {
+      console.error("[facturas PATCH] Error subiendo a Drive:", driveErr);
+    }
+
     const updated = await prisma.factura.update({
       where: { id },
       data: {
-        archivoUrl: `/api/imagenes/${savedDoc.id}`,
-        archivoNombre: file.name,
+        archivoUrl: finalArchivoUrl,
+        archivoNombre: finalArchivoNombre,
       },
     });
 

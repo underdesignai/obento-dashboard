@@ -6,7 +6,7 @@ import {
   Receipt, TrendingUp, TrendingDown, ArrowDownRight,
   ArrowUpRight, DollarSign, Package, FileText, CheckCircle2,
   Calendar, Layers, Filter, Eye, RefreshCw, X, Camera, Sparkles, Upload, Loader2, ExternalLink,
-  Scale, Calculator
+  Scale, Calculator, FolderOpen, Cloud
 } from "lucide-react";
 import {
   calcularCosteIngrediente,
@@ -466,6 +466,38 @@ export default function StockPage() {
     }
   };
 
+  const [syncingDriveId, setSyncingDriveId] = useState<number | null>(null);
+
+  // Sincronizar factura con Google Drive
+  const handleSyncFacturaDrive = async (facturaId: number) => {
+    setSyncingDriveId(facturaId);
+    try {
+      const res = await fetch("/api/admin/facturas/subir-drive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ facturaId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        await loadData();
+        if (selectedFacturaDetail && selectedFacturaDetail.id === facturaId) {
+          setSelectedFacturaDetail((prev: any) => ({
+            ...prev,
+            archivoUrl: data.factura?.archivoUrl || prev.archivoUrl,
+            archivoNombre: data.factura?.archivoNombre || prev.archivoNombre,
+          }));
+        }
+      } else {
+        alert(data.error || "No se pudo sincronizar la factura con Google Drive.");
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Error al conectar con Google Drive: " + (e?.message || ""));
+    } finally {
+      setSyncingDriveId(null);
+    }
+  };
+
   // Guardar merma
   const handleSaveMerma = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -860,20 +892,36 @@ export default function StockPage() {
       ───────────────────────────────────────────────────────────────────────────── */}
       {activeTab === "facturas" && (
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.75rem" }}>
             <h2 style={{ fontSize: 16, fontWeight: 800, color: "#f3ede0", margin: 0 }}>
               Historial de Facturas y Compras a Proveedores
             </h2>
-            <button
-              onClick={() => setModalFacturaOpen(true)}
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                background: "#16a34a", color: "#fff", border: "none",
-                borderRadius: 8, padding: "0.55rem 0.95rem", fontSize: 12, fontWeight: 700, cursor: "pointer"
-              }}
-            >
-              <Plus size={15} /> Añadir Factura
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <a
+                href="https://drive.google.com/drive/folders/1DKDRNOygxSnRhjiLs6C94ZlYvR9scpE2"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Abrir carpeta de Facturas en Google Drive (clasificadas por trimestres contables)"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.35)",
+                  color: "#60a5fa", borderRadius: 8, padding: "0.55rem 0.95rem",
+                  fontSize: 12, fontWeight: 700, textDecoration: "none", cursor: "pointer"
+                }}
+              >
+                <FolderOpen size={15} /> Facturas en Drive <ExternalLink size={12} />
+              </a>
+              <button
+                onClick={() => setModalFacturaOpen(true)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  background: "#16a34a", color: "#fff", border: "none",
+                  borderRadius: 8, padding: "0.55rem 0.95rem", fontSize: 12, fontWeight: 700, cursor: "pointer"
+                }}
+              >
+                <Plus size={15} /> Añadir Factura
+              </button>
+            </div>
           </div>
 
           <div style={{ background: "#111216", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, overflow: "hidden" }}>
@@ -931,20 +979,42 @@ export default function StockPage() {
                       <td style={{ padding: "0.85rem 1rem", textAlign: "right" }}>
                         <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
                           {f.archivoUrl ? (
-                            <a
-                              href={f.archivoUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="Ver factura original completa (PDF o imagen)"
-                              style={{
-                                display: "inline-flex", alignItems: "center", gap: 5,
-                                background: "rgba(201,168,76,0.15)", border: "1px solid rgba(201,168,76,0.4)",
-                                borderRadius: 6, padding: "0.35rem 0.65rem", color: "#c9a84c", fontSize: 11.5,
-                                textDecoration: "none", fontWeight: 700
-                              }}
-                            >
-                              <FileText size={13} /> Factura Original <ExternalLink size={11} />
-                            </a>
+                            <>
+                              <a
+                                href={f.archivoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={f.archivoUrl.includes("drive.google.com") ? `Factura en Google Drive: ${f.archivoNombre || ""}` : "Ver archivo adjunto"}
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 5,
+                                  background: f.archivoUrl.includes("drive.google.com") ? "rgba(34,197,94,0.12)" : "rgba(201,168,76,0.15)",
+                                  border: f.archivoUrl.includes("drive.google.com") ? "1px solid rgba(34,197,94,0.35)" : "1px solid rgba(201,168,76,0.4)",
+                                  borderRadius: 6, padding: "0.35rem 0.65rem",
+                                  color: f.archivoUrl.includes("drive.google.com") ? "#4ade80" : "#c9a84c",
+                                  fontSize: 11.5, textDecoration: "none", fontWeight: 700
+                                }}
+                              >
+                                {f.archivoUrl.includes("drive.google.com") ? <Cloud size={13} /> : <FileText size={13} />}
+                                {f.archivoUrl.includes("drive.google.com") ? "En Drive" : "Factura"}
+                                <ExternalLink size={11} />
+                              </a>
+                              {!f.archivoUrl.includes("drive.google.com") && (
+                                <button
+                                  onClick={() => handleSyncFacturaDrive(f.id)}
+                                  disabled={syncingDriveId === f.id}
+                                  title="Subir y archivar en Google Drive (trimestre contable)"
+                                  style={{
+                                    display: "inline-flex", alignItems: "center", gap: 4,
+                                    background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.4)",
+                                    borderRadius: 6, padding: "0.35rem 0.55rem", color: "#60a5fa", fontSize: 11,
+                                    fontWeight: 700, cursor: syncingDriveId === f.id ? "wait" : "pointer"
+                                  }}
+                                >
+                                  {syncingDriveId === f.id ? <Loader2 size={12} className="animate-spin" /> : <Cloud size={12} />}
+                                  {syncingDriveId === f.id ? "Subiendo..." : "A Drive"}
+                                </button>
+                              )}
+                            </>
                           ) : (
                             <label
                               title="Adjuntar PDF o imagen original de esta factura"
@@ -1011,19 +1081,40 @@ export default function StockPage() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     {selectedFacturaDetail.archivoUrl ? (
-                      <a
-                        href={selectedFacturaDetail.archivoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: "inline-flex", alignItems: "center", gap: 6,
-                          background: "rgba(201,168,76,0.18)", border: "1px solid rgba(201,168,76,0.5)",
-                          borderRadius: 8, padding: "0.45rem 0.85rem", color: "#eab308", fontSize: 12,
-                          textDecoration: "none", fontWeight: 700
-                        }}
-                      >
-                        <FileText size={15} /> Ver Factura Original <ExternalLink size={12} />
-                      </a>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <a
+                          href={selectedFacturaDetail.archivoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: 6,
+                            background: selectedFacturaDetail.archivoUrl.includes("drive.google.com") ? "rgba(34,197,94,0.18)" : "rgba(201,168,76,0.18)",
+                            border: selectedFacturaDetail.archivoUrl.includes("drive.google.com") ? "1px solid rgba(34,197,94,0.5)" : "1px solid rgba(201,168,76,0.5)",
+                            borderRadius: 8, padding: "0.45rem 0.85rem",
+                            color: selectedFacturaDetail.archivoUrl.includes("drive.google.com") ? "#4ade80" : "#eab308",
+                            fontSize: 12, textDecoration: "none", fontWeight: 700
+                          }}
+                        >
+                          {selectedFacturaDetail.archivoUrl.includes("drive.google.com") ? <Cloud size={15} /> : <FileText size={15} />}
+                          {selectedFacturaDetail.archivoUrl.includes("drive.google.com") ? "Ver en Google Drive" : "Ver Factura Original"}
+                          <ExternalLink size={12} />
+                        </a>
+                        {!selectedFacturaDetail.archivoUrl.includes("drive.google.com") && (
+                          <button
+                            onClick={() => handleSyncFacturaDrive(selectedFacturaDetail.id)}
+                            disabled={syncingDriveId === selectedFacturaDetail.id}
+                            style={{
+                              display: "inline-flex", alignItems: "center", gap: 6,
+                              background: "rgba(59,130,246,0.18)", border: "1px solid rgba(59,130,246,0.45)",
+                              borderRadius: 8, padding: "0.45rem 0.85rem", color: "#60a5fa",
+                              fontSize: 12, fontWeight: 700, cursor: syncingDriveId === selectedFacturaDetail.id ? "wait" : "pointer"
+                            }}
+                          >
+                            {syncingDriveId === selectedFacturaDetail.id ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} />}
+                            {syncingDriveId === selectedFacturaDetail.id ? "Subiendo..." : "Subir a Drive"}
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <label style={{
                         display: "inline-flex", alignItems: "center", gap: 6,
