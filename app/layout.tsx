@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, CalendarCheck, ShoppingBag, UtensilsCrossed,
   Images, BarChart2, Settings, LogOut, Menu, Users, UserRound, X, ConciergeBell, Tag,
-  Monitor, ExternalLink, Globe, MessageSquare, MessageCircle, Boxes, Bike,
+  Monitor, ExternalLink, Globe, MessageSquare, MessageCircle, Boxes, Bike, Palette,
 } from "lucide-react";
 import { SessionProvider, useSession } from "@/lib/session";
 import { AdminLanguageProvider, useAdminLanguage } from "@/lib/LanguageContext";
@@ -108,6 +108,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
   const NAV_CONFIG: { href: string; label: string; icon: any }[] = [];
 
   const NAV_ADMIN = [
+    { href: "/temas",         label: a.temas || "Temas y Fiestas", icon: Palette },
     { href: "/configuracion", label: a.configuracion, icon: Settings },
   ];
 
