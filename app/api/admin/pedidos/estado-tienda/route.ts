@@ -10,6 +10,12 @@ const DEFAULT_CONFIG = {
   whatsapp: "34613927596",
 };
 
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+  "Pragma": "no-cache",
+  "Expires": "0",
+};
+
 export async function GET() {
   try {
     const rows = await prisma.configuracion.findMany({
@@ -26,15 +32,18 @@ export async function GET() {
     const mensaje = map.get("pedidos_desactivados_mensaje") || DEFAULT_CONFIG.mensaje;
     const whatsapp = map.get("pedidos_desactivados_whatsapp") || DEFAULT_CONFIG.whatsapp;
 
-    return NextResponse.json({
-      ok: true,
-      activo,
-      mensaje,
-      whatsapp,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        activo,
+        mensaje,
+        whatsapp,
+      },
+      { headers: NO_CACHE_HEADERS }
+    );
   } catch (err: any) {
     console.error("[estado-tienda GET]", err);
-    return NextResponse.json({ error: "Error al obtener estado de la tienda" }, { status: 500 });
+    return NextResponse.json({ error: "Error al obtener estado de la tienda" }, { status: 500, headers: NO_CACHE_HEADERS });
   }
 }
 
@@ -65,14 +74,17 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    return NextResponse.json({
-      ok: true,
-      activo,
-      mensaje,
-      whatsapp,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        activo,
+        mensaje,
+        whatsapp,
+      },
+      { headers: NO_CACHE_HEADERS }
+    );
   } catch (err: any) {
     console.error("[estado-tienda POST]", err);
-    return NextResponse.json({ error: "Error al actualizar estado de pedidos" }, { status: 500 });
+    return NextResponse.json({ error: "Error al actualizar estado de pedidos" }, { status: 500, headers: NO_CACHE_HEADERS });
   }
 }

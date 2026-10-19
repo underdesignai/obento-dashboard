@@ -232,7 +232,13 @@ export default function PedidosPage() {
   const [bulkSelected, setBulkSelected] = useState<Set<number>>(new Set());
 
   // Estado de Recepción de Pedidos Online (Activo / Pausado)
-  const [tiendaActiva, setTiendaActiva] = useState<boolean>(true);
+  const [tiendaActiva, setTiendaActiva] = useState<boolean | null>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("obento_tienda_activa");
+      if (saved !== null) return saved === "true";
+    }
+    return null;
+  });
   const [mensajeDesactivado, setMensajeDesactivado] = useState<string>(
     "Pedidos online desactivados temporalmente. Para realizar su pedido, por favor contacte directamente por WhatsApp o por teléfono al 613 927 596."
   );
@@ -244,10 +250,16 @@ export default function PedidosPage() {
 
   const loadTiendaEstado = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/pedidos/estado-tienda");
+      const res = await fetch(`/api/admin/pedidos/estado-tienda?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Pragma": "no-cache", "Cache-Control": "no-cache" },
+      });
       if (res.ok) {
         const data = await res.json();
         setTiendaActiva(data.activo);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("obento_tienda_activa", String(data.activo));
+        }
         if (data.mensaje) setMensajeDesactivado(data.mensaje);
         if (data.whatsapp) setWhatsappTienda(data.whatsapp);
       }
@@ -265,7 +277,7 @@ export default function PedidosPage() {
     try {
       const res = await fetch("/api/admin/pedidos/estado-tienda", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
         body: JSON.stringify({
           activo: nuevoEstado,
           mensaje: mensajeDesactivado,
@@ -275,6 +287,9 @@ export default function PedidosPage() {
       const data = await res.json();
       if (res.ok) {
         setTiendaActiva(data.activo);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("obento_tienda_activa", String(data.activo));
+        }
         if (data.mensaje) setMensajeDesactivado(data.mensaje);
         if (data.whatsapp) setWhatsappTienda(data.whatsapp);
       } else {
@@ -336,9 +351,13 @@ export default function PedidosPage() {
     const cached = sessionStorage.getItem("obento_pedidos");
     if (cached) { setPedidos(JSON.parse(cached)); setLoading(false); }
     load();
-    const interval = setInterval(() => load(true), 5000);
+    loadTiendaEstado();
+    const interval = setInterval(() => {
+      load(true);
+      loadTiendaEstado();
+    }, 5000);
     return () => clearInterval(interval);
-  }, [load]);
+  }, [load, loadTiendaEstado]);
 
   const updateEstado = async (id: number, estado: string) => {
     setPedidos(prev => prev.map(p => p.id === id ? { ...p, estado } : p));
@@ -478,8 +497,8 @@ export default function PedidosPage() {
           {/* Interruptor Activar / Desactivar Pedidos Online */}
           <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
             <button
-              onClick={() => handleToggleTienda(!tiendaActiva)}
-              disabled={loadingTiendaEstado}
+              onClick={() => handleToggleTienda(tiendaActiva === null ? false : !tiendaActiva)}
+              disabled={loadingTiendaEstado || tiendaActiva === null}
               title={tiendaActiva ? "Pausar recepción de pedidos web (abrirá WhatsApp para clientes)" : "Reanudar recepción normal de pedidos web"}
               style={{
                 display: "flex",
@@ -489,12 +508,28 @@ export default function PedidosPage() {
                 borderRadius: "9999px",
                 fontSize: 12,
                 fontWeight: 800,
-                cursor: loadingTiendaEstado ? "wait" : "pointer",
-                border: tiendaActiva ? "1px solid rgba(34, 197, 94, 0.4)" : "1px solid rgba(239, 68, 68, 0.5)",
-                background: tiendaActiva ? "rgba(34, 197, 94, 0.12)" : "rgba(239, 68, 68, 0.18)",
-                color: tiendaActiva ? "#4ade80" : "#f87171",
+                cursor: (loadingTiendaEstado || tiendaActiva === null) ? "wait" : "pointer",
+                border: tiendaActiva === null
+                  ? "1px solid rgba(255, 255, 255, 0.15)"
+                  : tiendaActiva
+                  ? "1px solid rgba(34, 197, 94, 0.4)"
+                  : "1px solid rgba(239, 68, 68, 0.5)",
+                background: tiendaActiva === null
+                  ? "rgba(255, 255, 255, 0.05)"
+                  : tiendaActiva
+                  ? "rgba(34, 197, 94, 0.12)"
+                  : "rgba(239, 68, 68, 0.18)",
+                color: tiendaActiva === null
+                  ? "rgba(255, 255, 255, 0.5)"
+                  : tiendaActiva
+                  ? "#4ade80"
+                  : "#f87171",
                 transition: "all 0.2s ease",
-                boxShadow: tiendaActiva ? "0 0 12px rgba(34,197,94,0.15)" : "0 0 12px rgba(239,68,68,0.25)",
+                boxShadow: tiendaActiva === null
+                  ? "none"
+                  : tiendaActiva
+                  ? "0 0 12px rgba(34,197,94,0.15)"
+                  : "0 0 12px rgba(239,68,68,0.25)",
               }}
             >
               <span
@@ -502,11 +537,17 @@ export default function PedidosPage() {
                   width: 8,
                   height: 8,
                   borderRadius: "50%",
-                  background: tiendaActiva ? "#22c55e" : "#ef4444",
-                  boxShadow: tiendaActiva ? "0 0 8px #22c55e" : "0 0 8px #ef4444",
+                  background: tiendaActiva === null ? "#9ca3af" : tiendaActiva ? "#22c55e" : "#ef4444",
+                  boxShadow: tiendaActiva === null ? "none" : tiendaActiva ? "0 0 8px #22c55e" : "0 0 8px #ef4444",
                 }}
               />
-              <span>{tiendaActiva ? "Pedidos Web: ACTIVOS" : "Pedidos Web: PAUSADOS"}</span>
+              <span>
+                {tiendaActiva === null
+                  ? "Verificando..."
+                  : tiendaActiva
+                  ? "Pedidos Web: ACTIVOS"
+                  : "Pedidos Web: PAUSADOS"}
+              </span>
             </button>
 
             <button
@@ -542,14 +583,14 @@ export default function PedidosPage() {
               <LayoutGrid size={15} style={{ color: view === "kanban" ? "#60a5fa" : "rgba(255,255,255,0.3)" }} />
             </button>
           </>}
-          <button onClick={() => load()} style={{ ...BTN_VIEW, background: "rgba(255,255,255,0.03)" }} title="Actualizar">
+          <button onClick={() => { load(); loadTiendaEstado(); }} style={{ ...BTN_VIEW, background: "rgba(255,255,255,0.03)" }} title="Actualizar pedidos y estado">
             <RefreshCw size={14} style={{ color: "rgba(255,255,255,0.4)" }} />
           </button>
         </div>
       </div>
 
       {/* Banner de alerta prominente cuando la tienda online está pausada */}
-      {!tiendaActiva && (
+      {tiendaActiva === false && (
         <div style={{
           background: "rgba(239, 68, 68, 0.12)",
           border: "1px solid rgba(239, 68, 68, 0.35)",
