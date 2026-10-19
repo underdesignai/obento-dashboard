@@ -57,8 +57,16 @@ export async function GET(req: Request) {
       }
     }
 
-    // 1. Obtener pedidos del período actual y anterior
-    const [pedidosActuales, pedidosAnteriores, allMenuItems, eventsPeriodo] = await Promise.all([
+    // 1. Obtener pedidos del período actual y anterior, eventos y clientes
+    const [
+      pedidosActuales,
+      pedidosAnteriores,
+      allMenuItems,
+      eventsPeriodo,
+      allInstallsEvents,
+      prevInstallsEvents,
+      allClientes
+    ] = await Promise.all([
       prisma.pedidos.findMany({
         where: {
           created_at: { gte: startDate },
@@ -83,6 +91,21 @@ export async function GET(req: Request) {
           createdAt: { gte: startDate },
         },
       }),
+      prisma.analyticsEvent.findMany({
+        where: {
+          tipo: "app_install",
+        },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      }),
+      prisma.analyticsEvent.findMany({
+        where: {
+          tipo: "app_install",
+          createdAt: { gte: prevStartDate, lt: prevEndDate },
+        },
+        select: { id: true },
+      }),
+      prisma.cliente.findMany(),
     ]);
 
     // 2. Cálculos Financieros y de Pedidos
@@ -128,6 +151,64 @@ export async function GET(req: Request) {
     const carritosAbandonados = Math.max(0, anadidosCarrito - pedidosCompletados);
     const tasaAbandono = anadidosCarrito > 0 ? Math.round((carritosAbandonados / anadidosCarrito) * 100) : 0;
     const tasaConversion = visitasWeb > 0 ? Number(((pedidosCompletados / visitasWeb) * 100).toFixed(1)) : 0;
+
+    // 3.1. Estadísticas de Instalación de la App (PWA)
+    const installsPeriodo = eventsPeriodo.filter(e => e.tipo === "app_install");
+    const totalInstalls = installsPeriodo.length;
+    const prevInstalls = prevInstallsEvents.length;
+    const growthInstalls = calcGrowth(totalInstalls, prevInstalls);
+
+    let iosCount = 0;
+    let androidCount = 0;
+    let desktopCount = 0;
+
+    installsPeriodo.forEach(ev => {
+      let meta: any = {};
+      try { meta = JSON.parse(ev.metadata || "{}"); } catch (_) {}
+      const p = (meta.platform || "").toLowerCase();
+      if (p.includes("ios") || p.includes("iphone") || p.includes("ipad")) {
+        iosCount++;
+      } else if (p.includes("android")) {
+        androidCount++;
+      } else {
+        desktopCount++;
+      }
+    });
+
+    const instalacionesList = allInstallsEvents.map(ev => {
+      let meta: any = {};
+      try { meta = JSON.parse(ev.metadata || "{}"); } catch (_) {}
+
+      const clientMatch = allClientes.find(c =>
+        (meta.clienteEmail && c.email && c.email.toLowerCase() === meta.clienteEmail.toLowerCase()) ||
+        (meta.clienteTelefono && c.telefono && c.telefono.replace(/\s+/g, '') === meta.clienteTelefono.replace(/\s+/g, '')) ||
+        (meta.clienteNombre && c.nombre && c.nombre.toLowerCase().trim() === meta.clienteNombre.toLowerCase().trim())
+      );
+
+      const matchedPedidos = pedidosActuales.filter(p =>
+        (meta.clienteTelefono && p.cliente_telefono && p.cliente_telefono.includes(meta.clienteTelefono)) ||
+        (meta.clienteEmail && p.cliente_email && p.cliente_email.toLowerCase() === meta.clienteEmail.toLowerCase()) ||
+        (clientMatch?.email && p.cliente_email && p.cliente_email.toLowerCase() === clientMatch.email.toLowerCase())
+      );
+
+      const nombre = meta.clienteNombre || clientMatch?.nombre || (meta.platform ? `Usuario PWA (${meta.platform})` : "Usuario PWA");
+      const telefono = meta.clienteTelefono || clientMatch?.telefono || null;
+      const email = meta.clienteEmail || clientMatch?.email || null;
+
+      return {
+        id: ev.id,
+        fecha: ev.createdAt.toISOString(),
+        platform: meta.platform || "Android",
+        method: meta.method || "PWA",
+        sessionId: ev.sessionId,
+        nombre,
+        telefono,
+        email,
+        esClienteIdentificado: Boolean(clientMatch || meta.clienteNombre || meta.clienteTelefono),
+        pedidosCount: matchedPedidos.length,
+        totalGastado: matchedPedidos.reduce((acc, p) => acc + Number(p.total), 0),
+      };
+    });
 
     // 4. Agregación de Platos (Best Sellers y Menos Pedidos)
     const dishSalesMap = new Map<string, {
@@ -291,6 +372,17 @@ export async function GET(req: Request) {
         carritosAbandonados,
         tasaAbandono,
         tasaConversion,
+      },
+      appInstalls: {
+        total: totalInstalls,
+        growth: growthInstalls,
+        tasaConversion: visitasWeb > 0 ? Number(((totalInstalls / visitasWeb) * 100).toFixed(1)) : 0,
+        plataformas: {
+          ios: iosCount,
+          android: androidCount,
+          desktop: desktopCount,
+        },
+        instalaciones: instalacionesList,
       },
       masVendidos,
       menosVendidos,

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import {
   TrendingUp, TrendingDown, ShoppingBag, Euro, Users, ShoppingCart,
   AlertTriangle, CheckCircle2, Clock, Calendar, RefreshCw, Award,
-  Flame, ArrowRight, CreditCard, Store, HelpCircle, Utensils
+  Flame, ArrowRight, CreditCard, Store, HelpCircle, Utensils,
+  Smartphone, Laptop, Download, MessageCircle, ExternalLink
 } from "lucide-react";
 import { useAdminLanguage } from "@/lib/LanguageContext";
 
@@ -57,6 +58,29 @@ type AnalyticsData = {
     carritosAbandonados: number;
     tasaAbandono: number;
     tasaConversion: number;
+  };
+  appInstalls: {
+    total: number;
+    growth: number;
+    tasaConversion: number;
+    plataformas: {
+      ios: number;
+      android: number;
+      desktop: number;
+    };
+    instalaciones: {
+      id: number;
+      fecha: string;
+      platform: string;
+      method: string;
+      sessionId: string;
+      nombre: string;
+      telefono?: string | null;
+      email?: string | null;
+      esClienteIdentificado: boolean;
+      pedidosCount: number;
+      totalGastado: number;
+    }[];
   };
   masVendidos: DishStat[];
   menosVendidos: DishStat[];
@@ -330,6 +354,33 @@ export default function AnalyticsPage() {
             Tasa de abandono: <b style={{ color: "#f87171" }}>{f?.tasaAbandono || 0}%</b>
           </div>
         </div>
+
+        {/* KPI 7: Instalaron la App */}
+        <div style={{ ...kpiCardStyle, borderColor: "rgba(74,222,128,0.25)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+            <span style={kpiLabelStyle}>Instalaron la App</span>
+            <div style={{ ...iconBadgeStyle, background: "rgba(74,222,128,0.15)", color: "#4ade80" }}>
+              <Smartphone size={17} />
+            </div>
+          </div>
+          <div style={{ ...kpiValueStyle, color: "#4ade80" }}>
+            {data?.appInstalls ? fmtNum(data.appInstalls.total) : "—"}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: 11.5, marginTop: "0.4rem" }}>
+            {data?.appInstalls && data.appInstalls.growth >= 0 ? (
+              <span style={{ color: "#4ade80", fontWeight: 700, display: "flex", alignItems: "center" }}>
+                <TrendingUp size={13} style={{ marginRight: 2 }} /> +{data.appInstalls.growth}%
+              </span>
+            ) : (
+              <span style={{ color: "#f87171", fontWeight: 700, display: "flex", alignItems: "center" }}>
+                <TrendingDown size={13} style={{ marginRight: 2 }} /> {data?.appInstalls?.growth || 0}%
+              </span>
+            )}
+            <span style={{ color: "rgba(255,255,255,0.4)" }}>
+              ({data?.appInstalls?.tasaConversion || 0}% de visitas)
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Embudo de Conversión Takeaway (Funnel Step-by-Step) */}
@@ -494,6 +545,182 @@ export default function AnalyticsPage() {
             Crear Cupón de Oferta <ArrowRight size={13} />
           </a>
         </div>
+      </div>
+
+      {/* Sección Dedicada: Quiénes Instalaron la App (PWA) */}
+      <div style={{
+        background: "rgba(255,255,255,0.02)",
+        border: "1px solid rgba(74,222,128,0.2)",
+        borderRadius: 12,
+        padding: "1.5rem",
+        marginBottom: "1.75rem",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem", marginBottom: "1.25rem" }}>
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Smartphone size={19} style={{ color: "#4ade80" }} /> Quiénes Instalaron la App (PWA)
+            </h2>
+            <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.45)", margin: "0.25rem 0 0 0" }}>
+              Clientes y dispositivos que han añadido la aplicación web a su pantalla de inicio en móvil o escritorio
+            </p>
+          </div>
+
+          {/* Badges de Plataformas */}
+          <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
+            <div style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 20,
+              padding: "0.3rem 0.75rem",
+              fontSize: 12,
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+            }}>
+              <span>🍏</span> iOS: <b>{data?.appInstalls?.plataformas?.ios || 0}</b>
+            </div>
+            <div style={{
+              background: "rgba(74,222,128,0.1)",
+              border: "1px solid rgba(74,222,128,0.25)",
+              borderRadius: 20,
+              padding: "0.3rem 0.75rem",
+              fontSize: 12,
+              color: "#4ade80",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+            }}>
+              <span>🤖</span> Android: <b>{data?.appInstalls?.plataformas?.android || 0}</b>
+            </div>
+            <div style={{
+              background: "rgba(96,165,250,0.1)",
+              border: "1px solid rgba(96,165,250,0.25)",
+              borderRadius: 20,
+              padding: "0.3rem 0.75rem",
+              fontSize: 12,
+              color: "#60a5fa",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+            }}>
+              <Laptop size={13} /> Escritorio: <b>{data?.appInstalls?.plataformas?.desktop || 0}</b>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabla de Clientes con App Instalada */}
+        {!data?.appInstalls?.instalaciones || data.appInstalls.instalaciones.length === 0 ? (
+          <div style={{
+            padding: "2rem 1.5rem",
+            textAlign: "center",
+            background: "rgba(255,255,255,0.015)",
+            border: "1px dashed rgba(255,255,255,0.1)",
+            borderRadius: 8,
+          }}>
+            <Download size={32} style={{ color: "rgba(255,255,255,0.25)", margin: "0 auto 0.75rem" }} />
+            <p style={{ fontSize: 13.5, fontWeight: 600, color: "rgba(255,255,255,0.7)", margin: "0 0 0.35rem 0" }}>
+              Sin instalaciones registradas en este período
+            </p>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", margin: 0, maxWidth: 480, marginInline: "auto" }}>
+              Cuando los clientes pulsen en el botón "Instalar App" o agreguen Obento a su pantalla de inicio en Android o iPhone, se registrarán aquí automáticamente con su perfil de usuario y pedidos.
+            </p>
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, textAlign: "left" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }}>
+                  <th style={{ padding: "0.6rem 0.75rem", fontWeight: 600 }}>FECHA / HORA</th>
+                  <th style={{ padding: "0.6rem 0.75rem", fontWeight: 600 }}>DISPOSITIVO</th>
+                  <th style={{ padding: "0.6rem 0.75rem", fontWeight: 600 }}>CLIENTE / USUARIO</th>
+                  <th style={{ padding: "0.6rem 0.75rem", fontWeight: 600 }}>TELÉFONO</th>
+                  <th style={{ padding: "0.6rem 0.75rem", fontWeight: 600 }}>PEDIDOS</th>
+                  <th style={{ padding: "0.6rem 0.75rem", fontWeight: 600 }}>ESTADO</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.appInstalls.instalaciones.map((inst) => {
+                  const isIos = (inst.platform || "").toLowerCase().includes("ios");
+                  const isAndroid = (inst.platform || "").toLowerCase().includes("android");
+                  const d = new Date(inst.fecha);
+                  const fechaStr = d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
+                  const horaStr = d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+
+                  return (
+                    <tr key={inst.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                      <td style={{ padding: "0.75rem", color: "#fff", whiteSpace: "nowrap" }}>
+                        <div>{fechaStr}</div>
+                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{horaStr}</div>
+                      </td>
+                      <td style={{ padding: "0.75rem" }}>
+                        <span style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.35rem",
+                          padding: "0.25rem 0.6rem",
+                          borderRadius: 6,
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          background: isIos ? "rgba(255,255,255,0.08)" : isAndroid ? "rgba(74,222,128,0.12)" : "rgba(96,165,250,0.12)",
+                          color: isIos ? "#fff" : isAndroid ? "#4ade80" : "#60a5fa",
+                        }}>
+                          {isIos ? "🍏 iOS" : isAndroid ? "🤖 Android" : "💻 PC"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "0.75rem" }}>
+                        <div style={{ fontWeight: 600, color: inst.esClienteIdentificado ? "#fff" : "rgba(255,255,255,0.7)" }}>
+                          {inst.nombre}
+                        </div>
+                        {inst.email && (
+                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{inst.email}</div>
+                        )}
+                      </td>
+                      <td style={{ padding: "0.75rem", whiteSpace: "nowrap" }}>
+                        {inst.telefono ? (
+                          <a
+                            href={`https://wa.me/34${inst.telefono.replace(/\D/g, "")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: "#22c55e", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
+                          >
+                            <MessageCircle size={13} /> {inst.telefono}
+                          </a>
+                        ) : (
+                          <span style={{ color: "rgba(255,255,255,0.3)" }}>—</span>
+                        )}
+                      </td>
+                      <td style={{ padding: "0.75rem" }}>
+                        {inst.pedidosCount > 0 ? (
+                          <span style={{ color: "#4ade80", fontWeight: 700 }}>
+                            {inst.pedidosCount} pedido{inst.pedidosCount > 1 ? "s" : ""} ({fmtEur(inst.totalGastado)})
+                          </span>
+                        ) : (
+                          <span style={{ color: "rgba(255,255,255,0.4)" }}>0 pedidos</span>
+                        )}
+                      </td>
+                      <td style={{ padding: "0.75rem" }}>
+                        <span style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.25rem",
+                          padding: "0.2rem 0.5rem",
+                          borderRadius: 4,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          background: "rgba(34,197,94,0.12)",
+                          color: "#4ade80",
+                        }}>
+                          <CheckCircle2 size={11} /> App Instalada
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Grid de 2 Columnas: Platos Más Pedidos vs Platos Menos Pedidos */}
