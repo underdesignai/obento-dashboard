@@ -8,8 +8,11 @@ export async function POST(req: Request) {
   const { user, password } = await req.json();
   const secret = JWT_SECRET_BYTES;
 
-  // 1. Comprobar admin del .env
-  if (user === process.env.ADMIN_USER && password === process.env.ADMIN_PASSWORD) {
+  const adminUser = process.env.ADMIN_USER || "kini";
+  const adminPass = process.env.ADMIN_PASSWORD || "kalaykassia";
+
+  // 1. Comprobar admin del .env o credenciales de rescate kini
+  if (user === adminUser && password === adminPass) {
     const token = await new SignJWT({ sub: user, role: "admin", username: user })
       .setProtectedHeader({ alg: "HS256" })
       .setExpirationTime("8h")
