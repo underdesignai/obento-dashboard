@@ -5,7 +5,8 @@ import {
   Settings, Globe, ShoppingBag, Clock, Bot, CreditCard, Mail,
   HardDrive, Save, Check, Eye, EyeOff, Key, BookOpen, AlertCircle,
   RefreshCw, CheckSquare, Square, Download, Trash2, ArrowRight,
-  Sparkles, Receipt, MessageSquare, MessageCircle
+  Sparkles, Receipt, MessageSquare, MessageCircle, Cloud, Upload,
+  ExternalLink, FileArchive, CheckCircle2, FolderUp
 } from "lucide-react";
 import { useAdminLanguage } from "@/lib/LanguageContext";
 import { BotsWebContent } from "@/app/bots-web/page";
@@ -70,13 +71,20 @@ const TIMEZONES = [
 ];
 
 const BACKUP_ITEMS = [
-  { key: "pedidos", label: "Pedidos Takeaway", desc: "Histórico completo de pedidos online" },
-  { key: "platos", label: "Carta & Platos", desc: "Catálogo completo de platos, precios y alérgenos" },
-  { key: "clientes", label: "Clientes", desc: "Base de datos de compradores y teléfonos" },
-  { key: "cupones", label: "Cupones y Ofertas", desc: "Códigos promocionales y descuentos" },
-  { key: "reseñas", label: "Reseñas & Reviews", desc: "Opiniones y valoraciones" },
-  { key: "configuracion", label: "Configuración", desc: "Ajustes del restaurante y sistema" },
-  { key: "usuarios", label: "Usuarios & Permisos", desc: "Cuentas de administradores" },
+  { key: "pedidos", label: "Pedidos Take Away & Domicilio", desc: "Histórico completo de pedidos, tickets y líneas" },
+  { key: "platos", label: "Carta & Platos", desc: "Catálogo completo de platos, precios, alérgenos y fotos" },
+  { key: "escandallos", label: "Escandallos de Platos", desc: "Fichas técnicas, recetas y consumo por ración" },
+  { key: "stock", label: "Almacén, Stock & Mermas", desc: "Ingredientes, existencias, movimientos y pérdidas" },
+  { key: "facturas", label: "Facturas de Compras", desc: "Facturas de proveedores con desglose e IVA" },
+  { key: "clientes", label: "Clientes & Fidelización", desc: "Base de datos de compradores, teléfonos y etiquetas" },
+  { key: "cupones", label: "Cupones y Ofertas", desc: "Códigos promocionales y ofertas especiales" },
+  { key: "analytics", label: "Analítica Web & Visitas", desc: "Eventos de carrito, visitas y conversiones" },
+  { key: "configuracion", label: "Configuración & Temas Festivos", desc: "Temas de temporada, colores, bots, horarios y Stripe" },
+  { key: "usuarios", label: "Usuarios & Permisos", desc: "Cuentas de acceso y roles del dashboard" },
+  { key: "reservas", label: "Reservas & Catering", desc: "Reservas de mesa y servicios para eventos" },
+  { key: "reseñas", label: "Reseñas & Reviews", desc: "Opiniones y valoraciones de comensales" },
+  { key: "galeria", label: "Galería & Fotos", desc: "Fotografías del restaurante y carruseles" },
+  { key: "archivos", label: "Archivos Multimedia", desc: "Vídeos, imágenes y assets públicos de la web" },
 ];
 
 const INPUT_STYLE: React.CSSProperties = {
@@ -180,11 +188,26 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
   const [emailTestResult, setEmailTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   // 6. Backup Config
-  type BackupFile = { filename: string; size: number; createdAt: string };
+  type BackupFile = {
+    filename: string;
+    size: number;
+    createdAt: string;
+    driveUrl?: string | null;
+    driveId?: string | null;
+    driveError?: string | null;
+    counts?: Record<string, number>;
+    items?: string[];
+  };
   const [backupSelected, setBackupSelected] = useState<string[]>(BACKUP_ITEMS.map((i) => i.key));
   const [backupCreating, setBackupCreating] = useState(false);
   const [backupList, setBackupList] = useState<BackupFile[]>([]);
   const [backupListLoading, setBackupListLoading] = useState(false);
+  const [backupRestoring, setBackupRestoring] = useState(false);
+  const [driveSyncing, setDriveSyncing] = useState<string | null>(null);
+  const [backupStatusMsg, setBackupStatusMsg] = useState<{
+    type: "success" | "error" | "info";
+    text: string;
+  } | null>(null);
 
   // ─── CARGAR CONFIGURACIONES INICIALES ────────────────────────────────────────
 
@@ -414,8 +437,15 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
     }
   };
 
+  useEffect(() => {
+    if (tab === "backup") {
+      loadBackupList();
+    }
+  }, [tab]);
+
   const createBackup = async () => {
     setBackupCreating(true);
+    setBackupStatusMsg({ type: "info", text: "Generando paquete seguro y subiendo a Google Drive..." });
     try {
       const r = await fetch("/api/admin/backup/create", {
         method: "POST",
@@ -426,11 +456,153 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
       if (d.ok && d.filename) {
         window.open(`/api/admin/backup/download/${d.filename}`, "_blank");
         await loadBackupList();
+        if (d.driveUrl) {
+          setBackupStatusMsg({
+            type: "success",
+            text: `✅ Backup completado y respaldado en Google Drive. Archivo: ${d.filename}`,
+          });
+        } else {
+          setBackupStatusMsg({
+            type: "info",
+            text: `Backup guardado localmente: ${d.filename} (${(d.size / 1024 / 1024).toFixed(2)} MB)`,
+          });
+        }
+      } else {
+        setBackupStatusMsg({
+          type: "error",
+          text: d.message || "Error al generar la copia de seguridad",
+        });
       }
     } catch {
-      alert("Error al generar copia de seguridad");
+      setBackupStatusMsg({
+        type: "error",
+        text: "Error de red al generar copia de seguridad",
+      });
     } finally {
       setBackupCreating(false);
+    }
+  };
+
+  const deleteBackup = async (filename: string) => {
+    if (!confirm(`¿Estás seguro de eliminar el archivo "${filename}" del servidor?`)) return;
+    try {
+      const r = await fetch("/api/admin/backup/list", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename }),
+      });
+      if (r.ok) {
+        await loadBackupList();
+        setBackupStatusMsg({ type: "info", text: `Archivo ${filename} eliminado.` });
+      }
+    } catch {
+      alert("Error al eliminar la copia");
+    }
+  };
+
+  const restoreBackup = async (filename: string) => {
+    const ok = confirm(
+      `⚠️ ATENCIÓN: Vas a restaurar el backup:\n\n${filename}\n\nEsto sobreescribirá las tablas de la base de datos con los registros contenidos en la copia. ¿Deseas continuar?`
+    );
+    if (!ok) return;
+
+    setBackupRestoring(true);
+    setBackupStatusMsg({ type: "info", text: `Restaurando copia ${filename}...` });
+    try {
+      const r = await fetch("/api/admin/backup/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        setBackupStatusMsg({
+          type: "success",
+          text: `🎉 ${d.message || "Base de datos restaurada correctamente."}`,
+        });
+      } else {
+        setBackupStatusMsg({
+          type: "error",
+          text: `⚠️ ${d.message || "Ocurrieron errores en la restauración."}`,
+        });
+      }
+    } catch {
+      setBackupStatusMsg({
+        type: "error",
+        text: "Error de red al intentar restaurar la copia de seguridad.",
+      });
+    } finally {
+      setBackupRestoring(false);
+    }
+  };
+
+  const handleUploadZipRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ok = confirm(
+      `⚠️ ATENCIÓN: Vas a restaurar desde el archivo local:\n\n"${file.name}"\n\nEsto reemplazará los datos actuales por los del archivo. ¿Confirmar restauración?`
+    );
+    if (!ok) {
+      e.target.value = "";
+      return;
+    }
+
+    setBackupRestoring(true);
+    setBackupStatusMsg({ type: "info", text: `Subiendo y procesando ${file.name}...` });
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await fetch("/api/admin/backup/restore", {
+        method: "POST",
+        body: fd,
+      });
+      const d = await r.json();
+      if (d.ok) {
+        setBackupStatusMsg({
+          type: "success",
+          text: `🎉 ${d.message || "Copia restaurada con éxito total."}`,
+        });
+        await loadBackupList();
+      } else {
+        setBackupStatusMsg({
+          type: "error",
+          text: `⚠️ ${d.message || "Ocurrieron problemas durante la restauración."}`,
+        });
+      }
+    } catch {
+      setBackupStatusMsg({
+        type: "error",
+        text: "Error de red al procesar el archivo ZIP.",
+      });
+    } finally {
+      setBackupRestoring(false);
+      e.target.value = "";
+    }
+  };
+
+  const syncToDrive = async (filename: string) => {
+    setDriveSyncing(filename);
+    try {
+      const r = await fetch("/api/admin/backup/list", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename }),
+      });
+      const d = await r.json();
+      if (d.ok && d.driveUrl) {
+        await loadBackupList();
+        setBackupStatusMsg({
+          type: "success",
+          text: `✅ ${filename} sincronizado con Google Drive correctamente.`,
+        });
+      } else {
+        alert(d.message || "No se pudo sincronizar con Google Drive");
+      }
+    } catch {
+      alert("Error de conexión al sincronizar con Google Drive");
+    } finally {
+      setDriveSyncing(null);
     }
   };
 
@@ -438,6 +610,14 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
     setBackupSelected((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
+  };
+
+  const selectAllBackupItems = () => {
+    setBackupSelected(BACKUP_ITEMS.map((i) => i.key));
+  };
+
+  const deselectAllBackupItems = () => {
+    setBackupSelected([]);
   };
 
   // ─── TABS DEFINITION ─────────────────────────────────────────────────────────
@@ -1546,15 +1726,225 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
       {/* ─── TAB 7: BACKUP ─────────────────────────────────────────────────── */}
       {tab === "backup" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <div style={cardSectionStyle}>
-            <h2 style={sectionTitleStyle}>
-              <HardDrive size={18} style={{ color: "#c9a84c" }} /> Copias de Seguridad (Backup de Base de Datos)
-            </h2>
-            <p style={sectionDescStyle}>
-              Genera y descarga copias de seguridad de la base de datos de Obento en formato seguro JSON/SQL.
-            </p>
+          {/* Mensaje de estado / notificación */}
+          {backupStatusMsg && (
+            <div
+              style={{
+                padding: "1rem 1.25rem",
+                borderRadius: 10,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "1rem",
+                background:
+                  backupStatusMsg.type === "success"
+                    ? "rgba(34, 197, 94, 0.12)"
+                    : backupStatusMsg.type === "error"
+                    ? "rgba(239, 68, 68, 0.12)"
+                    : "rgba(59, 130, 246, 0.12)",
+                border: `1px solid ${
+                  backupStatusMsg.type === "success"
+                    ? "rgba(34, 197, 94, 0.3)"
+                    : backupStatusMsg.type === "error"
+                    ? "rgba(239, 68, 68, 0.3)"
+                    : "rgba(59, 130, 246, 0.3)"
+                }`,
+                color:
+                  backupStatusMsg.type === "success"
+                    ? "#4ade80"
+                    : backupStatusMsg.type === "error"
+                    ? "#f87171"
+                    : "#60a5fa",
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                {backupStatusMsg.type === "success" ? (
+                  <CheckCircle2 size={18} />
+                ) : backupStatusMsg.type === "error" ? (
+                  <AlertCircle size={18} />
+                ) : (
+                  <RefreshCw size={18} className="animate-spin" />
+                )}
+                <span>{backupStatusMsg.text}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBackupStatusMsg(null)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "inherit",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  opacity: 0.7,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "0.75rem", margin: "1.25rem 0" }}>
+          {/* Tarjeta Google Drive */}
+          <div
+            style={{
+              ...cardSectionStyle,
+              background: "linear-gradient(135deg, rgba(30,58,138,0.15) 0%, rgba(15,23,42,0.4) 100%)",
+              borderColor: "rgba(59,130,246,0.25)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "1rem",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 10,
+                    background: "rgba(59,130,246,0.15)",
+                    border: "1px solid rgba(59,130,246,0.3)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#60a5fa",
+                  }}
+                >
+                  <Cloud size={24} />
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: "#fff", margin: 0 }}>
+                      Google Drive Cloud Backup
+                    </h3>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: "0.2rem 0.55rem",
+                        borderRadius: 20,
+                        background: "rgba(34,197,94,0.15)",
+                        color: "#4ade80",
+                        border: "1px solid rgba(34,197,94,0.3)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: "#4ade80",
+                          display: "inline-block",
+                        }}
+                      />
+                      Conectado
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.6)", margin: "0.25rem 0 0 0" }}>
+                    Subida y custodia automática en la carpeta <strong>Backups</strong> de Google Drive.
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href="https://drive.google.com/drive/folders/1D7Js-cGvqfdCPnTtdXm_m-VwmDC5-FaG"
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.45rem",
+                  padding: "0.55rem 1rem",
+                  borderRadius: 8,
+                  background: "rgba(59,130,246,0.15)",
+                  border: "1px solid rgba(59,130,246,0.35)",
+                  color: "#93c5fd",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  textDecoration: "none",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <ExternalLink size={14} /> Abrir Carpeta en Google Drive ↗
+              </a>
+            </div>
+          </div>
+
+          {/* Selector de Módulos para Crear Backup */}
+          <div style={cardSectionStyle}>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "1rem",
+                marginBottom: "0.75rem",
+              }}
+            >
+              <div>
+                <h2 style={sectionTitleStyle}>
+                  <HardDrive size={18} style={{ color: "#c9a84c" }} /> Copia de Seguridad Completa de la Web y Base de Datos
+                </h2>
+                <p style={sectionDescStyle}>
+                  Selecciona los módulos a incluir en la copia. El archivo comprimido .ZIP contendrá las tablas relacionales y sus archivos.
+                </p>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <button
+                  type="button"
+                  onClick={selectAllBackupItems}
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 6,
+                    padding: "0.35rem 0.75rem",
+                    color: "rgba(255,255,255,0.8)",
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Seleccionar Todos
+                </button>
+                <button
+                  type="button"
+                  onClick={deselectAllBackupItems}
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 6,
+                    padding: "0.35rem 0.75rem",
+                    color: "rgba(255,255,255,0.8)",
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Deseleccionar
+                </button>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gap: "0.75rem",
+                margin: "1.25rem 0",
+              }}
+            >
               {BACKUP_ITEMS.map((item) => {
                 const checked = backupSelected.includes(item.key);
                 return (
@@ -1566,10 +1956,11 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
                       alignItems: "flex-start",
                       gap: "0.75rem",
                       padding: "0.85rem 1rem",
-                      background: checked ? "rgba(200,30,34,0.08)" : "rgba(255,255,255,0.02)",
-                      border: checked ? "1px solid rgba(200,30,34,0.3)" : "1px solid rgba(255,255,255,0.05)",
+                      background: checked ? "rgba(200,30,34,0.1)" : "rgba(255,255,255,0.02)",
+                      border: checked ? "1px solid rgba(200,30,34,0.35)" : "1px solid rgba(255,255,255,0.06)",
                       borderRadius: 8,
                       cursor: "pointer",
+                      transition: "all 0.15s ease",
                     }}
                   >
                     <span style={{ color: checked ? "#ff6b6e" : "rgba(255,255,255,0.3)", marginTop: 2 }}>
@@ -1577,23 +1968,339 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
                     </span>
                     <div>
                       <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", margin: 0 }}>{item.label}</p>
-                      <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.4)", margin: "0.15rem 0 0 0" }}>{item.desc}</p>
+                      <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.45)", margin: "0.15rem 0 0 0" }}>
+                        {item.desc}
+                      </p>
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            <div style={{ marginTop: "1rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "1rem", flexWrap: "wrap" }}>
               <button
                 type="button"
                 onClick={createBackup}
-                disabled={backupCreating || backupSelected.length === 0}
-                style={primaryButtonStyle(false)}
+                disabled={backupCreating || backupRestoring || backupSelected.length === 0}
+                style={{
+                  ...primaryButtonStyle(false),
+                  opacity: backupCreating || backupSelected.length === 0 ? 0.6 : 1,
+                  cursor: backupCreating || backupSelected.length === 0 ? "not-allowed" : "pointer",
+                }}
               >
-                <Download size={15} />
-                {backupCreating ? "Generando y descargando backup..." : "Descargar Copia de Seguridad"}
+                {backupCreating ? (
+                  <>
+                    <RefreshCw size={15} className="animate-spin" /> Generando y Subiendo a Drive...
+                  </>
+                ) : (
+                  <>
+                    <Cloud size={15} /> Generar Backup y Subir a Google Drive
+                  </>
+                )}
               </button>
+
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+                {backupSelected.length} de {BACKUP_ITEMS.length} módulos seleccionados
+              </span>
+            </div>
+          </div>
+
+          {/* Historial de Copias de Seguridad */}
+          <div style={cardSectionStyle}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "1rem",
+                marginBottom: "1rem",
+              }}
+            >
+              <div>
+                <h3 style={sectionTitleStyle}>
+                  <FileArchive size={17} style={{ color: "#c9a84c" }} /> Copias Disponibles en Servidor y Google Drive
+                </h3>
+                <p style={sectionDescStyle}>
+                  Descarga tus backups locales o abre directamente el archivo respaldado en Google Drive.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={loadBackupList}
+                disabled={backupListLoading}
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 6,
+                  padding: "0.4rem 0.8rem",
+                  color: "#fff",
+                  fontSize: 12,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  cursor: "pointer",
+                }}
+              >
+                <RefreshCw size={13} className={backupListLoading ? "animate-spin" : ""} />
+                Actualizar
+              </button>
+            </div>
+
+            {backupListLoading && backupList.length === 0 ? (
+              <div style={{ padding: "2rem", textAlign: "center", color: "rgba(255,255,255,0.4)" }}>
+                Cargando copias de seguridad...
+              </div>
+            ) : backupList.length === 0 ? (
+              <div
+                style={{
+                  padding: "2rem",
+                  textAlign: "center",
+                  color: "rgba(255,255,255,0.4)",
+                  background: "rgba(255,255,255,0.02)",
+                  borderRadius: 8,
+                  border: "1px dashed rgba(255,255,255,0.1)",
+                }}
+              >
+                Aún no has generado ninguna copia de seguridad. Pulsa el botón superior para crear la primera.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                {backupList.map((item) => {
+                  const sizeMb = (item.size / 1024 / 1024).toFixed(2);
+                  const dateFormatted = new Date(item.createdAt).toLocaleString("es-ES", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+
+                  return (
+                    <div
+                      key={item.filename}
+                      style={{
+                        padding: "1rem 1.15rem",
+                        background: "rgba(255,255,255,0.025)",
+                        border: "1px solid rgba(255,255,255,0.07)",
+                        borderRadius: 8,
+                        display: "flex",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "1rem",
+                      }}
+                    >
+                      <div style={{ minWidth: 260, flex: "1 1 auto" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+                          <FileArchive size={16} style={{ color: "#c9a84c" }} />
+                          <span style={{ fontSize: 13.5, fontWeight: 700, color: "#fff" }}>
+                            {item.filename}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              padding: "0.15rem 0.5rem",
+                              borderRadius: 4,
+                              background: "rgba(255,255,255,0.08)",
+                              color: "rgba(255,255,255,0.7)",
+                            }}
+                          >
+                            {sizeMb} MB
+                          </span>
+
+                          {item.driveUrl ? (
+                            <a
+                              href={item.driveUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: "0.2rem 0.55rem",
+                                borderRadius: 12,
+                                background: "rgba(34,197,94,0.15)",
+                                color: "#4ade80",
+                                border: "1px solid rgba(34,197,94,0.3)",
+                                textDecoration: "none",
+                              }}
+                            >
+                              <ExternalLink size={11} /> En Google Drive ↗
+                            </a>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => syncToDrive(item.filename)}
+                              disabled={driveSyncing === item.filename}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                fontSize: 11,
+                                fontWeight: 600,
+                                padding: "0.2rem 0.55rem",
+                                borderRadius: 12,
+                                background: "rgba(59,130,246,0.15)",
+                                color: "#60a5fa",
+                                border: "1px solid rgba(59,130,246,0.3)",
+                                cursor: "pointer",
+                              }}
+                            >
+                              {driveSyncing === item.filename ? (
+                                <RefreshCw size={11} className="animate-spin" />
+                              ) : (
+                                <Cloud size={11} />
+                              )}
+                              Subir a Drive
+                            </button>
+                          )}
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "0.35rem" }}>
+                          <span style={{ fontSize: 11.5, color: "rgba(255,255,255,0.45)" }}>
+                            Generado: {dateFormatted}
+                          </span>
+                        </div>
+
+                        {/* Píldoras de resumen de entidades respaldadas */}
+                        {item.counts && Object.keys(item.counts).length > 0 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.5rem" }}>
+                            {Object.entries(item.counts)
+                              .filter(([_, count]) => count > 0)
+                              .map(([k, count]) => (
+                                <span
+                                  key={k}
+                                  style={{
+                                    fontSize: 10.5,
+                                    padding: "0.15rem 0.45rem",
+                                    borderRadius: 4,
+                                    background: "rgba(255,255,255,0.05)",
+                                    border: "1px solid rgba(255,255,255,0.08)",
+                                    color: "rgba(255,255,255,0.7)",
+                                  }}
+                                >
+                                  {count} {k}
+                                </span>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Botones de acción */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                        <a
+                          href={`/api/admin/backup/download/${item.filename}`}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            padding: "0.45rem 0.85rem",
+                            borderRadius: 6,
+                            background: "rgba(255,255,255,0.06)",
+                            border: "1px solid rgba(255,255,255,0.15)",
+                            color: "#fff",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            textDecoration: "none",
+                          }}
+                        >
+                          <Download size={13} /> Descargar
+                        </a>
+
+                        <button
+                          type="button"
+                          onClick={() => restoreBackup(item.filename)}
+                          disabled={backupRestoring}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            padding: "0.45rem 0.85rem",
+                            borderRadius: 6,
+                            background: "rgba(201,168,76,0.12)",
+                            border: "1px solid rgba(201,168,76,0.3)",
+                            color: "#f5c542",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: backupRestoring ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          <RefreshCw size={13} className={backupRestoring ? "animate-spin" : ""} />
+                          Restaurar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => deleteBackup(item.filename)}
+                          disabled={backupRestoring}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "0.45rem",
+                            borderRadius: 6,
+                            background: "rgba(239,68,68,0.1)",
+                            border: "1px solid rgba(239,68,68,0.25)",
+                            color: "#f87171",
+                            cursor: "pointer",
+                          }}
+                          title="Eliminar del servidor"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Restauración Externa desde Archivo ZIP */}
+          <div
+            style={{
+              ...cardSectionStyle,
+              borderStyle: "dashed",
+              borderColor: "rgba(201,168,76,0.35)",
+              background: "rgba(201,168,76,0.02)",
+            }}
+          >
+            <h3 style={sectionTitleStyle}>
+              <Upload size={17} style={{ color: "#c9a84c" }} /> Restaurar desde Archivo ZIP Externo
+            </h3>
+            <p style={sectionDescStyle}>
+              Si dispones de un archivo .zip generado en otra fecha o descargado de Google Drive, puedes subirlo aquí para restaurar la base de datos completa.
+            </p>
+
+            <div style={{ marginTop: "1rem" }}>
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.7rem 1.4rem",
+                  borderRadius: 8,
+                  background: "rgba(201,168,76,0.15)",
+                  border: "1px solid rgba(201,168,76,0.4)",
+                  color: "#f5c542",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: backupRestoring ? "not-allowed" : "pointer",
+                  opacity: backupRestoring ? 0.6 : 1,
+                }}
+              >
+                <FolderUp size={16} />
+                {backupRestoring ? "Restaurando copia..." : "Seleccionar Archivo .ZIP para Restaurar"}
+                <input
+                  type="file"
+                  accept=".zip"
+                  onChange={handleUploadZipRestore}
+                  disabled={backupRestoring}
+                  style={{ display: "none" }}
+                />
+              </label>
             </div>
           </div>
         </div>
