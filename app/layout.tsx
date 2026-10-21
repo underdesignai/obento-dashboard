@@ -143,8 +143,8 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         {role === "admin" && (
           <>
             <NavSeparator />
-            <ExternalNavLink href={process.env.NEXT_PUBLIC_TAKEAWAY_URL || "http://localhost:3630"} label="Take Away" icon={Monitor} />
-            <ExternalNavLink href={process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000"} label="Web" icon={Globe} />
+            <ExternalNavLink href={process.env.NEXT_PUBLIC_TAKEAWAY_URL || "https://monitor.obentojapanesefood.es"} label="Take Away" icon={Monitor} />
+            <ExternalNavLink href={process.env.NEXT_PUBLIC_WEB_URL || "https://obentojapanesefood.es"} label="Web" icon={Globe} />
             <NavSeparator />
           </>
         )}
