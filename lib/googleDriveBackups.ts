@@ -1,9 +1,9 @@
 const DEFAULT_WEBHOOK_URL =
   "https://script.google.com/macros/s/AKfycbzDf5pOfnSKAoRbskCJIpnbdStN9nnSbB2Jf9j3WuPhODNEWBxH_l3BpZanxGTdcT0O/exec";
 
-// Carpeta raíz principal de Google Drive de Obento
-export const GOOGLE_DRIVE_BACKUPS_PARENT_FOLDER_ID =
-  process.env.GOOGLE_DRIVE_FOLDER_ID || "1D7Js-cGvqfdCPnTtdXm_m-VwmDC5-FaG";
+// ID de la carpeta "03_Backups" dentro de "Obento - informes"
+export const GOOGLE_DRIVE_BACKUPS_FOLDER_ID =
+  process.env.GOOGLE_DRIVE_BACKUPS_FOLDER_ID || "1h-JOvARpVmdDj2yA4511ewxgi1jl9-Z3";
 
 export interface DriveUploadResult {
   fileId: string;
@@ -13,24 +13,24 @@ export interface DriveUploadResult {
 }
 
 /**
- * Sube un archivo ZIP de backup a Google Drive dentro de la carpeta "Backups"
+ * Sube un archivo ZIP de backup directamente a la carpeta "03_Backups" de Google Drive
  * a través del Google Apps Script webhook configurado.
  */
 export async function uploadBackupToDrive({
   fileName,
   zipBuffer,
-  folderName = "Backups",
-  parentFolderId = GOOGLE_DRIVE_BACKUPS_PARENT_FOLDER_ID,
+  folderName = "03_Backups",
+  folderId = GOOGLE_DRIVE_BACKUPS_FOLDER_ID,
 }: {
   fileName: string;
   zipBuffer: Buffer;
   folderName?: string;
-  parentFolderId?: string;
+  folderId?: string;
 }): Promise<DriveUploadResult> {
   const webhookUrl = process.env.GOOGLE_DRIVE_WEBHOOK_URL || DEFAULT_WEBHOOK_URL;
 
   const payload = {
-    folderId: parentFolderId,
+    folderId,
     folderName,
     fileName,
     base64Pdf: zipBuffer.toString("base64"),
