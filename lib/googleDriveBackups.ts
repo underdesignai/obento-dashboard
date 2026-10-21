@@ -1,9 +1,9 @@
 const DEFAULT_WEBHOOK_URL =
   "https://script.google.com/macros/s/AKfycbzDf5pOfnSKAoRbskCJIpnbdStN9nnSbB2Jf9j3WuPhODNEWBxH_l3BpZanxGTdcT0O/exec";
 
-// ID de la carpeta "03_Backups" dentro de "Obento - informes"
+// ID de la carpeta "Backups" en la raíz de Google Drive ("Mi unidad")
 export const GOOGLE_DRIVE_BACKUPS_FOLDER_ID =
-  process.env.GOOGLE_DRIVE_BACKUPS_FOLDER_ID || "1h-JOvARpVmdDj2yA4511ewxgi1jl9-Z3";
+  process.env.GOOGLE_DRIVE_BACKUPS_FOLDER_ID || "1lVaoHBQbIoRN_KI9_2UPF6RgyuYXoQQF";
 
 export interface DriveUploadResult {
   fileId: string;
@@ -13,13 +13,13 @@ export interface DriveUploadResult {
 }
 
 /**
- * Sube un archivo ZIP de backup directamente a la carpeta "03_Backups" de Google Drive
+ * Sube un archivo ZIP de backup directamente a la carpeta "Backups" de Google Drive
  * a través del Google Apps Script webhook configurado.
  */
 export async function uploadBackupToDrive({
   fileName,
   zipBuffer,
-  folderName = "03_Backups",
+  folderName = "Backups",
   folderId = GOOGLE_DRIVE_BACKUPS_FOLDER_ID,
 }: {
   fileName: string;

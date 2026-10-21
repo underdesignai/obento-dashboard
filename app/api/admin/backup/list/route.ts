@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
     const driveUpload = await uploadBackupToDrive({
       fileName: safeName,
       zipBuffer,
-      folderName: "03_Backups",
+      folderName: "Backups",
     });
 
     const registry = readMetadataRegistry();

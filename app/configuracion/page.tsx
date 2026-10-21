@@ -1851,13 +1851,13 @@ Alérgenos: Disponemos de opciones sin gluten, sin lactosa y carta con marcado c
                     </span>
                   </div>
                   <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.6)", margin: "0.25rem 0 0 0" }}>
-                    Subida y custodia automática en la carpeta <strong>03_Backups</strong> (dentro de Obento - informes).
+                    Subida y custodia automática en la carpeta <strong>Backups</strong> en la raíz de Google Drive.
                   </p>
                 </div>
               </div>
 
               <a
-                href="https://drive.google.com/drive/folders/1h-JOvARpVmdDj2yA4511ewxgi1jl9-Z3"
+                href="https://drive.google.com/drive/folders/1lVaoHBQbIoRN_KI9_2UPF6RgyuYXoQQF"
                 target="_blank"
                 rel="noreferrer"
                 style={{

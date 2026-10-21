@@ -248,7 +248,7 @@ export async function POST(req: NextRequest) {
     const driveUpload = await uploadBackupToDrive({
       fileName: filename,
       zipBuffer,
-      folderName: "03_Backups",
+      folderName: "Backups",
     });
     driveResult = {
       fileId: driveUpload.fileId,
