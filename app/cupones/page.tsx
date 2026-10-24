@@ -2245,8 +2245,9 @@ export default function CuponesPage() {
               border: "1px solid rgba(200, 30, 34, 0.4)",
               borderRadius: 16,
               boxShadow: "0 25px 60px rgba(0,0,0,0.85), 0 0 40px rgba(200,30,34,0.18)",
-              width: "100%",
-              maxWidth: 920,
+              width: "920px",
+              maxWidth: "95vw",
+              height: "820px",
               maxHeight: "90vh",
               display: "flex",
               flexDirection: "column",
@@ -2469,13 +2470,14 @@ export default function CuponesPage() {
             {/* Listado / Grid de platos */}
             <div
               style={{
-                flex: 1,
+                flex: "1 1 auto",
+                minHeight: 0,
                 overflowY: "auto",
                 padding: "1.25rem 1.5rem",
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
                 gap: "0.75rem",
-                maxHeight: "50vh",
+                alignContent: "start",
               }}
             >
               {platosFiltradosModal.length === 0 ? (
@@ -2678,8 +2680,9 @@ export default function CuponesPage() {
               border: "1px solid rgba(200, 30, 34, 0.4)",
               borderRadius: 14,
               padding: "1.25rem 1.5rem",
-              width: "100%",
-              maxWidth: 550,
+              width: "550px",
+              maxWidth: "95vw",
+              height: "520px",
               maxHeight: "80vh",
               display: "flex",
               flexDirection: "column",
@@ -2718,7 +2721,7 @@ export default function CuponesPage() {
               </button>
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.4rem", margin: "0.5rem 0" }}>
+            <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.4rem", margin: "0.5rem 0" }}>
               {(() => {
                 try {
                   const ids: number[] = JSON.parse(viewingCuponPlatos.platosIds || "[]");
