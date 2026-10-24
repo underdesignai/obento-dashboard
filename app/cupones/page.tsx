@@ -2246,9 +2246,11 @@ export default function CuponesPage() {
               borderRadius: 16,
               boxShadow: "0 25px 60px rgba(0,0,0,0.85), 0 0 40px rgba(200,30,34,0.18)",
               width: "920px",
+              minWidth: "min(920px, 95vw)",
               maxWidth: "95vw",
-              height: "820px",
-              maxHeight: "90vh",
+              height: "85vh",
+              minHeight: "85vh",
+              maxHeight: "85vh",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
@@ -2257,6 +2259,7 @@ export default function CuponesPage() {
             {/* Cabecera del modal */}
             <div
               style={{
+                flexShrink: 0,
                 padding: "1.25rem 1.5rem",
                 borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
                 display: "flex",
@@ -2314,6 +2317,7 @@ export default function CuponesPage() {
             {/* Barra de herramientas / filtros */}
             <div
               style={{
+                flexShrink: 0,
                 padding: "1rem 1.5rem",
                 borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
                 display: "flex",
@@ -2417,6 +2421,7 @@ export default function CuponesPage() {
             {/* Selector de categorías */}
             <div
               style={{
+                flexShrink: 0,
                 padding: "0.6rem 1.5rem",
                 borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
                 display: "flex",
@@ -2470,7 +2475,7 @@ export default function CuponesPage() {
             {/* Listado / Grid de platos */}
             <div
               style={{
-                flex: "1 1 auto",
+                flex: "1 1 0px",
                 minHeight: 0,
                 overflowY: "auto",
                 padding: "1.25rem 1.5rem",
@@ -2595,6 +2600,7 @@ export default function CuponesPage() {
             {/* Footer del modal */}
             <div
               style={{
+                flexShrink: 0,
                 padding: "1rem 1.5rem",
                 borderTop: "1px solid rgba(255, 255, 255, 0.08)",
                 display: "flex",
