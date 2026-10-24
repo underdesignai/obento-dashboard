@@ -5,7 +5,8 @@ import {
   Plus, Trash2, ToggleLeft, ToggleRight, Tag, Copy, Check,
   Sparkles, Ticket, Percent, Calendar, Flame, AlertCircle,
   HelpCircle, ChevronRight, Mail, Send, Users, Search,
-  CheckSquare, Square, X, ExternalLink, RefreshCw, Eye, Gift, CheckCircle2
+  CheckSquare, Square, X, ExternalLink, RefreshCw, Eye, Gift, CheckCircle2,
+  Utensils
 } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { useAdminLanguage } from "@/lib/LanguageContext";
@@ -33,7 +34,18 @@ type Cupon = {
   activo: boolean;
   usos: number;
   maxUsos: number | null;
+  platosIds?: string | null;
   createdAt: string;
+};
+
+type PlatoItem = {
+  id: number;
+  nombre: string;
+  categoria: string;
+  sub?: string | null;
+  precio: number;
+  imagen?: string | null;
+  activo?: boolean;
 };
 
 type Oferta = {
@@ -95,6 +107,14 @@ export default function CuponesPage() {
   const [descCupon, setDescCupon] = useState("");
   const [savingCupon, setSavingCupon] = useState(false);
   const [errorCupon, setErrorCupon] = useState("");
+
+  // Platos seleccionados para descuento en el cupón (Bebidas excluidas)
+  const [platosCarta, setPlatosCarta] = useState<PlatoItem[]>([]);
+  const [selectedPlatosIds, setSelectedPlatosIds] = useState<number[]>([]);
+  const [modalPlatosOpen, setModalPlatosOpen] = useState(false);
+  const [searchPlato, setSearchPlato] = useState("");
+  const [categoriaPlatoFiltro, setCategoriaPlatoFiltro] = useState("todas");
+  const [viewingCuponPlatos, setViewingCuponPlatos] = useState<Cupon | null>(null);
 
   // Formulario Oferta
   const [tituloOferta, setTituloOferta] = useState("");
@@ -277,16 +297,18 @@ export default function CuponesPage() {
     }
   };
 
-  // Cargar cupones y ofertas
+  // Cargar cupones, ofertas y carta de platos
   const loadData = async () => {
     setLoading(true);
     try {
-      const [resC, resO] = await Promise.all([
+      const [resC, resO, resCarta] = await Promise.all([
         fetch("/api/admin/cupones"),
         fetch("/api/admin/ofertas"),
+        fetch("/api/admin/carta"),
       ]);
       if (resC.ok) setCupones(await resC.json());
       if (resO.ok) setOfertas(await resO.json());
+      if (resCarta.ok) setPlatosCarta(await resCarta.json());
     } catch (e) {
       console.error("Error al cargar datos:", e);
     } finally {
@@ -297,6 +319,42 @@ export default function CuponesPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Excluir bebidas: Solo platos de comida (regla de negocio: las bebidas nunca tienen descuento)
+  const platosSinBebidas = useMemo(() => {
+    return platosCarta.filter((p) => (p.categoria || "").toLowerCase() !== "bebidas");
+  }, [platosCarta]);
+
+  const categoriasPlatos = useMemo(() => {
+    const set = new Set<string>();
+    platosSinBebidas.forEach((p) => {
+      if (p.categoria) set.add(p.categoria.toLowerCase());
+    });
+    return Array.from(set);
+  }, [platosSinBebidas]);
+
+  const platosFiltradosModal = useMemo(() => {
+    return platosSinBebidas.filter((p) => {
+      const matchCat = categoriaPlatoFiltro === "todas" || (p.categoria || "").toLowerCase() === categoriaPlatoFiltro;
+      const q = searchPlato.trim().toLowerCase();
+      const matchSearch = !q || p.nombre.toLowerCase().includes(q) || (p.sub && p.sub.toLowerCase().includes(q));
+      return matchCat && matchSearch;
+    });
+  }, [platosSinBebidas, categoriaPlatoFiltro, searchPlato]);
+
+  const togglePlatoSelection = (id: number) => {
+    setSelectedPlatosIds((prev) =>
+      prev.includes(id) ? prev.filter((pId) => pId !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllPlatos = () => {
+    setSelectedPlatosIds(platosSinBebidas.map((p) => p.id));
+  };
+
+  const deselectAllPlatos = () => {
+    setSelectedPlatosIds([]);
+  };
 
   // Crear Cupón
   const handleCreateCupon = async () => {
@@ -317,6 +375,7 @@ export default function CuponesPage() {
           minimo: minimoCupon ? Number(minimoCupon) : null,
           maxUsos: maxUsosCupon ? Number(maxUsosCupon) : null,
           descripcion: descCupon.trim() || null,
+          platosIds: selectedPlatosIds.length > 0 ? selectedPlatosIds : null,
         }),
       });
       if (res.ok) {
@@ -326,6 +385,7 @@ export default function CuponesPage() {
         setMaxUsosCupon("");
         setDescCupon("");
         setTipoCupon("porcentaje");
+        setSelectedPlatosIds([]);
         await loadData();
       } else {
         const d = await res.json();
@@ -690,6 +750,86 @@ export default function CuponesPage() {
               </div>
             </div>
 
+            {/* Botón Seleccionar Platos en el Descuento */}
+            <div style={{ marginTop: "0.85rem", marginBottom: "1rem" }}>
+              <button
+                type="button"
+                onClick={() => setModalPlatosOpen(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  padding: "0.75rem 0.95rem",
+                  borderRadius: 8,
+                  background: selectedPlatosIds.length > 0
+                    ? "linear-gradient(135deg, rgba(200,30,34,0.2) 0%, rgba(133,19,22,0.3) 100%)"
+                    : "rgba(255, 255, 255, 0.04)",
+                  border: selectedPlatosIds.length > 0
+                    ? "1px solid rgba(200,30,34,0.5)"
+                    : "1px solid rgba(255, 255, 255, 0.12)",
+                  color: "#f3ede0",
+                  fontSize: 13,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  boxShadow: selectedPlatosIds.length > 0 ? "0 4px 12px rgba(200,30,34,0.25)" : "none",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                  <Utensils size={16} style={{ color: selectedPlatosIds.length > 0 ? "#ff7c80" : "rgba(255,255,255,0.6)" }} />
+                  <span style={{ fontWeight: 600 }}>Incluir estos platos en el descuento</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: "3px 8px",
+                      borderRadius: 10,
+                      background: selectedPlatosIds.length > 0 ? "rgba(200,30,34,0.4)" : "rgba(255,255,255,0.08)",
+                      color: selectedPlatosIds.length > 0 ? "#ffc1c3" : "rgba(255,255,255,0.5)",
+                    }}
+                  >
+                    {selectedPlatosIds.length > 0
+                      ? `${selectedPlatosIds.length} plato${selectedPlatosIds.length > 1 ? "s" : ""}`
+                      : "Todos los platos"}
+                  </span>
+                  <ChevronRight size={14} style={{ opacity: 0.5 }} />
+                </div>
+              </button>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "0.4rem", padding: "0 0.2rem" }}>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", margin: 0 }}>
+                  {selectedPlatosIds.length > 0 ? (
+                    <span style={{ color: "#86efac" }}>
+                      ✓ Descuento exclusivo para {selectedPlatosIds.length} plato(s) seleccionado(s). Bebidas excluidas.
+                    </span>
+                  ) : (
+                    <span>
+                      ℹ️ Aplica a toda la carta (las bebidas nunca tienen descuento).
+                    </span>
+                  )}
+                </p>
+                {selectedPlatosIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlatosIds([])}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.4)",
+                      fontSize: 11,
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      padding: 0,
+                    }}
+                  >
+                    Restablecer a todos
+                  </button>
+                )}
+              </div>
+            </div>
+
             {errorCupon && (
               <div
                 style={{
@@ -837,6 +977,55 @@ export default function CuponesPage() {
                         <span>Usos: {c.usos}{c.maxUsos !== null ? ` / ${c.maxUsos}` : " (sin límite)"}</span>
                         {c.minimo && <span>· Mín: {Number(c.minimo).toFixed(2)} €</span>}
                         {c.descripcion && <span>· {c.descripcion}</span>}
+
+                        {/* Indicador de platos incluidos */}
+                        {(() => {
+                          let ids: number[] = [];
+                          if (c.platosIds) {
+                            try {
+                              ids = typeof c.platosIds === "string" ? JSON.parse(c.platosIds) : c.platosIds;
+                            } catch (_) {
+                              ids = [];
+                            }
+                          }
+                          if (Array.isArray(ids) && ids.length > 0) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setViewingCuponPlatos(c)}
+                                style={{
+                                  background: "rgba(200,30,34,0.15)",
+                                  border: "1px solid rgba(200,30,34,0.35)",
+                                  borderRadius: 4,
+                                  color: "#ff9fa2",
+                                  fontSize: 10.5,
+                                  fontWeight: 600,
+                                  padding: "1px 6px",
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 3,
+                                }}
+                              >
+                                🎯 {ids.length} plato(s) exclusivo(s) (ver)
+                              </button>
+                            );
+                          }
+                          return (
+                            <span
+                              style={{
+                                background: "rgba(255,255,255,0.05)",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                borderRadius: 4,
+                                color: "rgba(255,255,255,0.5)",
+                                fontSize: 10.5,
+                                padding: "1px 6px",
+                              }}
+                            >
+                              🥢 Toda la comida (sin bebidas)
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -2027,6 +2216,555 @@ export default function CuponesPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL SELECCIONAR PLATOS PARA DESCUENTO ─────────────────────── */}
+      {modalPlatosOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+            background: "rgba(0, 0, 0, 0.85)",
+            backdropFilter: "blur(6px)",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setModalPlatosOpen(false);
+          }}
+        >
+          <div
+            style={{
+              background: "#120e0e",
+              border: "1px solid rgba(200, 30, 34, 0.4)",
+              borderRadius: 16,
+              boxShadow: "0 25px 60px rgba(0,0,0,0.85), 0 0 40px rgba(200,30,34,0.18)",
+              width: "100%",
+              maxWidth: 920,
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            {/* Cabecera del modal */}
+            <div
+              style={{
+                padding: "1.25rem 1.5rem",
+                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                background: "linear-gradient(180deg, rgba(200,30,34,0.1) 0%, transparent 100%)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: "rgba(200, 30, 34, 0.2)",
+                    border: "1px solid rgba(200, 30, 34, 0.4)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#ff7c80",
+                  }}
+                >
+                  <Utensils size={20} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: 17, fontWeight: 700, color: "#fff", margin: 0 }}>
+                    Incluir estos platos en el descuento
+                  </h2>
+                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", margin: "0.2rem 0 0 0" }}>
+                    Selecciona los platos específicos que tendrán descuento. Las bebidas quedan excluidas por regla de negocio.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModalPlatosOpen(false)}
+                style={{
+                  background: "rgba(255, 255, 255, 0.06)",
+                  border: "none",
+                  borderRadius: 8,
+                  width: 32,
+                  height: 32,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "rgba(255, 255, 255, 0.6)",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Barra de herramientas / filtros */}
+            <div
+              style={{
+                padding: "1rem 1.5rem",
+                borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.75rem",
+                alignItems: "center",
+                justifyContent: "space-between",
+                background: "rgba(0,0,0,0.2)",
+              }}
+            >
+              {/* Buscador */}
+              <div style={{ position: "relative", minWidth: 260, flex: "1 1 260px" }}>
+                <Search
+                  size={14}
+                  style={{
+                    position: "absolute",
+                    left: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "rgba(255,255,255,0.4)",
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Buscar plato en la carta..."
+                  value={searchPlato}
+                  onChange={(e) => setSearchPlato(e.target.value)}
+                  style={{
+                    ...INPUT_STYLE,
+                    paddingLeft: "2rem",
+                    paddingTop: "0.5rem",
+                    paddingBottom: "0.5rem",
+                    fontSize: 12.5,
+                  }}
+                />
+                {searchPlato && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchPlato("")}
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.4)",
+                      cursor: "pointer",
+                      padding: 2,
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* Botones de acción rápida: Todos / Ninguno */}
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <button
+                  type="button"
+                  onClick={selectAllPlatos}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    padding: "0.45rem 0.8rem",
+                    borderRadius: 6,
+                    background: "rgba(200,30,34,0.18)",
+                    border: "1px solid rgba(200,30,34,0.35)",
+                    color: "#ff9fa2",
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  <CheckSquare size={13} /> Seleccionar todos ({platosSinBebidas.length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={deselectAllPlatos}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    padding: "0.45rem 0.8rem",
+                    borderRadius: 6,
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    color: "rgba(255,255,255,0.6)",
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Square size={13} /> Deseleccionar todos
+                </button>
+              </div>
+            </div>
+
+            {/* Selector de categorías */}
+            <div
+              style={{
+                padding: "0.6rem 1.5rem",
+                borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+                display: "flex",
+                gap: "0.4rem",
+                overflowX: "auto",
+                whiteSpace: "nowrap",
+                background: "rgba(0,0,0,0.15)",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setCategoriaPlatoFiltro("todas")}
+                style={{
+                  padding: "0.3rem 0.75rem",
+                  borderRadius: 20,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  border: "none",
+                  cursor: "pointer",
+                  background: categoriaPlatoFiltro === "todas" ? "#c81e22" : "rgba(255,255,255,0.06)",
+                  color: categoriaPlatoFiltro === "todas" ? "#fff" : "rgba(255,255,255,0.55)",
+                }}
+              >
+                Todas ({platosSinBebidas.length})
+              </button>
+              {categoriasPlatos.map((cat) => {
+                const count = platosSinBebidas.filter((p) => (p.categoria || "").toLowerCase() === cat).length;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategoriaPlatoFiltro(cat)}
+                    style={{
+                      padding: "0.3rem 0.75rem",
+                      borderRadius: 20,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      border: "none",
+                      cursor: "pointer",
+                      textTransform: "capitalize",
+                      background: categoriaPlatoFiltro === cat ? "#c81e22" : "rgba(255,255,255,0.06)",
+                      color: categoriaPlatoFiltro === cat ? "#fff" : "rgba(255,255,255,0.55)",
+                    }}
+                  >
+                    {cat} ({count})
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Listado / Grid de platos */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                padding: "1.25rem 1.5rem",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                gap: "0.75rem",
+                maxHeight: "50vh",
+              }}
+            >
+              {platosFiltradosModal.length === 0 ? (
+                <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "3rem 1rem", color: "rgba(255,255,255,0.4)" }}>
+                  <p style={{ margin: 0, fontSize: 13 }}>No se encontraron platos que coincidan con la búsqueda.</p>
+                </div>
+              ) : (
+                platosFiltradosModal.map((plato) => {
+                  const isSelected = selectedPlatosIds.includes(plato.id);
+                  return (
+                    <div
+                      key={plato.id}
+                      onClick={() => togglePlatoSelection(plato.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                        padding: "0.65rem 0.85rem",
+                        borderRadius: 10,
+                        background: isSelected ? "rgba(200,30,34,0.15)" : "#161211",
+                        border: `1px solid ${isSelected ? "rgba(200,30,34,0.55)" : "rgba(255,255,255,0.06)"}`,
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                        position: "relative",
+                        userSelect: "none",
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <div
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: 5,
+                          background: isSelected ? "#c81e22" : "rgba(255,255,255,0.08)",
+                          border: `1px solid ${isSelected ? "#c81e22" : "rgba(255,255,255,0.2)"}`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#fff",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {isSelected && <Check size={13} strokeWidth={3} />}
+                      </div>
+
+                      {/* Imagen miniatura */}
+                      {plato.imagen ? (
+                        <img
+                          src={plato.imagen}
+                          alt={plato.nombre}
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 6,
+                            objectFit: "cover",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            flexShrink: 0,
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 6,
+                            background: "rgba(255,255,255,0.05)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "rgba(255,255,255,0.3)",
+                            fontSize: 14,
+                            flexShrink: 0,
+                          }}
+                        >
+                          🍱
+                        </div>
+                      )}
+
+                      {/* Info plato */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: isSelected ? "#fff" : "rgba(255,255,255,0.85)",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {plato.nombre}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: 2 }}>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              color: "rgba(255,255,255,0.45)",
+                              textTransform: "capitalize",
+                            }}
+                          >
+                            {plato.categoria}
+                          </span>
+                          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)" }}>•</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#ff9fa2" }}>
+                            {Number(plato.precio).toFixed(2)} €
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer del modal */}
+            <div
+              style={{
+                padding: "1rem 1.5rem",
+                borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                background: "rgba(0,0,0,0.3)",
+              }}
+            >
+              <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>
+                {selectedPlatosIds.length === 0 ? (
+                  <span>
+                    No has seleccionado ningún plato individual: <strong style={{ color: "#fff" }}>se aplicará a toda la carta</strong> (excepto bebidas).
+                  </span>
+                ) : (
+                  <span>
+                    Has seleccionado <strong style={{ color: "#4ade80" }}>{selectedPlatosIds.length}</strong> de{" "}
+                    <strong>{platosSinBebidas.length}</strong> platos.
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: "0.6rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setModalPlatosOpen(false)}
+                  style={{
+                    padding: "0.55rem 1rem",
+                    borderRadius: 7,
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    color: "rgba(255,255,255,0.7)",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalPlatosOpen(false)}
+                  style={{
+                    padding: "0.55rem 1.3rem",
+                    borderRadius: 7,
+                    background: "linear-gradient(135deg, #c81e22 0%, #851316 100%)",
+                    border: "none",
+                    color: "#fff",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    boxShadow: "0 4px 14px rgba(200,30,34,0.4)",
+                  }}
+                >
+                  Guardar Selección
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL VER PLATOS DEL CUPÓN EXISTENTE ──────────────────────── */}
+      {viewingCuponPlatos && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+            background: "rgba(0, 0, 0, 0.8)",
+            backdropFilter: "blur(4px)",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setViewingCuponPlatos(null);
+          }}
+        >
+          <div
+            style={{
+              background: "#141010",
+              border: "1px solid rgba(200, 30, 34, 0.4)",
+              borderRadius: 14,
+              padding: "1.25rem 1.5rem",
+              width: "100%",
+              maxWidth: 550,
+              maxHeight: "80vh",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span
+                  style={{
+                    fontFamily: "monospace",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: "#fff",
+                    background: "rgba(200,30,34,0.2)",
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                  }}
+                >
+                  {viewingCuponPlatos.codigo}
+                </span>
+                <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>
+                  Platos con descuento
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingCuponPlatos(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "rgba(255,255,255,0.5)",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.4rem", margin: "0.5rem 0" }}>
+              {(() => {
+                try {
+                  const ids: number[] = JSON.parse(viewingCuponPlatos.platosIds || "[]");
+                  const matched = platosCarta.filter((p) => ids.includes(p.id));
+                  if (matched.length === 0) {
+                    return <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>No se encontraron platos asociados.</p>;
+                  }
+                  return matched.map((p) => (
+                    <div
+                      key={p.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "0.5rem 0.75rem",
+                        borderRadius: 6,
+                        background: "rgba(255,255,255,0.03)",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                      }}
+                    >
+                      <span style={{ fontSize: 12.5, color: "#fff", fontWeight: 500 }}>{p.nombre}</span>
+                      <span style={{ fontSize: 12, color: "#ff7c80", fontWeight: 600 }}>{Number(p.precio).toFixed(2)} €</span>
+                    </div>
+                  ));
+                } catch {
+                  return <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>Error al leer platos.</p>;
+                }
+              })()}
+            </div>
+
+            <div style={{ marginTop: "0.75rem", display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => setViewingCuponPlatos(null)}
+                style={{
+                  padding: "0.4rem 1rem",
+                  borderRadius: 6,
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  color: "#fff",
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>

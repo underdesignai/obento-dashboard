@@ -14,9 +14,18 @@ export async function GET() {
 
 export async function POST(req: Request) {
   if (!(await getSessionRole())) return deny403();
-  const { codigo, descuento, tipo, maxUsos, minimo, descripcion } = await req.json();
+  const { codigo, descuento, tipo, maxUsos, minimo, descripcion, platosIds } = await req.json();
   if (!codigo || !descuento) return Response.json({ error: "Faltan campos obligatorios" }, { status: 400 });
   try {
+    let formattedPlatosIds: string | null = null;
+    if (platosIds) {
+      if (typeof platosIds === "string") {
+        formattedPlatosIds = platosIds.trim() || null;
+      } else if (Array.isArray(platosIds) && platosIds.length > 0) {
+        formattedPlatosIds = JSON.stringify(platosIds);
+      }
+    }
+
     const c = await prisma.cupon.create({
       data: {
         codigo: codigo.toUpperCase().trim(),
@@ -25,6 +34,7 @@ export async function POST(req: Request) {
         tipo: tipo || "porcentaje",
         minimo: minimo ? Number(minimo) : null,
         maxUsos: maxUsos ? Number(maxUsos) : null,
+        platosIds: formattedPlatosIds,
       },
     });
     return Response.json(c, { status: 201 });

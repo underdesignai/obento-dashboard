@@ -169,6 +169,7 @@ model Cupon {
   activo      Boolean  @default(true)
   usos        Int      @default(0)
   maxUsos     Int?
+  platosIds   String?
   createdAt   DateTime @default(now())
 }
 
