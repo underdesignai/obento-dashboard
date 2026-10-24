@@ -6,18 +6,26 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params;
   try {
     const body = await req.json();
-    const { estado } = body;
-    if (!estado) return Response.json({ error: "estado requerido" }, { status: 400 });
+    const { estado, metodo_pago, estado_pago } = body;
+    if (!estado && !metodo_pago && !estado_pago) return Response.json({ error: "datos requeridos" }, { status: 400 });
 
-    const estado_pedido = estado === "nuevo" ? "recibido" : estado;
+    const updateData: any = {};
+    if (estado) {
+      updateData.estado_pedido = estado === "nuevo" ? "recibido" : estado;
+      if (estado === "nuevo" || estado === "preparando" || estado === "listo" || estado === "entregado") {
+        updateData.estado_pago = "pagado";
+      }
+    }
+    if (estado_pago) {
+      updateData.estado_pago = estado_pago;
+    }
+    if (metodo_pago) {
+      updateData.metodo_pago = metodo_pago;
+    }
+
     const pedido = await prisma.pedidos.update({
       where: { id: Number(id) },
-      data: {
-        estado_pedido,
-        ...(estado === "nuevo" || estado === "preparando" || estado === "listo" || estado === "entregado"
-          ? { estado_pago: "pagado" }
-          : {}),
-      },
+      data: updateData,
     });
     return Response.json(pedido);
   } catch (e) {

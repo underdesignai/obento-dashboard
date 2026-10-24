@@ -126,9 +126,54 @@ export async function GET(req: Request) {
     const growthFacturado = calcGrowth(totalFacturado, prevFacturado);
     const growthTicket = calcGrowth(ticketMedio, prevTicket);
 
-    // Métodos de pago
+    // Métodos de pago (básico para compatibilidad)
     const pagosOnline = pedidosActuales.filter(p => p.metodo_pago === "stripe" || p.estado_pago === "pagado").length;
     const pagosLocal = pedidosActuales.filter(p => p.metodo_pago === "restaurante" && p.estado_pago !== "pagado").length;
+
+    // Desglose Analítico Detallado de Métodos de Pago
+    const isStripe = (p: any) =>
+      p.metodo_pago === "stripe" ||
+      p.metodo_pago === "online" ||
+      Boolean(p.stripe_session_id && p.metodo_pago !== "local_tarjeta" && p.metodo_pago !== "local_efectivo" && p.metodo_pago !== "repartidor_tarjeta" && p.metodo_pago !== "repartidor_efectivo");
+
+    const isLocalTarjeta = (p: any) =>
+      p.metodo_pago === "local_tarjeta" ||
+      (p.tipo_entrega === "recogida_local" && (p.metodo_pago === "tarjeta" || p.metodo_pago === "tpv"));
+
+    const isLocalEfectivo = (p: any) =>
+      p.metodo_pago === "local_efectivo" ||
+      (p.tipo_entrega === "recogida_local" && !isStripe(p) && !isLocalTarjeta(p));
+
+    const isRepartidorTarjeta = (p: any) =>
+      p.metodo_pago === "repartidor_tarjeta" ||
+      (p.tipo_entrega === "domicilio" && (p.metodo_pago === "tarjeta" || p.metodo_pago === "datafono"));
+
+    const isRepartidorEfectivo = (p: any) =>
+      p.metodo_pago === "repartidor_efectivo" ||
+      (p.tipo_entrega === "domicilio" && !isStripe(p) && !isRepartidorTarjeta(p));
+
+    const buildMetodoStats = (filteredList: typeof pedidosActuales) => {
+      const count = filteredList.length;
+      const total = filteredList.reduce((acc, p) => acc + Number(p.total), 0);
+      const ticketMedio = count > 0 ? total / count : 0;
+      const pctPedidos = totalPedidos > 0 ? Math.round((count / totalPedidos) * 100) : 0;
+      const pctFacturacion = totalFacturado > 0 ? Math.round((total / totalFacturado) * 100) : 0;
+      return {
+        pedidos: count,
+        total: Math.round(total * 100) / 100,
+        ticketMedio: Math.round(ticketMedio * 100) / 100,
+        porcentajePedidos: pctPedidos,
+        porcentajeFacturacion: pctFacturacion,
+      };
+    };
+
+    const metodosPago = {
+      stripe: buildMetodoStats(pedidosActuales.filter(isStripe)),
+      localEfectivo: buildMetodoStats(pedidosActuales.filter(isLocalEfectivo)),
+      localTarjeta: buildMetodoStats(pedidosActuales.filter(isLocalTarjeta)),
+      repartidorEfectivo: buildMetodoStats(pedidosActuales.filter(isRepartidorEfectivo)),
+      repartidorTarjeta: buildMetodoStats(pedidosActuales.filter(isRepartidorTarjeta)),
+    };
 
     // 3. Embudo de Tráfico y Carrito (Funnel de conversión)
     // Extraer sesiones reales de AnalyticsEvent
@@ -363,6 +408,7 @@ export async function GET(req: Request) {
         platosPorPedido,
         pagosOnline,
         pagosLocal,
+        metodosPago,
       },
       funnel: {
         visitasWeb,
@@ -396,6 +442,7 @@ export async function GET(req: Request) {
       },
       horasDistribucion,
       diasDistribucion,
+      metodosPago,
       serieTemporal,
     });
   } catch (e) {
